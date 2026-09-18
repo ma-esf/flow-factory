@@ -342,7 +342,7 @@ invitation, so it stays a location rather than a suggestion. It does not count
 against the three lines. It is there so a user who wants to ship, dispatch or
 reopen the item does not have to go and find the file.
 
-`.flow/issues/<feature>/<NN>-<slug>.md` -> `ready-for-agent`
+`<the path of the file you just wrote>` -> `<its new status>`
 
 Then stop. No "next", no dispatch suggestion, no offer of follow-on work. This
 overrides the global rule about ending a turn by pointing at what comes next.
