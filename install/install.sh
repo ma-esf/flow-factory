@@ -318,7 +318,7 @@ done
 set_key "git.default_branch" "\"$BRANCH\""
 say "  git.default_branch = \"$BRANCH\""
 
-step "Step 9. Answer test.command"
+step "Step 9. Answer test.command and reports.stakeholder_dir"
 # Not asked through ask_key. Under the settings contract this key's unset
 # behaviour is stop, not "does not apply", so an empty answer does not belong
 # in the list of keys where empty says the project has no such thing.
@@ -326,6 +326,12 @@ ask "  test.command (the command that runs this project's tests): " REPLY_TEST
 set_key "test.command" "$(toml_value string "$REPLY_TEST")"
 if [ -z "$REPLY_TEST" ]; then
     say "  left empty. Every skill that runs tests will stop and name this key."
+fi
+
+ask "  reports.stakeholder_dir (the git-excluded directory for stakeholder reports): " REPLY_REPORTS
+set_key "reports.stakeholder_dir" "$(toml_value string "$REPLY_REPORTS")"
+if [ -z "$REPLY_REPORTS" ]; then
+    say "  left empty. /flow-stakeholder-update will stop and name this key."
 fi
 
 step "Step 10. Answer the document, tracker and Jira keys"

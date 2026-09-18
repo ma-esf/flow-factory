@@ -11,8 +11,9 @@
 # when this file is missing are written once in
 # `~/.flow-factory/settings-contract.md`. They are not repeated here.
 #
-# Sixteen keys, as the port map reconciled them. Seventeen names: github.labels
-# and github.assignees share one row there.
+# Seventeen keys: sixteen as the port map reconciled them, plus
+# reports.stakeholder_dir, added with flow-stakeholder-update. Eighteen names:
+# github.labels and github.assignees share one row there.
 
 
 # --- git and branches ---
@@ -109,6 +110,11 @@ docs.glossaries = []
 # unset: does not apply
 project.decision_docs = []
 
+# The directory holding this project's stakeholder reports, where
+# /flow-stakeholder-update finds the previous one and writes the next. A report
+# names customers and their data, so this should be a git-excluded directory.
+# unset: stop
+reports.stakeholder_dir = ""
 
 # --- tracker and privacy ---
 

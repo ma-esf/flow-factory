@@ -1,6 +1,6 @@
 # Skills
 
-The 23 skills Flow Factory installs, grouped by the stage of `4d-system.md`
+The 24 skills Flow Factory installs, grouped by the stage of `4d-system.md`
 where each one does its main work. Type the slash command to invoke one.
 
 Several skills are useful in more than one stage. Each is listed once.
@@ -62,3 +62,5 @@ Several skills are useful in more than one stage. Each is listed once.
   prompt) down to what it actually does, part by part
 - `/flow-fix-agent-behavior` - take something the agent keeps doing wrong to
   its root cause, then fix it at the config lever that owns it
+- `/flow-stakeholder-update` - write the next "what shipped" report for
+  stakeholders, continuing from where the previous one ended
