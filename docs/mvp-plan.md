@@ -9,9 +9,9 @@ unclear idea to a verified, merged, and closed-out result. The current flow,
 skills, tracker conventions, and project-control view were developed inside one
 repository. They are not yet packaged as a project-agnostic product.
 
-MVP 1 must prove that the process can be installed and used in a clean
-project without relying on this repository's domain, paths, client data, or
-local project-control setup.
+MVP 1 must prove that the process can be installed and used in a clean project
+without relying on the source repository's domain, paths, client data, or local
+project-control setup.
 
 ## 2. MVP 1 outcome
 
@@ -21,7 +21,8 @@ define it.
 
 A new user installs Flow Factory on a clean machine and completes one real flow
 from Discover through Define, Decompose, and Deliver, using the factory's skills
-and generated project structure, and borrowing nothing from this repository.
+and generated project structure, and borrowing nothing from the source
+repository.
 
 The completed flow must produce:
 
@@ -48,8 +49,8 @@ another, that other one ships too, because editing the reference out of a
 working skill costs more than shipping the file it points at.
 
 Existing skills are source material, not ready components. Each one must remove
-this repository's paths, labels, domain vocabulary, and tool assumptions, or
-declare those as project configuration.
+the source repository's paths, labels, domain vocabulary, and tool assumptions,
+or declare those as project configuration.
 
 ### 3.2 Project structure
 
@@ -169,12 +170,12 @@ this earns its cost:
 ## 7. Current gaps and risks
 
 - Project-agnostic boundaries for the existing skills are not mapped. The size
-  looks small: in the three largest skills, about 2% of lines name this repo,
-  its paths or its stack.
+  looks small: in the three largest skills, about 2% of lines name the source
+  repository, its paths or its stack.
 - The factory repository and generated project structure do not exist.
 - macOS prerequisites have not been verified.
 - There is no MVP 1 requirement-to-ticket decomposition yet.
-- The current repository's development flow contains useful decisions but also
+- The source repository's development flow contains useful decisions but also
   project-specific assumptions that must not be copied blindly.
 
 ## 8. Proposed order of work

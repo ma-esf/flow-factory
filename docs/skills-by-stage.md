@@ -48,8 +48,8 @@ works or why it exists.
 
 ## Retired (superseded by flow-*)
 
-These upstream skills are switched off in this repo; their `flow-*` equivalent
-covers the same ground with repo-specific behavior.
+These upstream skills are switched off in the source repository; their `flow-*`
+equivalent covers the same ground with repo-specific behavior.
 
 - `/domain-modeling` - absorbed into `/flow-grill-with-docs`; writes ADRs to the wrong path here
 - `/grill-with-docs` - replaced by `/flow-grill-with-docs`

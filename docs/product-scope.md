@@ -28,9 +28,10 @@ The factory must not assume a project type. An AI engineer working on a RAG
 system and a software engineer working on a dashboard must both be able to set
 up and use it.
 
-The skills we have today were developed in this repo and carry its assumptions.
-Each skill must be made project agnostic before it enters the factory. The
-strategy for doing this shall be worked out before we start porting skills.
+The skills we have today were developed in the source repository and carry its
+assumptions. Each skill must be made project agnostic before it enters the
+factory. The strategy for doing this shall be worked out before we start
+porting skills.
 
 ## MVPs
 
