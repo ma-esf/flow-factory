@@ -14,7 +14,7 @@ Check first that this project has a `flow-factory.toml` at its root. If it does
 not, stop as `~/.flow-factory/settings-contract.md` says.
 
 `<default branch>` below is `git.default_branch` from this project's settings.
-Read it, `github.merge_strategy`, `pr.create_mode` and `jira.enabled` the way
+Read it, `pr.create_mode` and `jira.enabled` the way
 `~/.flow-factory/settings-contract.md` says, before the first heading. Read
 `jira.enabled` on every run, not once at install: one machine's skills serve every
 project, so the same machine holds a Jira project and a non-Jira one at the same
@@ -39,10 +39,27 @@ PR) needs the two merge checks only. Say what you skipped and why.
 gh pr view <n> --json state,mergedAt,mergeCommit,baseRefName
 ```
 
-`state: MERGED` plus a `mergeCommit` is the proof. Which local check may stand
-beside that reading is what `github.merge_strategy` decides. Under `squash` or
-`rebase`, `git merge-base --is-ancestor` reports landed work as unmerged, so gate
-on an empty diff against the default branch instead:
+`state: MERGED` plus a `mergeCommit` is the proof. The local check beside it asks
+two questions in order, the pair `/flow-worktree-close` asks. No
+`github.merge_strategy` read: neither question answers every strategy on its own,
+asking both costs one command, and whether work landed should not rest on a
+project having answered that key correctly.
+
+**Ancestry**, which answers a merge commit:
+
+```bash
+git merge-base --is-ancestor HEAD origin/<default branch>
+```
+
+Exit 0 means every commit on this branch is already in the default branch's
+history. That is the answer; go on to the next heading. A branch that never
+diverged passes here too. This pair does not catch it; what keeps it out is the
+`gh pr view` reading above, which a branch with no merged PR fails.
+
+**Content**, which answers a squash or rebase merge. A non-zero exit above proves
+nothing: those strategies rewrite the commits, so landed work is never an
+ancestor. Diff only the paths this branch changed, in three separate commands,
+reading each result and pasting it into the next:
 
 ```bash
 git merge-base origin/<default branch> HEAD              # -> BASE
@@ -50,10 +67,17 @@ git diff --name-only <BASE> HEAD                         # -> the changed paths
 git diff origin/<default branch> HEAD -- <those paths>   # must print nothing
 ```
 
-Under `merge` the ancestry check is sound, so
-`git merge-base --is-ancestor <mergeCommit> origin/<default branch>` may be used
-instead. The empty-diff gate is correct under every value of the key; the ancestry
-check is not.
+- Empty output proves every file this branch touched is now identical on the
+  default branch, which is what a squash merge leaves behind.
+- Non-empty: STOP. Show the diff and ask. Nothing is flipped to `done`.
+- No changed paths at all, having reached this question, means the branch's own
+  commits cancel out. STOP: there is nothing to prove landed.
+
+Never run the third command with nothing after the `--`. That widens it to a bare
+`git diff origin/<default branch> HEAD`, which prints nothing and exits 0 whenever
+the branch's content matches the default branch, so a branch that shipped nothing
+reads exactly like a merge commit. It also reports commits that landed on the
+default branch after you branched, and so fails while your own content is merged.
 
 On `CLOSED` with no `mergeCommit` the PR was rejected. Delete nothing, say so,
 and put the tracker issue back to `ready-for-agent`. That needs a decision, not a

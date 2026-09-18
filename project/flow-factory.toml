@@ -51,8 +51,9 @@ github.attribution = "none"
 # Under `squash` and `rebase`, `git merge-base --is-ancestor` reports landed
 # work as unmerged; under `merge` it is sound. This is a correctness switch,
 # not a preference.
-# unset: default `squash`, which selects the empty-diff gate. That gate is
-# correct under all three, so the default is wrong only in being cautious.
+# unset: default `squash`. The value records how this repository merges. No
+# skill gates on it: `/flow-close-out` and `/flow-worktree-close` both ask
+# ancestry and then the content diff, because neither answers all three alone.
 github.merge_strategy = "squash"
 
 # Labels and assignees put on a new issue or PR. Empty means the skill adds
