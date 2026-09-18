@@ -334,7 +334,42 @@ if [ -z "$REPLY_REPORTS" ]; then
     say "  left empty. /flow-stakeholder-update will stop and name this key."
 fi
 
-step "Step 10. Answer the document, tracker and Jira keys"
+step "Step 10. Describe the app, one service at a time"
+# Three index-matched lists, gathered together so no answer can leave them
+# different lengths. Each answer is one element, never a comma-separated list:
+# a start command can carry a comma, which the list splitter would break.
+# Empty at the first name means the project has no app to run.
+say "  Empty at the service name ends the list. Empty at the first one means no app."
+APP_SERVICES="[" ; APP_COMMANDS="[" ; APP_PORTS="[" ; APP_COUNT=0
+while :; do
+    ask "  service name (for example backend), or empty to finish: " REPLY_SVC
+    [ -n "$REPLY_SVC" ] || break
+    while :; do
+        ask "    start command, run from the worktree root, {NN} for the port suffix: " REPLY_CMD
+        [ -n "$REPLY_CMD" ] && break
+        say "    a service needs a start command"
+    done
+    while :; do
+        ask "    port it listens on, for example 80{NN} or 8080: " REPLY_PORT
+        [ -n "$REPLY_PORT" ] && break
+        say "    a service needs a port"
+    done
+    [ "$APP_COUNT" -eq 0 ] || { APP_SERVICES="$APP_SERVICES, "; APP_COMMANDS="$APP_COMMANDS, "; APP_PORTS="$APP_PORTS, "; }
+    APP_SERVICES="$APP_SERVICES$(toml_value string "$REPLY_SVC")"
+    APP_COMMANDS="$APP_COMMANDS$(toml_value string "$REPLY_CMD")"
+    APP_PORTS="$APP_PORTS$(toml_value string "$REPLY_PORT")"
+    APP_COUNT=$((APP_COUNT + 1))
+done
+set_key "app.services"       "$APP_SERVICES]"
+set_key "app.start_commands" "$APP_COMMANDS]"
+set_key "app.ports"          "$APP_PORTS]"
+if [ "$APP_COUNT" -eq 0 ]; then
+    say "  no app. /flow-run-app and /flow-verify-delivery will stop and say so."
+else
+    say "  $APP_COUNT service(s) recorded"
+fi
+
+step "Step 11. Answer the document, tracker and Jira keys"
 say "  Empty is an answer here. It says the project has no such thing."
 ask_key "docs.context"         string "the file holding this project's domain vocabulary"
 ask_key "docs.glossaries"      list   "glossaries in order, comma separated; the first is written to"
@@ -345,7 +380,7 @@ ask_key "source.backend_dir"   string "the backend source directory, if the proj
 ask_key "tracker.epic_field"   string "the header field naming an epic, for example Epic"
 ask_key "jira.enabled"         bool   "true or false"
 
-step "Step 11. Answer the GitHub keys"
+step "Step 12. Answer the GitHub keys"
 while :; do
     ask "  github.merge_strategy (squash, merge or rebase): " REPLY_MERGE
     case $REPLY_MERGE in
@@ -361,7 +396,7 @@ while :; do
     esac
 done
 
-step "Step 12. Confirm the keys whose defaults stand"
+step "Step 13. Confirm the keys whose defaults stand"
 # A replacement is a plain value, not TOML. It goes through the same builder
 # as every other answer, so a reply of gh becomes "gh" and feat/, fix/ becomes
 # a two-element list, and neither can leave a line a skill cannot read.
@@ -408,7 +443,7 @@ if [ ${#EMPTY_ANSWERS[@]} -gt 0 ]; then
     for k in "${EMPTY_ANSWERS[@]}"; do say "    - $k"; done
 fi
 
-step "Step 13. Place the pointer file"
+step "Step 14. Place the pointer file"
 STAMP=$(factory_stamp)
 TODAY=$(date +%Y-%m-%d)
 sed -e "s|<factory commit>|$STAMP|" -e "s|<YYYY-MM-DD>|$TODAY|" \

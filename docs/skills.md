@@ -1,6 +1,6 @@
 # Skills
 
-The 24 skills Flow Factory installs, grouped by the stage of `4d-system.md`
+The 26 skills Flow Factory installs, grouped by the stage of `4d-system.md`
 where each one does its main work. Type the slash command to invoke one.
 
 Several skills are useful in more than one stage. Each is listed once.
@@ -64,3 +64,7 @@ Several skills are useful in more than one stage. Each is listed once.
   its root cause, then fix it at the config lever that owns it
 - `/flow-stakeholder-update` - write the next "what shipped" report for
   stakeholders, continuing from where the previous one ended
+- `/flow-run-app` - start the project's app from the worktree you are working
+  in, each service on its own port, without touching anyone else's servers
+- `/flow-verify-delivery` - drive the running app against the ticket's
+  acceptance criteria in a throwaway state, and hand you the visual checks
