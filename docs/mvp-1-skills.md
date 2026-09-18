@@ -36,9 +36,9 @@ Twenty-one skills in total.
 ## Decisions behind the set
 
 - **`flow-research` is the upstream skill, not the fork.** The fork adds five
-  lines to the upstream skill: a pinned tracker path, and a workaround for this
-  repo symlinking that path into worktrees. Upstream plus the factory's own
-  pinned path is the same skill without the local arrangement.
+  lines to the upstream skill: a pinned tracker path, and a workaround for the
+  source repository symlinking that path into worktrees. Upstream plus the
+  factory's own pinned path is the same skill without the local arrangement.
 - **MVP 1 does not run the project's app.** `run-app` and `verify-delivery` are
   both deferred. Every project has a different stack, and some have no app to
   run at all, so there is no start command worth configuring up front. In MVP 2,

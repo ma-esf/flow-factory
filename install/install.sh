@@ -427,14 +427,19 @@ while IFS= read -r ref; do
 done < <(xargs grep -hoE '~/\.flow-factory/[A-Za-z0-9._/-]+' < "$INSTALLED_FILES" \
     | sed 's/[.,)]$//' | sort -u)
 
-# A /flow-<name> slash command. A dot makes it a filename only when something
-# follows the dot, as in flow-worktree-share.txt. A command at the end of a
-# sentence carries a dot too, and treating that as a filename skipped it.
+# A flow-<name> reference, with or without the leading slash: skills and docs
+# write both. A dot only makes it a filename when something follows the dot, as
+# in flow-worktree-share.txt; a command ending a sentence carries a dot too, and
+# treating that as a filename skipped it. A dot before the name makes it a path,
+# as in ~/.flow-factory, which the leading class excludes. sed prepends a space
+# so a name starting a line has a character before it, which keeps the pattern
+# free of a `(^|...)` group; ugrep silently matches nothing for that group.
 while IFS= read -r name; do
     [ -d "$SKILLS_DIR/$name" ] \
-        || printf 'skill referenced but not installed: /%s\n' "$name" >> "$MISSES"
-done < <(xargs grep -hoE '/flow-[a-z0-9-]+([.][A-Za-z0-9]+)?' < "$INSTALLED_FILES" \
-    | grep -v '\.' | sed 's|^/||' | sort -u)
+        || printf 'skill referenced but not installed: %s\n' "$name" >> "$MISSES"
+done < <(xargs sed 's/^/ /' < "$INSTALLED_FILES" \
+    | grep -oE '[^A-Za-z0-9._-]flow-[a-z0-9-]+([.][A-Za-z0-9]+)?' \
+    | grep -v '\.' | sed 's|^.||' | sort -u)
 
 if [ -s "$MISSES" ]; then
     say ""
