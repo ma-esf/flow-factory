@@ -1,0 +1,11 @@
+# Developer material. This remote carries the product only: the skills, the
+# files the installer places, and the installer. Everything about building the
+# factory lives in dev/, which has its own repository.
+dev/
+
+# The root CLAUDE.md is a symlink into dev/. It has to sit here for the agent
+# to read it, and it is developer material like the rest of dev/.
+CLAUDE.md
+
+# Agent session state, per machine.
+.claude/

@@ -68,9 +68,9 @@ installed here. Do not fall back to the defaults.
 
 A missing file is not an empty value. An empty value is a project that
 answered. A missing file is a project nobody asked, and every default is then a
-guess about a repository nobody described. `../docs/product-scope.md` requires the
-factory to report a failure rather than produce a plausible fallback, and
-assuming `main` in a repository on `master` is that failure exactly.
+guess about a repository nobody described. The factory must report a failure
+rather than produce a plausible fallback, and assuming `main` in a repository
+on `master` is that failure exactly.
 
 ## Four rows rewritten
 

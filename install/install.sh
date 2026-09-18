@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 #
-# Flow Factory installer. Performs the thirteen steps recorded in
-# install-steps.md: the machine half once per machine, then the project half
-# once per project.
+# Flow Factory installer. Performs thirteen steps: the machine half once per
+# machine, then the project half once per project.
 #
 #   ./install/install.sh <project-root>
 #
@@ -48,12 +47,12 @@ ask() {
 # ---------------------------------------------------------------------------
 # The version stamp
 #
-# install-steps.md leaves the choice open: refuse a dirty factory tree, or
-# stamp the commit plus the count of differing files. This stamps, because the
-# pointer file's job is to record what was actually placed, and a run from a
-# dirty tree places files that no commit contains. Refusing would also make the
-# installer unable to install its own uncommitted changes, which is the state
-# every change to the factory passes through.
+# Two options are open: refuse a dirty factory tree, or stamp the commit plus
+# the count of differing files. This stamps, because the pointer file's job is
+# to record what was actually placed, and a run from a dirty tree places files
+# that no commit contains. Refusing would also make the installer unable to
+# install its own uncommitted changes, which is the state every change to the
+# factory passes through.
 # ---------------------------------------------------------------------------
 factory_stamp() {
     local commit dirty
@@ -305,9 +304,9 @@ while :; do
         "")   say "  an answer is needed; the detected value is not written unconfirmed" ;;
         *)
             # Checked against the repository, which catches a typo and a
-            # refusal typed as a word. A wrong value here is the one
-            # install-steps.md measured: the range collapses and a review
-            # reports success over a file it never read.
+            # refusal typed as a word. A wrong value here was measured: the
+            # range collapses and a review reports success over a file it
+            # never read.
             if git -C "$PROJECT_ROOT" show-ref --quiet --verify "refs/heads/$REPLY_BRANCH" \
                || git -C "$PROJECT_ROOT" show-ref --quiet "refs/remotes/$REPLY_BRANCH"; then
                 BRANCH=$REPLY_BRANCH; break

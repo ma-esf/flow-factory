@@ -1,7 +1,6 @@
 # Flow glossary
 
-Terms used across `product-scope.md`, `4d-system.md`, `mvp-plan.md`, and
-`skills-by-stage.md`.
+Terms used across `4d-system.md`, `skills.md`, and `roadmap.md`.
 
 **Scope:** what a word means, one entry each. No rules or instructions, and no
 term used in only one file.
@@ -36,8 +35,8 @@ term used in only one file.
 
 ## Factory terms
 
-- **Flow Factory** - the packaged product (`product-scope.md`).
+- **Flow Factory** - the packaged product.
 - **MVP** - one numbered release of the factory, useful to an engineer on its
-  own. MVP 1 is the first (`product-scope.md`).
+  own. MVP 1 is the first.
 - **Project agnostic** - carries no assumption about the project it runs in.
 - **Agentic system** - the agent runtime, e.g. Claude Code or GitHub Copilot.
