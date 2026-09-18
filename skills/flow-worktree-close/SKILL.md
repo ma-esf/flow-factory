@@ -6,9 +6,14 @@ description: Clean up a worktree and its branch after the PR merged. Verifies th
 # flow-worktree-close
 
 Close out a merged worktree: verify, stop processes, remove worktree, delete branch.
-Squash merges are common, so "is it merged?" is answered by content diff, never by
-commit ancestry. That gate is correct under every merge strategy, so it is not
-conditional on one.
+"Is it merged?" takes two questions in order, ancestry then content diff. Ancestry
+alone is wrong under a squash or rebase merge, which rewrites the commits. A content
+diff alone is wrong under a merge commit, which makes the branch head its own merge
+base, leaving no changed paths to diff and reading the strongest evidence of a merge
+as evidence of none. The pair is correct under every merge strategy; neither half is.
+No `github.merge_strategy` read, on purpose: asking both questions costs one command
+and stays right when a project's answer to that key is absent or wrong, and a gate on
+destructive steps should not rest on a settings value being correct.
 
 Check first that this project has a `flow-factory.toml` at its root. If it does
 not, stop as `~/.flow-factory/settings-contract.md` says.
@@ -25,10 +30,26 @@ the way `~/.flow-factory/settings-contract.md` says. Read it once, before step 1
 
 ## Steps
 
-1. **Verify the merge landed.** From the worktree:
-   - `git fetch origin -p`
-   - Diff **only the paths this branch changed**, in three separate commands. The
-     guard refuses `$(...)`, so read each result and paste it into the next:
+1. **Verify the merge landed.** From the worktree, `git fetch origin -p`, then ask
+   the two questions in order.
+
+   **Ancestry**, which answers a merge commit:
+
+     ```bash
+     git merge-base --is-ancestor HEAD origin/<default branch>
+     ```
+
+   - Exit 0 means every commit on this branch is already in the default branch's
+     history. That is proof on its own, and nothing on the branch can be lost by
+     deleting it. Go on to step 2.
+   - A branch that never diverged passes here too. It has no commit of its own to
+     lose, and uncommitted work in the worktree is still caught by step 3's
+     `git status --porcelain`.
+
+   **Content**, which answers a squash or rebase merge. A non-zero exit above proves
+   nothing: those strategies rewrite the commits, so landed work is never an
+   ancestor. Diff **only the paths this branch changed**, in three separate commands.
+   The guard refuses `$(...)`, so read each result and paste it into the next:
 
      ```bash
      git merge-base origin/<default branch> HEAD              # -> BASE
@@ -36,11 +57,12 @@ the way `~/.flow-factory/settings-contract.md` says. Read it once, before step 1
      git diff origin/<default branch> HEAD -- <those paths>   # must print nothing
      ```
 
-   - No changed paths at all means the branch changed nothing versus the default
-     branch. STOP: that is not a merge, and nothing gets deleted.
    - Empty output proves every file this branch touched is now identical on the
      default branch, which is what a squash merge leaves behind.
    - If it is non-empty: STOP. Show the diff and ask, nothing gets deleted.
+   - No changed paths at all, having reached this question, means the branch's own
+     commits cancel out. STOP: there is nothing to prove landed, and nothing gets
+     deleted.
 
    Do **not** gate on a bare `git diff origin/<default branch> HEAD`. That also
    reports commits which landed on the default branch after you branched, so it
@@ -116,8 +138,9 @@ the way `~/.flow-factory/settings-contract.md` says. Read it once, before step 1
 
 ## Hard rules
 
-- The single gate for every destructive step is an empty
-  `git diff origin/<default branch> HEAD -- <the paths this branch changed>`. No
-  empty diff, no deletion. Never widen it to a bare
+- The single gate for every destructive step is step 1: `HEAD` an ancestor of
+  `origin/<default branch>`, or an empty
+  `git diff origin/<default branch> HEAD -- <the paths this branch changed>`.
+  Neither answer, no deletion. Never widen that diff to a bare
   `git diff origin/<default branch> HEAD`.
 - Ask before deleting anything that holds content not on `origin/<default branch>`.
