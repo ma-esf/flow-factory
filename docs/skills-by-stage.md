@@ -46,14 +46,13 @@ works or why it exists.
 - `/resolving-merge-conflicts` - resolve an in-progress merge conflict
 - `/update-architecture` - sync `ARCHITECTURE.md` after a change lands
 
-## Retired (superseded by flow-*)
+## Retired in the source repository
 
-These upstream skills are switched off in the source repository; their `flow-*`
-equivalent covers the same ground with repo-specific behavior.
+Where a `flow-*` skill is named beside one, it covers the same ground.
 
 - `/domain-modeling` - absorbed into `/flow-grill-with-docs`; writes ADRs to the wrong path here
 - `/grill-with-docs` - replaced by `/flow-grill-with-docs`
-- `/research` - replaced by `/flow-research` (names no path on its own)
+- `/research` - switched off because it names no tracker path on its own; the factory ships the upstream skill itself, as `/flow-research`, with the factory's own path
 - `/to-spec` - replaced by `/flow-to-spec`
 - `/to-tickets` - replaced by `/flow-to-tickets`
 - `/triage` - replaced by `/flow-triage`
