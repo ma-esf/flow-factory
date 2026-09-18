@@ -22,10 +22,12 @@ Accept, in order:
 3. **Nothing.** The current branch, resolved as in 2, including work not committed yet.
 
 The default branch is the `git.default_branch` key in this project's settings, read
-as `machine/settings-contract.md` says. Never write a branch name into this step:
+as `~/.flow-factory/settings-contract.md` says. Never write a branch name into this step:
 in a repository whose default branch is `master`, a guessed remote ref does not
 exist, and a base that quietly falls back computes the whole review against the
 wrong diff.
+
+If `~/.flow-factory/settings-contract.md` is not readable, the factory was never installed on this machine. Say so and stop. Do not derive the default branch from the repository instead: `git ls-remote` showing one branch is the repository answering, not the project, and a guess that happens to be right is the failure this rule exists to catch.
 
 ```bash
 git fetch origin --quiet

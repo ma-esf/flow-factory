@@ -8,8 +8,8 @@
 # as git.default_branch appears literally in the file.
 #
 # How a skill reads a key, what each `unset:` tag below means, and what happens
-# when this file is missing are written once in `settings-contract.md`, beside
-# the skills. They are not repeated here.
+# when this file is missing are written once in
+# `~/.flow-factory/settings-contract.md`. They are not repeated here.
 #
 # Sixteen keys, as the port map reconciled them. Seventeen names: github.labels
 # and github.assignees share one row there.
@@ -122,8 +122,10 @@ project.decision_docs = []
 # unset: does not apply
 tracker.epic_field = ""
 
-# Whether Jira exists for this project. An install-time gate only: no skill
-# talks to Jira, they write text a human pastes.
+# Whether Jira exists for this project. Read at run time, not at install: one
+# machine's skills serve every project, so a machine can hold a Jira project
+# and a non-Jira one at once. No skill talks to Jira; they write text a human
+# pastes.
 # unset: default `false`
 jira.enabled = false
 

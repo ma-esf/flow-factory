@@ -9,12 +9,14 @@ Read-only. When invoked, scan this project's tracker and present a scannable lis
 
 Do NOT edit any file, change a `Status:`, run git, or start work. End with a single pointer line and stop.
 
-Two sources, one shape. `machine/tracker-contract.md` gives both:
+Two sources, one shape. `~/.flow-factory/tracker-contract.md` gives both:
 
 - **Issues** - `.flow/issues/<feature>/*.md`. Work items.
 - **Candidates** - `.flow/candidates/*.md`. Captures: something seen, not yet decided to be work.
 
 Every file in both carries a `Status:` line, so both are read the same way and sorted into the same buckets. What tells them apart in the report is the id, which keeps its `issues/` or `candidates/` prefix.
+
+If `~/.flow-factory/tracker-contract.md` is not readable, the factory was never installed on this machine. Say so and stop. The buckets below repeat that contract's statuses, and a listing built from the repeat rather than the contract is a guess wearing the shape of a report.
 
 ## Step 1 - Collect
 
@@ -67,7 +69,7 @@ Buckets and the statuses they hold, in order:
 `done`. Do not enumerate these. Print one line with the count, e.g. `Done: 2 (not listed)`.
 
 ### Uncategorized
-Any item whose status is missing, or is not one of the ten values in `machine/tracker-contract.md`. Same `Item | What it is | Status` columns, so nothing is silently dropped. Omit the header if there are none.
+Any item whose status is missing, or is not one of the ten values in `~/.flow-factory/tracker-contract.md`. Same `Item | What it is | Status` columns, so nothing is silently dropped. Omit the header if there are none.
 
 The contract matches a status value exactly, so `Status: Ready-For-Agent` is not `ready-for-agent` and belongs here. That is the intended answer, not a bug to work around: a file landing in Uncategorized is how a misspelled status becomes visible.
 
