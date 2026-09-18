@@ -11,7 +11,7 @@ term used in only one file.
 - **Flow** - one piece of work, idea to merged and closed-out slice.
 - **4-D system** - the four stages: Discover, Define, Decompose, Deliver (`4d-system.md`).
 - **Stage** - one of the four; ends when its question is answered.
-- **Pipeline** - the numbered run inside `/mart-ship-issue`, nested in Deliver.
+- **Pipeline** - the numbered run inside `/flow-ship-issue`, nested in Deliver.
 - **Gate** - a pipeline stop awaiting a human decision.
 
 ## Work items

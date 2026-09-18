@@ -14,7 +14,7 @@ Run on macOS against Claude Code, with the three Discover-loop skills
 |---|---|---|
 | 1 | Find the agent's skills directory. Claude Code reads `~/.claude/skills/`, one directory per skill. | detectable |
 | 2 | Create `~/.flow-factory/`. | detectable |
-| 3 | Place `tracker-contract.md`, `settings-contract.md`, `attribution-rule.md` and `templates/`. | detectable |
+| 3 | Place every file under `machine/` into it, keeping its relative path. | detectable |
 | 4 | Copy each skill directory into the skills directory. | detectable |
 
 **Step 3 must compare and overwrite, never skip because the file exists.** This

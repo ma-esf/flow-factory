@@ -18,25 +18,27 @@ The one exception is a skill bound to a single project's stack. That is why
 running the app is deferred below, and why dropping it is worth the edits it
 forces on its callers.
 
-- Discover: `research`, `park`
-- Define: `mart-grill-with-docs`, `grilling`, `mart-triage`, `mart-reground`
-- Decompose: `mart-to-spec`, `mart-to-tickets`, `mart-conductor`
-- Deliver: `mart-ship-issue`, `wt-create`, `tdd`, `mart-comments-review`,
-  `pr-summary`, `new-issue`, `mart-close-out`, `wt-close`
-- Across stages: `mart-whatup`, the skill that prints the tracker
+- Discover: `flow-research`, `flow-park`
+- Define: `flow-grill-with-docs`, `flow-grilling`, `flow-triage`,
+  `flow-reground`
+- Decompose: `flow-to-spec`, `flow-to-tickets`, `flow-conductor`
+- Deliver: `flow-ship-issue`, `flow-worktree-create`, `flow-tdd`,
+  `flow-comments-review`, `flow-pr-summary`, `flow-new-issue`,
+  `flow-close-out`, `flow-worktree-close`
+- Across stages: `flow-backlog`, the skill that prints the tracker
 
 Three more ship although nothing invokes them, because each is named inside a
-skill we keep and dropping it means editing that sentence: `sta`,
-`codebase-design`, `jira-subtask`.
+skill we keep and dropping it means editing that sentence: `flow-status`,
+`flow-codebase-design`, `flow-jira-subtask`.
 
 Twenty-one skills in total.
 
 ## Decisions behind the set
 
-- **`research` replaces the `mart-research` fork.** The fork adds five lines to
-  the upstream skill: a pinned tracker path, and a workaround for this repo
-  symlinking that path into worktrees. Upstream plus the factory's own pinned
-  path is the same skill without the local arrangement.
+- **`flow-research` is the upstream skill, not the fork.** The fork adds five
+  lines to the upstream skill: a pinned tracker path, and a workaround for this
+  repo symlinking that path into worktrees. Upstream plus the factory's own
+  pinned path is the same skill without the local arrangement.
 - **MVP 1 does not run the project's app.** `run-app` and `verify-delivery` are
   both deferred. Every project has a different stack, and some have no app to
   run at all, so there is no start command worth configuring up front. In MVP 2,
@@ -70,6 +72,6 @@ Twenty-one skills in total.
   route sentence that the pipeline matches on. Invert it: silence means check
   the acceptance commands directly, and the route sentence is deleted from the
   template and from both skills that write it.
-- **Two references are already dead.** `mart-grill-with-docs` points at retired
-  `domain-modeling` and `mart-conductor` points at retired `triage`. Both are
+- **Two references are already dead.** `flow-grill-with-docs` points at retired
+  `domain-modeling` and `flow-conductor` points at retired `triage`. Both are
   broken in the source skills today and must not ship that way.

@@ -86,6 +86,6 @@ The factory currently consists of:
 
 - refined and isolated skills from `skills-by-stage.md`;
 - the markdown issue tracker those skills read and write, described in
-  `machine/tracker-contract.md`. `/jira-subtask` is optional, for users who also
-  keep work in Jira; and
+  `machine/tracker-contract.md`. `/flow-jira-subtask` is optional, for users who
+  also keep work in Jira; and
 - a skill that prints the tracker, which is how a user sees the current work.

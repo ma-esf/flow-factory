@@ -88,11 +88,9 @@ mkdir -p "$MACHINE_DIR"
 say "ready $MACHINE_DIR"
 
 step "Step 3. Place the machine files"
-# Every file under machine/, not only the ones install-steps.md step 3 names.
-# The skills also reference worktree-share.txt and dispatch-prerequisites.md,
-# and a file the skills read but the installer never places is a broken
-# reference the final check would report against a ticket that did nothing
-# wrong.
+# Every file under machine/. A file the skills read but the installer never
+# places is a broken reference the final check would report against a ticket
+# that did nothing wrong.
 #
 # Compare and overwrite, never skip because the file exists. A machine copy
 # left in place can carry an instruction the factory has since withdrawn.
