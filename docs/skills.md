@@ -1,6 +1,6 @@
 # Skills
 
-The 21 skills Flow Factory installs, grouped by the stage of `4d-system.md`
+The 23 skills Flow Factory installs, grouped by the stage of `4d-system.md`
 where each one does its main work. Type the slash command to invoke one.
 
 Several skills are useful in more than one stage. Each is listed once.
@@ -58,3 +58,7 @@ Several skills are useful in more than one stage. Each is listed once.
   sub-tasks
 - `/flow-status` - report where this session stands: branch, commits made,
   uncommitted changes, and the delta against the default branch
+- `/flow-to-core` - cut one prose artifact (a skill, a doc, a CLAUDE.md, a
+  prompt) down to what it actually does, part by part
+- `/flow-fix-agent-behavior` - take something the agent keeps doing wrong to
+  its root cause, then fix it at the config lever that owns it
