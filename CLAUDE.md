@@ -12,6 +12,17 @@ step needs a remote, stop and ask.
 The git identity is set on this repository alone, using the GitHub noreply
 form. Do not change it, and do not set a global identity on this machine.
 
+## No tool attribution in commits
+
+A commit message carries no `Co-Authored-By` line and no mention of the agent
+or the vendor that wrote it, whatever the harness adds by default. Commits made
+before this rule was written still carry one; leave them.
+
+This repository ships `github.attribution` as a project setting whose default
+strips attribution, on the argument that a project nobody asked must not
+discover the harness default in a customer's repository. A factory that argues
+that and then signs its own commits the other way is not credible.
+
 ## Other sessions may be working here
 
 Several agent sessions build this repository at once, sharing one working tree
