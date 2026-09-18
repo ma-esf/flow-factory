@@ -4,10 +4,11 @@
 # install-steps.md: the machine half once per machine, then the project half
 # once per project.
 #
-#   ./install/install.sh [project-root]
+#   ./install/install.sh <project-root>
 #
-# Run it from a checkout of the factory. The project root defaults to the
-# current directory.
+# Run it from a checkout of the factory, and name the project to install into.
+# The project root defaults to the current directory, so the argument can be
+# left off only when the current directory is that project.
 #
 # It leaves either a complete install or a named failure. The project half
 # builds the settings file in a temporary copy and moves it into place only
@@ -34,11 +35,9 @@ step() { printf '\n== %s\n' "$*"; }
 fail() { printf '\nFAILED: %s\n' "$*" >&2; exit 1; }
 
 # Read one answer. End of input is a failure, not an empty answer: a run whose
-# input ran out has not answered the remaining keys.
-# The locals carry a prefix because the caller passes the name of its own
-# variable. A plain name here would shadow the caller's and hand back an empty
-# answer for every question, which reads exactly like a user who answered
-# nothing.
+# input ran out has not answered the remaining keys. The locals carry a prefix
+# because the caller passes the name of its own variable, and a plain name here
+# would shadow it and return an empty answer for every question.
 ask() {
     local __prompt=$1 __var=$2 __reply
     printf '%s' "$__prompt"
@@ -68,9 +67,8 @@ factory_stamp() {
     fi
 }
 
-# Check the factory checkout before placing anything. Every later step reads
-# one of these, and a step that finds its source missing has already placed the
-# files the steps before it placed.
+# Check the factory checkout before placing anything, so a missing source is
+# found before the steps above it have written to the machine.
 for required in machine skills project/flow-factory.toml project/.flow/README.md; do
     [ -e "$FACTORY_ROOT/$required" ] \
         || fail "$FACTORY_ROOT is not a factory checkout: no $required"
@@ -90,10 +88,11 @@ mkdir -p "$MACHINE_DIR"
 say "ready $MACHINE_DIR"
 
 step "Step 3. Place the machine files"
-# Every file under machine/, not only the three install-steps.md names. The
-# skills also reference worktree-share.txt and dispatch-prerequisites.md, and a
-# file the skills read but the installer never places is a broken reference the
-# final check would report against a ticket that did nothing wrong.
+# Every file under machine/, not only the ones install-steps.md step 3 names.
+# The skills also reference worktree-share.txt and dispatch-prerequisites.md,
+# and a file the skills read but the installer never places is a broken
+# reference the final check would report against a ticket that did nothing
+# wrong.
 #
 # Compare and overwrite, never skip because the file exists. A machine copy
 # left in place can carry an instruction the factory has since withdrawn.
@@ -161,8 +160,12 @@ probe "3. The session is not inside tmux" \
 
 # Probe 4 has to match the shell a new iTerm2 pane runs, not the one this
 # script is in. Read the profile, then probe with no inherited environment.
-if defaults read com.googlecode.iterm2 "New Bookmarks" 2>/dev/null \
-    | grep -m1 -q '"Custom Command" = Yes'; then
+ITERM_PROFILE=$(defaults read com.googlecode.iterm2 "New Bookmarks" 2>/dev/null || true)
+case $ITERM_PROFILE in
+    *'"Custom Command" = Yes'*) CUSTOM_COMMAND=yes ;;
+    *)                          CUSTOM_COMMAND=no  ;;
+esac
+if [ "$CUSTOM_COMMAND" = yes ]; then
     say "  SKIP  4. 'claude' resolves in a new pane"
     say "        the iTerm2 profile runs a custom command; probe it with that"
     say "        command's own flags, as dispatch-prerequisites.md says."
@@ -187,6 +190,8 @@ step "Step 5. Find the project root"
 PROJECT_ROOT=$(cd -- "$PROJECT_ROOT" && pwd)
 git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1 \
     || fail "$PROJECT_ROOT is not a git repository"
+[ "$PROJECT_ROOT" != "$FACTORY_ROOT" ] \
+    || fail "the project root is the factory checkout. Pass the project as an argument."
 say "$PROJECT_ROOT"
 
 step "Step 6. Create the work-items folder"
@@ -216,6 +221,41 @@ set_key() {
     mv -- "$tmp" "$SETTINGS_TMP"
 }
 
+# Escape what TOML treats as special inside a quoted string. Backslash first,
+# or the backslashes this adds get escaped a second time.
+esc() {
+    local v=$1
+    v=${v//\\/\\\\}
+    v=${v//\"/\\\"}
+    printf '%s' "$v"
+}
+
+# Turn one plain answer into TOML. Every question goes through here, so the
+# user types a value and never TOML, and no answer can write a line a skill
+# cannot read.
+toml_value() {
+    local kind=$1 raw=$2 out i item
+    case $kind in
+        string) printf '"%s"' "$(esc "$raw")" ;;
+        list)
+            if [ -z "$raw" ]; then printf '[]'; return; fi
+            # Split on commas and trim each element. read -a rather than word
+            # splitting, which would let a glob in an answer match the disk.
+            local parts=()
+            IFS=, read -ra parts <<< "$raw"
+            out="["
+            for i in "${!parts[@]}"; do
+                item=${parts[$i]}
+                item=${item#"${item%%[![:space:]]*}"}
+                item=${item%"${item##*[![:space:]]}"}
+                [ "$i" -eq 0 ] || out="$out, "
+                out="$out\"$(esc "$item")\""
+            done
+            printf '%s]' "$out"
+            ;;
+    esac
+}
+
 # Ask one must-ask key. An empty answer is written as an empty value and the
 # key is recorded, because under the settings contract an empty value says the
 # project has no such thing, which is a different state from a key nobody
@@ -224,21 +264,17 @@ ask_key() {
     local key=$1 kind=$2 hint=$3 reply value
     ask "  $key ($hint): " reply
     case $kind in
-        string) value="\"$reply\"" ;;
-        list)
-            if [ -z "$reply" ]; then
-                value="[]"
-            else
-                value="[\"${reply//, /\", \"}\"]"
-            fi
-            ;;
+        string|list) value=$(toml_value "$kind" "$reply") ;;
         bool)
-            case $reply in
-                true|yes|y)  value=true ;;
-                false|no|n)  value=false ;;
-                "")          value=false ;;
-                *) fail "$key takes true or false, not '$reply'" ;;
-            esac
+            while :; do
+                case $reply in
+                    true|yes|y)  value=true;  break ;;
+                    false|no|n)  value=false; break ;;
+                    "")          value=false; break ;;
+                esac
+                say "    true or false"
+                ask "  $key ($hint): " reply
+            done
             ;;
     esac
     if [ -z "$reply" ]; then
@@ -261,14 +297,31 @@ while :; do
     case $REPLY_BRANCH in
         y|Y)  BRANCH=$DETECTED_BRANCH; break ;;
         "")   say "  an answer is needed; the detected value is not written unconfirmed" ;;
-        *)    BRANCH=$REPLY_BRANCH; break ;;
+        *)
+            # Checked against the repository, which catches a typo and a
+            # refusal typed as a word. A wrong value here is the one
+            # install-steps.md measured: the range collapses and a review
+            # reports success over a file it never read.
+            if git -C "$PROJECT_ROOT" show-ref --quiet --verify "refs/heads/$REPLY_BRANCH" \
+               || git -C "$PROJECT_ROOT" show-ref --quiet "refs/remotes/$REPLY_BRANCH"; then
+                BRANCH=$REPLY_BRANCH; break
+            fi
+            say "  '$REPLY_BRANCH' is not a branch in this repository"
+            ;;
     esac
 done
 set_key "git.default_branch" "\"$BRANCH\""
 say "  git.default_branch = \"$BRANCH\""
 
 step "Step 9. Answer test.command"
-ask_key "test.command" string "the command that runs this project's tests"
+# Not asked through ask_key. Under the settings contract this key's unset
+# behaviour is stop, not "does not apply", so an empty answer does not belong
+# in the list of keys where empty says the project has no such thing.
+ask "  test.command (the command that runs this project's tests): " REPLY_TEST
+set_key "test.command" "$(toml_value string "$REPLY_TEST")"
+if [ -z "$REPLY_TEST" ]; then
+    say "  left empty. Every skill that runs tests will stop and name this key."
+fi
 
 step "Step 10. Answer the document, tracker and Jira keys"
 say "  Empty is an answer here. It says the project has no such thing."
@@ -298,23 +351,45 @@ while :; do
 done
 
 step "Step 12. Confirm the keys whose defaults stand"
+# A replacement is a plain value, not TOML. It goes through the same builder
+# as every other answer, so a reply of gh becomes "gh" and feat/, fix/ becomes
+# a two-element list, and neither can leave a line a skill cannot read.
 confirm_default() {
-    local key=$1 shown=$2 reply
-    ask "  $key = $shown. Type 'y' to keep it, or a replacement value: " reply
-    case $reply in
-        y|Y|"") say "    kept" ;;
-        *)      set_key "$key" "$reply"; say "    set to $reply" ;;
-    esac
+    local key=$1 kind=$2 shown=$3 reply value
+    while :; do
+        ask "  $key = $shown. Type 'y' to keep it, or a replacement: " reply
+        case $reply in
+            y|Y|"") say "    kept"; return ;;
+        esac
+        if [ "$kind" = bool ]; then
+            case $reply in
+                true|yes) value=true ;;
+                false|no) value=false ;;
+                *) say "    true or false"; continue ;;
+            esac
+        else
+            value=$(toml_value "$kind" "$reply")
+        fi
+        set_key "$key" "$value"
+        say "    set to $value"
+        return
+    done
 }
-confirm_default "branch.prefixes"          '["feat/", "fix/", "docs/", "wip/"]'
-confirm_default "pr.create_mode"           '"manual"'
-confirm_default "github.labels"            '[]'
-confirm_default "github.assignees"         '[]'
-confirm_default "privacy.redact_client_data" 'true'
+confirm_default "branch.prefixes"   list   '["feat/", "fix/", "docs/", "wip/"]'
+confirm_default "pr.create_mode"    string '"manual"'
+confirm_default "github.labels"     list   '[]'
+confirm_default "github.assignees"  list   '[]'
+confirm_default "privacy.redact_client_data" bool 'true'
 
+SETTINGS_EXISTED=no
+[ -e "$PROJECT_ROOT/flow-factory.toml" ] && SETTINGS_EXISTED=yes
 mv -- "$SETTINGS_TMP" "$PROJECT_ROOT/flow-factory.toml"
 trap - EXIT
-say "  placed flow-factory.toml"
+if [ "$SETTINGS_EXISTED" = yes ]; then
+    say "  OVERWROTE flow-factory.toml. The answers it held are gone."
+else
+    say "  placed flow-factory.toml"
+fi
 
 if [ ${#EMPTY_ANSWERS[@]} -gt 0 ]; then
     say ""
@@ -344,7 +419,7 @@ step "Final check. Every reference in an installed skill resolves"
 INSTALLED_FILES=$(mktemp)
 MISSES=$(mktemp)
 trap 'rm -f -- "$INSTALLED_FILES" "$MISSES"' EXIT
-find -L "$SKILLS_DIR" -type f -path '*/flow-*' > "$INSTALLED_FILES"
+find -L "$SKILLS_DIR" -type f -path "$SKILLS_DIR/flow-*" > "$INSTALLED_FILES"
 : > "$MISSES"
 
 # A ~/.flow-factory/<path> reference. Trailing sentence punctuation is dropped.
@@ -354,13 +429,14 @@ while IFS= read -r ref; do
 done < <(xargs grep -hoE '~/\.flow-factory/[A-Za-z0-9._/-]+' < "$INSTALLED_FILES" \
     | sed 's/[.,)]$//' | sort -u)
 
-# A /flow-<name> slash command. A name followed by a dot is a filename, such as
-# flow-worktree-share.txt, and is not a command.
+# A /flow-<name> slash command. A dot makes it a filename only when something
+# follows the dot, as in flow-worktree-share.txt. A command at the end of a
+# sentence carries a dot too, and treating that as a filename skipped it.
 while IFS= read -r name; do
     [ -d "$SKILLS_DIR/$name" ] \
         || printf 'skill referenced but not installed: /%s\n' "$name" >> "$MISSES"
-done < <(xargs grep -hoE '/flow-[a-z0-9-]+[.]?' < "$INSTALLED_FILES" \
-    | grep -v '\.$' | sed 's|^/||' | sort -u)
+done < <(xargs grep -hoE '/flow-[a-z0-9-]+([.][A-Za-z0-9]+)?' < "$INSTALLED_FILES" \
+    | grep -v '\.' | sed 's|^/||' | sort -u)
 
 if [ -s "$MISSES" ]; then
     say ""
