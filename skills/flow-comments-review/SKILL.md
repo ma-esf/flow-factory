@@ -44,12 +44,21 @@ Diff from the merge-base, so the report covers this branch's own work and not co
 the base gained meanwhile. Diffing straight against a moved base invents findings.
 
 ```bash
-BASE_AT=$(git merge-base "origin/$BASE" HEAD)  # fall back to "$BASE" if origin/$BASE is absent
+BASE_AT=$(git merge-base "origin/$BASE" HEAD || git merge-base "$BASE" HEAD)  # bare "$BASE" if origin/$BASE is absent
+[ -n "$BASE_AT" ] || { echo "STOP: base \"$BASE\" resolves neither as origin/$BASE nor as $BASE"; exit 1; }
 RANGE="$BASE_AT"        # current branch: reaches the working tree, so uncommitted comments count
 RANGE="$BASE_AT HEAD"   # a PR or another branch: their working tree is not yours to review
 git diff $RANGE --stat
 git ls-files --others --exclude-standard   # untracked: no diff sees these, read them whole
 ```
+
+The guard is not defensive noise. Without it an unresolved base leaves `BASE_AT`
+empty, `git diff $RANGE --stat` collapses to a bare `git diff`, and the review covers
+the uncommitted change alone and exits 0, which reads as clean.
+
+On `STOP`, report the base you tried and end the review. Do not substitute another
+base, and above all not the current branch: that comparison is empty and reads as a
+clean report about work nobody reviewed.
 
 When the diff and the untracked list are both empty, say so and stop.
 
