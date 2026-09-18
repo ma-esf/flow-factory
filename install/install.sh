@@ -79,9 +79,17 @@ done
 # ===========================================================================
 
 step "Step 1. Find the agent's skills directory"
-[ -d "$SKILLS_DIR" ] \
-    || fail "no $SKILLS_DIR. Claude Code was not found on this machine."
-say "found $SKILLS_DIR"
+# Claude Code is absent when $HOME/.claude is absent, not when skills/ is. A
+# user who has never added a skill has the first and not the second, and the
+# old check told them to install a tool they already had.
+[ -d "$HOME/.claude" ] \
+    || fail "no $HOME/.claude. Claude Code was not found on this machine."
+if [ -d "$SKILLS_DIR" ]; then
+    say "found $SKILLS_DIR"
+else
+    mkdir -p "$SKILLS_DIR"
+    say "created $SKILLS_DIR, which this machine did not have yet"
+fi
 
 step "Step 2. Create $MACHINE_DIR"
 mkdir -p "$MACHINE_DIR"
