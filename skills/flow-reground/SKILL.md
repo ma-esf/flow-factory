@@ -49,6 +49,9 @@ name into this step: in a project whose default branch is spelled differently a
 guessed ref does not exist, and a baseline that quietly falls back grounds the whole
 check against nothing.
 
+Check first that this project has a `flow-factory.toml` at its root. If it does
+not, stop as `~/.flow-factory/settings-contract.md` says.
+
 ```bash
 # Refresh remote refs. Does not modify any local branch or working tree.
 git fetch --all --prune && echo "FETCH_OK" || echo "FETCH_FAILED"

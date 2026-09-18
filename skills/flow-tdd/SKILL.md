@@ -9,6 +9,8 @@ TDD is the red -> green loop. This skill is the reference that makes that loop p
 
 When exploring the codebase, read the file named by `docs.context` in this project's settings so test names and interface vocabulary match the project's domain language, and respect ADRs in the area you're touching. Unset, the project has no such document: take the vocabulary from the code you are reading. `~/.flow-factory/settings-contract.md` holds the rule for reading the key.
 
+Check first that this project has a `flow-factory.toml` at its root. If it does not, stop as `~/.flow-factory/settings-contract.md` says.
+
 ## What a good test is
 
 Tests verify behavior through public interfaces, not implementation details. Code can change entirely; tests shouldn't. A good test reads like a specification — "user can checkout with valid cart" tells you exactly what capability exists — and survives refactors because it doesn't care about internal structure.

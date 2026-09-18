@@ -17,6 +17,9 @@ run, not once at install. One machine's skills serve every project, so the same
 machine holds a Jira project and a non-Jira one at the same time, and a gate
 settled at install would answer for the wrong one.
 
+Check first that this project has a `flow-factory.toml` at its root. If it does
+not, stop as `~/.flow-factory/settings-contract.md` says.
+
 Two modes. Ask which one if it isn't obvious from what the user just said.
 
 ## Mode: single issue

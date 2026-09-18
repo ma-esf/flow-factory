@@ -33,6 +33,9 @@ installed on this machine. Say so and stop. Do not create the worktree and link
 nothing: a worktree with no rules, no skills and no tracker is the exact failure
 this manifest exists to prevent, and it looks like a success.
 
+Check first that this project has a `flow-factory.toml` at its root. If it does
+not, stop as `~/.flow-factory/settings-contract.md` says.
+
 The machine list is linked before any project line is judged. That order is
 load-bearing, not cosmetic, and for a worse reason than the refusal below.
 Measured: with a project entry `.flow/foo` read first, `mkdir -p` creates a

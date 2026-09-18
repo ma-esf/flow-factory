@@ -13,6 +13,8 @@ When invoked, resolve the base ref and refresh remote state FIRST, then run the 
 
 If `~/.flow-factory/settings-contract.md` is not readable, the factory was never installed on this machine. Say so and stop.
 
+Check first that this project has a `flow-factory.toml` at its root. If it does not, stop as `~/.flow-factory/settings-contract.md` says.
+
 ```bash
 BASE="origin/<the git.default_branch value>"
 

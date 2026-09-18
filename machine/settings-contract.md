@@ -43,6 +43,24 @@ such thing, and the three behaviours keep the two kinds of nothing apart.
   unset key and stop. `test.command` is the case: a guessed test command reports
   a pass for a run that never happened.
 
+## When to look
+
+A skill that reads a settings key, or writes into the project, checks that
+`flow-factory.toml` is at the project root before its first step. A skill that
+only reads the tracker and writes nothing does not check, and says nothing about
+settings.
+
+Both halves are needed. Checking only in the skills that read a key lets a skill
+that writes files read no key at all and create them in a project nobody asked.
+Checking in every skill makes a listing skill refuse to read plain markdown,
+which the pointer file the installer places promises stays readable without the
+factory.
+
+The check goes at the skill's opening gate, not at the step that happens to
+touch a key. A key can be optional, so a skill that notices the missing file
+only because it reached one notices nothing on the run where that key is not
+needed.
+
 ## When the file is missing
 
 Stop. Say the project has no `flow-factory.toml`, so the factory was never

@@ -36,5 +36,8 @@ installed on this machine. Say so and stop. Do not pick a glossary file yourself
 this skill's whole output is text written into a project's own documents, and a
 guessed path puts settled vocabulary where nobody looks for it.
 
+Check first that this project has a `flow-factory.toml` at its root. If it does
+not, stop as `~/.flow-factory/settings-contract.md` says.
+
 Where a target already holds examples, match what is there rather than inventing a
 format.

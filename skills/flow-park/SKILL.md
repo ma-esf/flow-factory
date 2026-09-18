@@ -15,7 +15,7 @@ The single most valuable thing this skill captures is the **specifics that are c
 
 ## How it fits the tracker
 
-- **Nothing installed, nothing written.** If `~/.flow-factory/tracker-contract.md` and `~/.flow-factory/templates/capture.md` are not readable, the factory was never installed on this machine. Say so and stop. Do not rebuild the shape from what this file describes: a capture missing a section is worse than no capture, because every skill after this one reads it as complete.
+- **Nothing installed, nothing written.** If `~/.flow-factory/tracker-contract.md` and `~/.flow-factory/templates/capture.md` are not readable, the factory was never installed on this machine. Say so and stop. Do not rebuild the shape from what this file describes: a capture missing a section is worse than no capture, because every skill after this one reads it as complete. Check first that this project has a `flow-factory.toml` at its root. If it does not, stop as `~/.flow-factory/settings-contract.md` says.
 - **Container**: one capture file, `.flow/candidates/<slug>.md`. `~/.flow-factory/tracker-contract.md` gives the shape and `~/.flow-factory/templates/capture.md` is what you write.
 - **A capture is not a work item.** It records something seen, not something decided. Promoting it into a ticket under `.flow/issues/<feature>/` is a separate, later decision, and `/flow-triage` makes it.
 - **Resume side is already covered**: don't build a "what's parked" view here. `/flow-backlog` lists these and `/flow-triage` works them. `flow-park` just creates.

@@ -20,6 +20,9 @@ never installed on this machine. Say so and stop. Do not rebuild a shape from
 what this file describes: a ticket missing a section is worse than no ticket,
 because every skill after this one reads it as complete.
 
+Check first that this project has a `flow-factory.toml` at its root. If it does
+not, stop as `~/.flow-factory/settings-contract.md` says.
+
 ## The shape you write comes from two files
 
 - `~/.flow-factory/templates/ticket.md` is the ticket body. Its sections, in its

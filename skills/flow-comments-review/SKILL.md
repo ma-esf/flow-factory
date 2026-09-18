@@ -29,6 +29,9 @@ wrong diff.
 
 If `~/.flow-factory/settings-contract.md` is not readable, the factory was never installed on this machine. Say so and stop. Do not derive the default branch from the repository instead: `git ls-remote` showing one branch is the repository answering, not the project, and a guess that happens to be right is the failure this rule exists to catch.
 
+Check first that this project has a `flow-factory.toml` at its root. If it does
+not, stop as `~/.flow-factory/settings-contract.md` says.
+
 ```bash
 git fetch origin --quiet
 git branch --show-current

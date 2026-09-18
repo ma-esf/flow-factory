@@ -13,6 +13,9 @@ conditional on one.
 `<default branch>` below is `git.default_branch` from this project's settings, read
 the way `~/.flow-factory/settings-contract.md` says. Read it once, before step 1.
 
+Check first that this project has a `flow-factory.toml` at its root. If it does
+not, stop as `~/.flow-factory/settings-contract.md` says.
+
 ## Identify the target
 
 - If the session is inside a worktree (under `.claude/worktrees/`), that is the target.

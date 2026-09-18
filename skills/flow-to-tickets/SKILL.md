@@ -9,6 +9,8 @@ Break a plan, spec, or PRD into **slice tickets**: each a narrow complete path, 
 
 Tracker conventions (paths, `Status:` strings, the `## Comments` section) live in `~/.flow-factory/tracker-contract.md`. Read it before writing. If it is not readable, the factory was never installed on this machine. Say so and stop, rather than rebuilding the shape from this file: a ticket missing a heading is read as complete by every skill after this one.
 
+Check first that this project has a `flow-factory.toml` at its root. If it does not, stop as `~/.flow-factory/settings-contract.md` says.
+
 ## Process
 
 ### 1. Gather context

@@ -28,6 +28,9 @@ If that file is not readable, the factory was never installed on this machine.
 Say so and stop. Do not rebuild the shape from what this file describes: a spec
 missing a heading is read as complete by every skill after this one.
 
+Check first that this project has a `flow-factory.toml` at its root. If it does
+not, stop as `~/.flow-factory/settings-contract.md` says.
+
 ## Process
 
 1. Sketch the seams you will test the feature at. Prefer existing seams and the

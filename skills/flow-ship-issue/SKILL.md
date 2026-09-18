@@ -20,6 +20,9 @@ come from `~/.flow-factory/tracker-contract.md`. Project settings are read as
 `~/.flow-factory/settings-contract.md` says. If either file is not readable, the
 factory was never installed on this machine. Say so and stop.
 
+Check first that this project has a `flow-factory.toml` at its root. If it does
+not, stop as `~/.flow-factory/settings-contract.md` says.
+
 ## Run contract
 
 - Auto-advance every clean stage. The user can say "stop after each" to add gates.
