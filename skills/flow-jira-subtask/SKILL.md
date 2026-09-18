@@ -10,15 +10,15 @@ skill is the one-way bridge: read what already shipped, write Jira-ready text. I
 never touches Jira itself — there is no API access — so the output is always a
 block the user copies by hand.
 
+Check first that this project has a `flow-factory.toml` at its root. If it does
+not, stop as `~/.flow-factory/settings-contract.md` says.
+
 Before anything else, read `jira.enabled` in this project's settings, as
 `~/.flow-factory/settings-contract.md` says. When it is false, this project has no
 Jira: say that `jira.enabled` is false, print no block, and stop. Read it on every
 run, not once at install. One machine's skills serve every project, so the same
 machine holds a Jira project and a non-Jira one at the same time, and a gate
 settled at install would answer for the wrong one.
-
-Check first that this project has a `flow-factory.toml` at its root. If it does
-not, stop as `~/.flow-factory/settings-contract.md` says.
 
 Two modes. Ask which one if it isn't obvious from what the user just said.
 

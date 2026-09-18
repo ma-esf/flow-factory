@@ -7,9 +7,9 @@ description: Test-driven development. Use when the user wants to build features 
 
 TDD is the red -> green loop. This skill is the reference that makes that loop produce tests worth keeping: what a good test is, where tests go, the anti-patterns, and the rules of the loop. Every section applies on every cycle — consult them before and during the loop, not after.
 
-When exploring the codebase, read the file named by `docs.context` in this project's settings so test names and interface vocabulary match the project's domain language, and respect ADRs in the area you're touching. Unset, the project has no such document: take the vocabulary from the code you are reading. `~/.flow-factory/settings-contract.md` holds the rule for reading the key.
-
 Check first that this project has a `flow-factory.toml` at its root. If it does not, stop as `~/.flow-factory/settings-contract.md` says.
+
+When exploring the codebase, read the file named by `docs.context` in this project's settings so test names and interface vocabulary match the project's domain language, and respect ADRs in the area you're touching. Unset, the project has no such document: take the vocabulary from the code you are reading. `~/.flow-factory/settings-contract.md` holds the rule for reading the key.
 
 ## What a good test is
 
