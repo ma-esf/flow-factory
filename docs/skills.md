@@ -1,6 +1,6 @@
 # Skills
 
-The 26 skills Flow Factory installs, grouped by the stage of `4d-system.md`
+The 27 skills Flow Factory installs, grouped by the stage of `4d-system.md`
 where each one does its main work. Type the slash command to invoke one.
 
 Several skills are useful in more than one stage. Each is listed once.
@@ -68,3 +68,5 @@ Several skills are useful in more than one stage. Each is listed once.
   in, each service on its own port, without touching anyone else's servers
 - `/flow-verify-delivery` - drive the running app against the ticket's
   acceptance criteria in a throwaway state, and hand you the visual checks
+- `/flow-ask` - ask which skill or flow fits your situation, a router over
+  all of the above
