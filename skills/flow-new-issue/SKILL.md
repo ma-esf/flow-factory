@@ -122,7 +122,7 @@ Return the issue URL that `gh` prints.
 user they can connect them by adding a closing keyword to the **PR body**: `Closes #<n>`
 (or `Fixes #<n>` / `Resolves #<n>`), which auto-closes the issue when the PR merges.
 Under `pr.create_mode` set to `manual`, the user opens the pull request, so hand them
-the line to paste and do not edit a pull request or run `gh pr` commands. Under `gh`,
-the skill that opens the pull request includes the line; this skill still only returns it.
+the line to paste and do not edit a pull request or run `gh pr` commands. Under `gh`
+the line still comes from this skill; whoever opens the pull request puts it in the body.
 
 If at any point the user says stop/cancel/never mind, abort and create nothing.
