@@ -7,8 +7,9 @@ description: Triage a tracker item: verify its claim, then promote it into a bui
 
 The middle step of `/flow-park` -> `/flow-triage` -> `/flow-ship-issue`. A capture
 records an observation. A ticket records a decision. This skill does that
-conversion, and it is a **promote**: the file that arrives is the file that
-leaves, rewritten in place. Nothing is copied to a new path.
+conversion, and it is a **promote**: the file that arrives is rewritten, and
+moved to where its new shape belongs. One file arrives and one file leaves.
+Nothing is copied, and no file is left at the old path.
 
 Forked from `triage` in `mattpocock/skills`.
 
@@ -242,7 +243,7 @@ user-invoked only.
 
 ### `ready-for-agent`
 
-Rewrite the file into the ticket shape. The promote is an edit in place:
+Rewrite the file into the ticket shape:
 
 - **Every heading the ticket template does not have is folded in and deleted.**
   A capture arrives with `## What was observed` and `## Why it matters`. The
@@ -282,7 +283,7 @@ acceptance criterion would fail a builder who correctly chose a lower type.
 Then flip `Status:`.
 
 Done when the file carries every heading of `~/.flow-factory/templates/ticket.md`,
-in its order, with none extra and none missing, and these five hold, whether this
+in its order, with none extra and none missing, and these six hold, whether this
 rewrite wrote them or a Step 0 promote filled the gaps:
 
 - `## Background` has its worked example.
@@ -293,11 +294,38 @@ rewrite wrote them or a Step 0 promote filled the gaps:
   write a sentence naming a route to take.
 - `## Depends on` is filled or reads "None, can start immediately."
 - `## Scope` names real paths and real symbols.
+- The file sits at its `.flow/issues/<feature>/<NN>-<slug>.md` path, per
+  `### Where a promoted ticket lands` below. A promoted ticket still in
+  `.flow/candidates/` is not done.
 
 ### `ready-for-human`
 
 The same shape, plus one line under `## Goal` naming what stops an agent: a
 judgment call, external access, a design decision, manual testing.
+
+### Where a promoted ticket lands
+
+Both exits above produce a ticket, and the contract says a work item lives at
+`<tracker>/issues/<feature>/<NN>-<slug>.md`. So a capture being promoted moves
+out of `.flow/candidates/` and into a feature folder. Move it last, after the
+rewrite and after the `Status:` flip, so what lands is already finished.
+
+- **Ask which feature folder.** List the folders under `.flow/issues/` and ask
+  the user to pick one or name a new one. A capture belongs to no feature, so
+  this is the user's answer and never yours. Do not read a folder off the
+  capture's subject, and do not invent a catch-all such as `misc`.
+- **Take the next free number.** Read the highest `NN` already in that folder
+  and add one, keeping two digits. Numbering has gaps, so the file count is not
+  the answer. A folder you are creating starts at `01`.
+- **Keep the arriving slug.** The filename is that number plus the slug the
+  capture already had. Renaming it breaks a link anyone already wrote down.
+
+Nothing may be left at the `candidates/` path.
+
+Only a promote moves a file. A file that arrived already under `.flow/issues/`,
+such as a spec-cut ticket waiting on its blockers, stays where it is, and so
+does a capture leaving for `needs-info` or `wontfix`. Only their `Status:`
+changes.
 
 ### `needs-info`
 

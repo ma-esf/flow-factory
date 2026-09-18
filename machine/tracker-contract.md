@@ -54,7 +54,8 @@ no `Status:` line, and skills that list work skip it by filename.
 `## What was observed`, `## Why it matters`, `## Comments`. No goal and no
 acceptance: a capture records something seen, not something decided.
 
-**Ticket.** Written by `/flow-to-tickets`, built by `/flow-ship-issue`.
+**Ticket.** Written by `/flow-to-tickets`, and by `/flow-triage` when it
+promotes a capture into one, built by `/flow-ship-issue`.
 Sections, in order: `## Background`, `## Goal`, `## Scope`, `## Not in scope`,
 `## Acceptance`, `## How to verify`, `## Depends on`, `## Comments`. A ticket
 cut from a spec carries one provenance line under `Created:`, reading
