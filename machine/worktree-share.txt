@@ -1,0 +1,43 @@
+# Paths the flow-worktree-create skill symlinks from the main checkout into a
+# new worktree. These are git-excluded, so they do not follow a worktree on
+# their own: without them a worktree session starts with no rules, no skills,
+# no tracker and no settings.
+#
+# Format. One path per line, relative to the repo root. Folders link as folders
+# (anything added inside them stays covered); files link as files. Lines
+# starting with # and blank lines are ignored.
+#
+# Three traps, each of which has already cost time:
+#   - No trailing slash on a folder. `ln -s` reads `data/` as "link into data/"
+#     and fails.
+#   - No trailing inline comment on a path line. The whole line is the path.
+#   - Keep a newline at the end of the last line.
+#
+# A path a project does not have is not an error: the loop prints
+# `skip (missing in main)` and carries on. A path the worktree already has,
+# because the project commits it, prints `skip (exists)`. Every entry below is
+# therefore safe in a project that answered differently.
+#
+# A project does not edit this file. This copy is installed once per machine
+# and serves every project, so a path added here would reach every other
+# project's worktrees. A project's own git-excluded paths go in
+# `flow-worktree-share.txt` at its root, which the skill reads after this file.
+
+# The tracker root. Pinned, not written `<tracker>`: a symlink source has to be
+# a literal, and this file is installed once per machine and serves every
+# project, so there is no per-project moment at which a placeholder could be
+# substituted. `tracker-contract.md` pins the same path and the installer
+# creates it.
+.flow
+
+.claude/skills
+.claude/hooks
+.claude/settings.json
+CLAUDE.md
+CONTEXT.md
+
+# The project's settings file. Correct whichever way the project went. If it is
+# committed, the worktree already has it and this line skips. If it is
+# git-excluded, this line is what stops every skill in the worktree from
+# finding no settings, which `settings-contract.md` turns into a hard stop.
+flow-factory.toml

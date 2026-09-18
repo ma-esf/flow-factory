@@ -1,0 +1,133 @@
+# Flow Factory project settings
+#
+# This project's own answers. Skills are installed once per machine and serve
+# every project, so nothing here can be baked into a skill file. Each line is
+# read at run time.
+#
+# The file is flat on purpose: no [section] headers, so a full dotted key such
+# as git.default_branch appears literally in the file.
+#
+# How a skill reads a key, what each `unset:` tag below means, and what happens
+# when this file is missing are written once in `settings-contract.md`, beside
+# the skills. They are not repeated here.
+#
+# Sixteen keys, as the port map reconciled them. Seventeen names: github.labels
+# and github.assignees share one row there.
+
+
+# --- git and branches ---
+
+# The default branch, as a bare name. Never `origin/main`: a skill that needs
+# the remote-tracking ref builds `origin/` + this value, and one that needs the
+# local name uses the value as it stands. Storing the remote form would make
+# the local one unwritable.
+# Get this one right first. It carries about thirty of the mapped lines, and in
+# a repository whose default branch is `master` a wrong value breaks
+# flow-status, flow-worktree-create, flow-worktree-close and flow-pr-summary on
+# the day the factory is installed.
+# unset: default `main`
+git.default_branch = "main"
+
+# Branch name prefixes offered when a skill names a new branch.
+# unset: default `["feat/", "fix/", "docs/", "wip/"]`
+branch.prefixes = ["feat/", "fix/", "docs/", "wip/"]
+
+
+# --- GitHub ---
+
+# How a pull request gets opened. `manual` means the skill pushes, prints the
+# URL and stops. `gh` means it may run `gh pr create`.
+# unset: default `manual`, which is the value that needs no tool and takes no
+# outward action on its own.
+pr.create_mode = "manual"
+
+# Whether a commit or PR body may carry tool attribution. `none` strips it,
+# `tool` keeps it. The agent harness adds attribution unless told otherwise, so
+# an unanswered project must not discover that in a customer's repository.
+# unset: default `none`
+github.attribution = "none"
+
+# How this repository merges pull requests: `squash`, `merge` or `rebase`.
+# Under `squash` and `rebase`, `git merge-base --is-ancestor` reports landed
+# work as unmerged; under `merge` it is sound. This is a correctness switch,
+# not a preference.
+# unset: default `squash`, which selects the empty-diff gate. That gate is
+# correct under all three, so the default is wrong only in being cautious.
+github.merge_strategy = "squash"
+
+# Labels and assignees put on a new issue or PR. Empty means the skill adds
+# none and does not ask.
+# unset: default `[]`
+github.labels = []
+github.assignees = []
+
+
+# --- tests ---
+
+# The command that runs this project's tests.
+# unset: stop
+test.command = ""
+
+# Where a new test file must land.
+# unset: does not apply
+test.dir = ""
+
+# The project's testing guide, read before writing a test.
+# unset: does not apply
+test.guide_path = ""
+
+# The backend source directory, when the project separates backend from
+# frontend. It gates the rules that apply only to backend work.
+# unset: does not apply, and the repository is treated as one tree
+source.backend_dir = ""
+
+
+# --- documents ---
+
+# Two different jobs, so two keys. Context is what a skill reads before it
+# writes. Glossaries are what it checks a term against, and where a settled
+# term is written. One file may do both, and is then listed in both.
+
+# The file holding this project's domain vocabulary and conventions.
+# unset: does not apply
+docs.context = ""
+
+# The project's glossaries, in order. The first is where a newly settled term
+# is written; the rest are checked but not written to. Order is load-bearing.
+#
+# Open decision 2, answered: configured, not pinned like the tracker headings.
+# The factory creates the tracker files, so it can pin their shape. It does not
+# create a project's glossary: that file already exists under whatever name the
+# project chose, and pinning one name would mean renaming an existing document
+# and would leave no way to say a project has none.
+# unset: does not apply
+docs.glossaries = []
+
+# Project documents a skill may cite as a settled decision, beyond the ADR
+# directory the factory pins.
+# unset: does not apply
+project.decision_docs = []
+
+
+# --- tracker and privacy ---
+
+# The header field naming the epic a captured item belongs to, for example
+# `Epic`. Empty means this project has no epic field.
+#
+# Open decision 1, answered: a key, not a drop. A project tracking epics
+# elsewhere loses the only link back when the line is dropped, and keeping it
+# costs one conditional line and no new mechanism, because two other keys are
+# already conditional. Empty is the honest state for most projects, and under
+# the reading rule that omits the line without asking for a value.
+# unset: does not apply
+tracker.epic_field = ""
+
+# Whether Jira exists for this project. An install-time gate only: no skill
+# talks to Jira, they write text a human pastes.
+# unset: default `false`
+jira.enabled = false
+
+# Whether a skill strips real company names and figures from anything it
+# prints or commits.
+# unset: default `true`
+privacy.redact_client_data = true
