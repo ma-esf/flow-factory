@@ -19,4 +19,4 @@ They were installed on the machine that created these files:
 Without that install everything here is still readable, because it is plain
 markdown. What you cannot do is run the skills that write it.
 
-Flow Factory <factory commit>, installed <YYYY-MM-DD>.
+Flow Factory <factory version>, installed <YYYY-MM-DD>.

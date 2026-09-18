@@ -47,22 +47,34 @@ ask() {
 # ---------------------------------------------------------------------------
 # The version stamp
 #
-# Two options are open: refuse a dirty factory tree, or stamp the commit plus
-# the count of differing files. This stamps, because the pointer file's job is
-# to record what was actually placed, and a run from a dirty tree places files
-# that no commit contains. Refusing would also make the installer unable to
-# install its own uncommitted changes, which is the state every change to the
-# factory passes through.
+# The factory ships in numbered releases, and a release is a tag. So the stamp
+# asks git what release this tree is, rather than naming the commit and leaving
+# the reader to work it out: `v0.1.0` on the tagged commit, `v0.1.0-3-g47cd209`
+# three commits past it. Both answers say which release you have, and the
+# second says how far past it you are, which a bare hash never did.
+#
+# --always keeps an untagged tree working: before the first tag, and in a
+# shallow clone that fetched no tags, describe falls back to the short hash and
+# the stamp reads exactly as it did before any of this.
+#
+# Two options are open for a dirty factory tree: refuse it, or stamp what git
+# says plus the count of differing files. This stamps, because the pointer
+# file's job is to record what was actually placed, and a run from a dirty tree
+# places files that no commit contains. Refusing would also make the installer
+# unable to install its own uncommitted changes, which is the state every
+# change to the factory passes through. The count comes from status rather than
+# describe --dirty, because status counts untracked files too, and a new skill
+# nobody has added yet is the most likely way this tree differs from its tag.
 # ---------------------------------------------------------------------------
 factory_stamp() {
-    local commit dirty
-    commit=$(git -C "$FACTORY_ROOT" rev-parse --short HEAD) \
+    local release dirty
+    release=$(git -C "$FACTORY_ROOT" describe --tags --always) \
         || fail "the factory root $FACTORY_ROOT is not a git repository"
     dirty=$(git -C "$FACTORY_ROOT" status --porcelain | wc -l | tr -d ' ')
     if [ "$dirty" -eq 0 ]; then
-        printf '%s' "$commit"
+        printf '%s' "$release"
     else
-        printf '%s plus uncommitted changes to %s files' "$commit" "$dirty"
+        printf '%s plus uncommitted changes to %s files' "$release" "$dirty"
     fi
 }
 
@@ -453,7 +465,7 @@ fi
 step "Step 14. Place the pointer file"
 STAMP=$(factory_stamp)
 TODAY=$(date +%Y-%m-%d)
-sed -e "s|<factory commit>|$STAMP|" -e "s|<YYYY-MM-DD>|$TODAY|" \
+sed -e "s|<factory version>|$STAMP|" -e "s|<YYYY-MM-DD>|$TODAY|" \
     "$FACTORY_ROOT/project/.flow/README.md" > "$PROJECT_ROOT/.flow/README.md"
 say "  Flow Factory $STAMP, installed $TODAY"
 
