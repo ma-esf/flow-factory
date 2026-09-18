@@ -122,6 +122,11 @@ not a broken search. It has nothing to name and it does not guess, and the
 pointer file already promises that the work items stay readable without an
 install.
 
+The machine gate was falsified the same way, because a gate seen only passing is
+not a gate. With `tracker-contract.md` moved aside, `flow-park` and
+`flow-backlog` both stop, and `flow-comments-review` is unaffected, since it
+names `settings-contract.md` instead and writes no tracker file.
+
 The result underneath both passes is that **no skill gates on the settings file
 itself**. Each gates on the machine artifacts, then meets the missing settings
 file only if it happens to read a key. `flow-park` stops solely because it reads
