@@ -97,7 +97,9 @@ source.backend_dir = ""
 # service lives in a subdirectory. `{NN}` in a command or a port is a two-digit
 # suffix the skill picks per run, the same across all services, so several
 # worktrees can run side by side. A frontend that proxies to a backend writes
-# the backend's port into its own command with `{NN}`, so both line up.
+# the backend's port into its own command with `{NN}`, so both line up. A
+# port without `{NN}` is fixed; a project whose ports are all fixed runs one
+# instance at a time. The three lists must be the same length.
 # Empty lists mean the project has no app to run, and both skills stop and
 # say so.
 # unset: stop
@@ -137,6 +139,7 @@ project.decision_docs = []
 # names customers and their data, so this should be a git-excluded directory.
 # unset: stop
 reports.stakeholder_dir = ""
+
 
 # --- tracker and privacy ---
 

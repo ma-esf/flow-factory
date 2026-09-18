@@ -25,10 +25,12 @@ List `reports.stakeholder_dir`. Filenames read
 `stakeholder-update-<DDMM>-<DDMM>-<YY>.md`, start date first. Read the second
 date out of each name and take the latest one: that is the new window's start,
 and today is its end. Name order runs by day before month, so `0109` sorts ahead
-of `0708` while covering the later window. An empty directory means this is the
-first report: ask the user for the start date.
+of `0708` while covering the later window. A missing or empty directory means
+this is the first report: ask the user for the start date, and create the
+directory at step 6.
 
-Then read that file end to end and write down every `#N` it already names. The
+When there is a previous report, read it end to end and write down every `#N`
+it already names. The
 date boundary alone is not enough: a report written product-only leaves internal
 items from its own window unreported, and those belong in this one.
 
@@ -63,10 +65,10 @@ the fix, so a linked pair gives you both halves. Some PRs land with an empty
 body. For those, read `gh pr diff N --stat` and the commit titles, and say what
 changed from the diff.
 
-`.flow/issues/<feature>/` holds the close-out notes for items this project's
-own agents shipped. They carry what was actually verified and what was left
-unverified, which is often absent from the PR body and is what makes the Test
-line honest.
+`.flow/issues/<feature>/` holds the ticket for items this project's own agents
+shipped: its `## Acceptance` and `## How to verify` say what was checked, and
+`## Comments` carries the PR. That is often absent from the PR body and is what
+makes the Test line honest.
 
 Done when, for each item, you can state the before, the after, and one concrete
 thing to do in the product to see it.
@@ -82,16 +84,17 @@ Every item's Input line ends in one of three states:
 | State | Write |
 |---|---|
 | An input on hand has the shape | how to reach it, plus `(confirmed: <what you saw in it>)` |
-| The change does not depend on input shape | `any input works`, plus one you already have loaded |
+| The change does not depend on input shape | `any input works` |
 | No input on hand has the shape | `not confirmed.` plus what you searched and what you found instead |
+| The item has no product input (CI, deployment, docs) | `n/a` |
 
-Done when every item's Input line reads confirmed, any-input, or not-confirmed,
-and no line names an input you did not open.
+Done when every item's Input line reads confirmed, any-input, not-confirmed, or
+n/a, and no line names an input you did not open.
 
 ### 5. Write the report
 
 Open with the window in the title, then two or three lines saying what the report
-covers and which previous report it continues.
+covers and which previous report it continues, if any.
 
 Group items under headings named for the benefit to the user, reusing the
 previous report's headings where items fit them and adding new ones where they do
@@ -105,7 +108,7 @@ Each item:
 - What: the feature or check this touches, one sentence.
 - Before: what went wrong.
 - After: what happens now.
-- Test: what to do in the product and what to look for, naming the screen or step.
+- Test: what to do in the product and what to look for, naming the screen, command or call.
 - Input: the outcome from step 4.
 ```
 
@@ -125,18 +128,18 @@ Count the item headings in the finished file and check the closing line against
 that count before you report.
 
 Report the path and the count. Do not stage or commit the file: a report of this
-kind names customers and their data, so it belongs in a git-excluded directory,
-and if the one configured is tracked, say so.
+kind may name customers and their data, which is why the key asks for a
+git-excluded directory. If the one configured is tracked, say so.
 
 ## Voice
 
 Write for a stakeholder who does not open the repo.
 
-- Name what the user sees on screen. The Input line is the one place a path
-  belongs.
+- Name what the user sees, on screen or in output. The Input line is the one
+  place a path belongs.
 - Say the effect, then the number. The mechanism goes in only where the effect
   makes no sense without it.
-- Name a screen or step the way the product does.
+- Name a screen, command or call the way the product does.
 - Gloss a domain term the first time it appears.
 - Keep each item's five lines to one sentence each, two where the before or after
   has a second case.

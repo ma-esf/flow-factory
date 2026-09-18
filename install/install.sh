@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Flow Factory installer. Performs thirteen steps: the machine half once per
+# Flow Factory installer. Performs fourteen steps: the machine half once per
 # machine, then the project half once per project.
 #
 #   ./install/install.sh <project-root>
@@ -205,7 +205,7 @@ say "ready .flow/issues and .flow/candidates"
 
 step "Step 7. Prepare flow-factory.toml"
 # Built in a temporary copy of the template, which carries the comments and the
-# unset: tag for every key, and moved into place at step 12. The project's own
+# unset: tag for every key, and moved into place after step 13. The project's own
 # answers are written over the template's values, one line each.
 SETTINGS_TMP=$(mktemp)
 trap 'rm -f -- "$SETTINGS_TMP"' EXIT
@@ -319,7 +319,7 @@ set_key "git.default_branch" "\"$BRANCH\""
 say "  git.default_branch = \"$BRANCH\""
 
 step "Step 9. Answer test.command and reports.stakeholder_dir"
-# Not asked through ask_key. Under the settings contract this key's unset
+# Not asked through ask_key. Under the settings contract these keys' unset
 # behaviour is stop, not "does not apply", so an empty answer does not belong
 # in the list of keys where empty says the project has no such thing.
 ask "  test.command (the command that runs this project's tests): " REPLY_TEST
@@ -351,8 +351,15 @@ while :; do
     done
     while :; do
         ask "    port it listens on, for example 80{NN} or 8080: " REPLY_PORT
-        [ -n "$REPLY_PORT" ] && break
-        say "    a service needs a port"
+        # Digits with at most one {NN}. Anything else becomes a listener pattern
+        # that never matches, and the skill then waits on a port it thinks free.
+        if [ -z "$REPLY_PORT" ]; then
+            say "    a service needs a port"
+        elif [[ $REPLY_PORT =~ ^[0-9]*(\{NN\})?[0-9]*$ ]]; then
+            break
+        else
+            say "    digits, with {NN} for the suffix, for example 80{NN}"
+        fi
     done
     [ "$APP_COUNT" -eq 0 ] || { APP_SERVICES="$APP_SERVICES, "; APP_COMMANDS="$APP_COMMANDS, "; APP_PORTS="$APP_PORTS, "; }
     APP_SERVICES="$APP_SERVICES$(toml_value string "$REPLY_SVC")"

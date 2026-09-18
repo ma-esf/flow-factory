@@ -7,9 +7,9 @@ description: Starts this project's app locally from the worktree the conversatio
 
 Two things vary per invocation: the **worktree path** (which checkout's code we run) and the **port suffix `NN`** (so multiple worktrees can run side by side).
 
-Check first that this project has a `flow-factory.toml` at its root. If it does not, stop as `~/.flow-factory/settings-contract.md` says. Then read `app.services`, `app.start_commands` and `app.ports`. The three lists are index-matched: the first service starts with the first command and listens on the first port. Unset, stop and say the project has no app configured; do not guess a command. Lists of different lengths are a broken settings file: name the three lengths and stop.
+Check first that this project has a `flow-factory.toml` at its root. If it does not, stop as `~/.flow-factory/settings-contract.md` says. Then read `app.services`, `app.start_commands` and `app.ports`. The three lists are index-matched: the first service starts with the first command and listens on the first port. All three empty, stop and name `app.services`: the project has no app configured, and no command is guessed. Some empty or lengths differing is a broken settings file: name the three lengths and stop.
 
-Port convention: every entry in `app.ports` may carry `{NN}`, a two-digit suffix that is the same across all services of one run. An entry without `{NN}` is a fixed port, and a project whose ports are all fixed runs one instance at a time.
+Port convention: every entry in `app.ports` may carry `{NN}`, a two-digit suffix that is the same across all services of one run. An entry without `{NN}` is a fixed port, and a project whose ports are all fixed runs one instance at a time. A suffix is picked whenever `{NN}` appears in any port or any start command.
 
 ## Args
 
@@ -22,7 +22,7 @@ Parse the invocation args left to right:
 
 `-check` and `-kill` are mutually exclusive modes. If both are passed, refuse and ask which one.
 
-Examples: `/flow-run-app` (auto-pick + launch), `/flow-run-app 27` (pin NN to 27 + launch), `/flow-run-app -check` (inspect), `/flow-run-app -kill` (shut down this worktree's servers), `/flow-run-app --env STORAGE_BACKEND=filesystem` (launch with extra env).
+Examples: `/flow-run-app` (auto-pick + launch), `/flow-run-app 27` (pin NN to 27 + launch), `/flow-run-app -check` (inspect), `/flow-run-app -kill` (shut down this worktree's servers), `/flow-run-app --env KEY=VAL` (launch with extra env).
 
 ## Port patterns
 
@@ -37,7 +37,7 @@ lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | grep -E ':(80[0-9][0-9]|30[0-9][0-9]) 
 Read-only. The user wants to know whether the current session's worktree already has servers running locally.
 
 1. Run **step A** (identify the worktree from conversation context). Confirmation block is **not** needed — nothing will be launched or killed.
-2. Find every listener on the app's ports whose process cwd is under the resolved worktree. For each matching PID, resolve its cwd: `lsof -a -p <PID> -d cwd`. Keep only processes whose cwd starts with `<WORKTREE>/`.
+2. Find every listener on the app's ports whose process cwd is under the resolved worktree. For each matching PID, resolve its cwd: `lsof -a -p <PID> -d cwd`. Keep only processes whose cwd equals `<WORKTREE>` or starts with `<WORKTREE>/` (lsof prints the cwd without a trailing slash, and a service started from the worktree root has cwd exactly `<WORKTREE>`).
 3. Report exactly:
    ```
    Worktree: <absolute path>
@@ -55,7 +55,7 @@ Read-only. The user wants to know whether the current session's worktree already
 The user wants to shut down the local servers for the worktree this session has been working on. Only kill processes whose cwd is inside that worktree — never anything else.
 
 1. Run **step A** (identify the worktree from conversation context).
-2. Find every listener on the app's ports whose process cwd is under `<WORKTREE>/`, resolving cwd with `lsof -a -p <PID> -d cwd`.
+2. Find every listener on the app's ports whose process cwd equals `<WORKTREE>` or starts with `<WORKTREE>/`, resolving cwd with `lsof -a -p <PID> -d cwd`.
 3. **Surface the kill list to the user first** — print each `PORT PID COMMAND` line that will be terminated. If the list is empty, say "nothing running for this worktree" and stop.
 4. Kill them:
    ```bash
@@ -107,11 +107,11 @@ Parse and surface the findings to the user as a table (`PORT  PID  COMMAND` + cw
 
 - If the user passed a 2-digit suffix (e.g. `/flow-run-app 27`): use `NN = 27`.
 - Otherwise: pick the **smallest `NN` from 20 upward** where **every** port in `app.ports` with `{NN}` filled in is free per the survey. If all 20–99 are taken, stop and tell the user.
-- If no entry in `app.ports` carries `{NN}`, there is nothing to pick: a passed suffix is an error to report, and the ports are the fixed ones.
+- If neither `app.ports` nor `app.start_commands` carries `{NN}`, there is nothing to pick: a passed suffix is an error to report, and the ports are the fixed ones.
 
 ### E. If the chosen ports have something on them → STOP
 
-Name the occupying process(es) and ask explicitly whether to kill them. Do not proceed until the user answers. (Auto-picked ports are free by construction, so this branch fires only when the user named a suffix or the ports are fixed.)
+Name the occupying process(es) and ask explicitly whether to kill them. Do not proceed until the user answers. (Auto-picked `{NN}` ports are free by construction, so this branch fires only when the user named a suffix or any entry in `app.ports` is fixed.)
 
 ### F. Free the chosen ports only if approved (skip if already free)
 
@@ -121,7 +121,7 @@ lsof -ti :<port> | xargs kill -9 2>/dev/null   # once per port in app.ports
 
 Substitute the actual ports — never run the literal string.
 
-Any `--env KEY=VAL` pairs become a prefix `KEY=VAL KEY2=VAL2 ` placed at the front of **every** launch command (shown as `<ENV>` below). With none passed, `<ENV>` is empty. They sit before the command so they're in the process environment ahead of anything the app loads itself.
+Any `--env KEY=VAL` pairs become `export KEY=VAL KEY2=VAL2 && ` placed at the front of **every** launch command (shown as `<ENV>` below). With none passed, `<ENV>` is empty. `export`, not a bare `KEY=VAL` prefix: a prefix binds to the first simple command only, so with a command that starts `cd api && ...` the variable would reach `cd` and never the server.
 
 ### G. Start each service from the chosen worktree (background)
 
@@ -135,7 +135,7 @@ A start command that needs a sibling service's port (a frontend that proxies to 
 
 ### H. Wait, then verify readiness and report
 
-A service is ready when its port from `app.ports` is listening: poll the listener pattern every couple of seconds for up to 60 seconds (a first run that builds a virtualenv or installs packages can take that long). Read each background task's captured output as well; a service that exited prints why there. Then report:
+A service is ready when its own port is listening: poll `lsof -nP -iTCP:<port> -sTCP:LISTEN` per chosen port every couple of seconds for up to 60 seconds (a first run that builds a virtualenv or installs packages can take that long). Before reporting, apply the same cwd filter as `-check` to the listening PID and check it once more: a listener whose cwd is not this worktree is reported as "port <port> taken by PID <pid>, not this worktree's", and a PID that is gone on the second look is a service that bound and crashed. Read each background task's captured output as well; a service that exited prints why there. Then report:
 
 ```
 Running:

@@ -15,9 +15,9 @@ decide. Never change code here.
 
 Check first that this project has a `flow-factory.toml` at its root. If it does
 not, stop as `~/.flow-factory/settings-contract.md` says. Then read
-`app.services`. Unset, the project has no app to run, so there is nothing to
-verify live: say so and stop. The acceptance commands in the ticket are then the
-whole verification, and `/flow-ship-issue` Stage 3 already runs those.
+`app.services`. Unset, name `app.services` and stop: the project has no app to
+run, so there is nothing to verify live. The ticket's `## How to verify` commands
+are then the whole verification.
 
 ## Inputs
 
@@ -29,8 +29,9 @@ whole verification, and `/flow-ship-issue` Stage 3 already runs those.
   not verify a ticket against criteria you invented. With no ticket at all,
   confirm a one-line "done looks like" with the user in-session and anchor on
   that. **Persist it nowhere** — if a one-liner needs a durable home, that's the
-  signal the work warranted a real ticket. Never anchor on a GitHub issue (it
-  is created later, at PR-prep).
+  signal the work warranted a real ticket. Never anchor on a hosted issue, even
+  when one exists: the tracker ticket is the contract, and the hosted issue is
+  written from it.
 - **The worktree.** Inferred from conversation context, exactly as
   `/flow-run-app` does. When ambiguous, ask.
 
@@ -44,16 +45,20 @@ For every acceptance criterion, decide:
   assertion (status codes, response shapes, persisted values). You will run it.
 - **Needs human eyes** — visual, layout, UX, "looks/feels right". You will hand
   it over with exact steps.
+- **Not a live check** — needs a code change or the test suite rather than the
+  running app. Every factory ticket carries one: the "Falsify it: break X on
+  purpose" criterion the ticket template requires. Report it as such; do not run
+  it here and do not drop it.
 
-The criteria are the spine. You may add obvious adjacent checks, but every
-criterion must end up in one bucket — none dropped.
+The criteria are the spine. Every criterion must end up in one bucket — none
+dropped, none added.
 
 ### 2. Decide what "isolated, safe state" means for this feature
 
 **Non-negotiable: never write to a real or shared store** (cloud storage,
 shared DBs, external queues). Read the feature's code/config to find where it
 persists and which env knobs force local, throwaway state (a filesystem backend,
-a temp directory such as `/tmp/verify-<branch>-<NN>`). Derive them from the
+a temp directory such as `/tmp/verify-<branch>-<port>`). Derive them from the
 code, don't assume.
 
 ### 3. Launch the app in that state via `/flow-run-app`
@@ -103,13 +108,15 @@ For you to verify (open http://localhost:<port>/...):
   2. ...
 
 Could not seed (routed): <criterion> — <why> (covered by <test> / needs you)
+
+Not a live check: <criterion> — <the test or code change that settles it>
 ```
 
 ### 7. On a failed check
 
 Report it red **with the evidence** as a finding. Do **not** auto-fix and do
 **not** loop silently. Verify tells the truth; it doesn't patch, and it doesn't
-route either. Deciding what happens next belongs to whoever called it.
+decide what happens next. That belongs to the user.
 
 ### 8. Teardown
 

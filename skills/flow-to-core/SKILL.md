@@ -15,8 +15,10 @@ comments and docstrings can be trimmed here.
 Every unit ends as keep, cut, or report. **"Nothing should go" is a real outcome** — say
 it plainly and stop.
 
-Check first that this project has a `flow-factory.toml` at its root. If it does
-not, stop as `~/.flow-factory/settings-contract.md` says.
+When the artifact lives inside a project, check first that the project has a
+`flow-factory.toml` at its root. If it does not, stop as
+`~/.flow-factory/settings-contract.md` says. A machine-level artifact, such as a
+skill under `~/.claude/skills/`, needs no such check.
 
 ## 1. Read it, then find both ends
 

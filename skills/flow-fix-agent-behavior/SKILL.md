@@ -13,8 +13,10 @@ Your value is **diagnosis + the right lever**, not eager agreement. The most use
 
 This skill starts from a *symptom* and diagnoses it. Starting from *advice* and curating what is worth adopting is a different job; do not turn a symptom report into a tips review.
 
-Check first that this project has a `flow-factory.toml` at its root. If it does
-not, stop as `~/.flow-factory/settings-contract.md` says.
+When the lever you will change lives inside a project, check first that the
+project has a `flow-factory.toml` at its root. If it does not, stop as
+`~/.flow-factory/settings-contract.md` says. A machine-level lever (`~/.claude/`)
+needs no such check.
 
 ## Workflow
 
@@ -43,7 +45,7 @@ Config surfaces in scope as levers:
 - Skills (a new one, or editing an existing one)
 - Subagents
 - Memory files
-- Process docs and decision records (`docs/adr/`)
+- Process docs, and the files in `project.decision_docs` (read per the settings contract; unset, none). A decision record in `docs/adr/` is written by `/flow-grill-with-docs`, not here: hand an ADR change to it.
 
 Then classify into one of three:
 
