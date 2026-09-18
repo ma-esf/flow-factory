@@ -30,6 +30,11 @@ with no isolation. Never run `git add -A`, `git add .`, `git add <directory>`
 or `git commit -a`. Run `git status` first and stage by explicit filename. If
 you see changes you did not make, leave them alone and say so.
 
+Commit with `git commit -- <paths>`, naming the same files: the index is shared
+too, and a bare `git commit` writes whatever another session has staged into it.
+This has already happened once; a half-written installer landed under another
+ticket's subject line.
+
 `git commit --amend` needs its own guard. Another session can commit between
 your commit and your amend, and the amend then rewrites their commit, not
 yours. Check `git log -1` immediately before amending and stop if the tip is
