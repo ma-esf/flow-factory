@@ -55,8 +55,10 @@ The install leaves files in two places.
 On the machine, once:
 
 - `~/.claude/skills/flow-*`, one directory per skill.
-- `~/.flow-factory/`, the tracker and settings contracts and the file templates
-  the skills write against.
+- `~/.flow-factory/`, the tracker and settings contracts, the file templates
+  the skills write against, and `statusline.sh`.
+- one line in `~/.claude/settings.json`, pointing Claude Code at that status
+  line.
 
 In the project, once per project:
 
@@ -68,6 +70,37 @@ In the project, once per project:
 
 Nothing else is installed. No service, no database, no state shared between
 projects.
+
+## The status line
+
+Claude Code draws a line under the prompt, and the install points it at
+`~/.flow-factory/statusline.sh`:
+
+```
+Opus 5 · high · 8% 85k/1M · main*
+```
+
+The model, the effort level, how much of the context window is in use, and the
+branch the session is on, with a `*` when the working tree is dirty. The
+percentage turns yellow past 70% and red past 90%. A segment is dropped rather
+than printed empty: a model with no effort levels shows none, and a session
+that has not made a request yet shows no context.
+
+It is not tied to iTerm2 and it reads no project settings, so it works in any
+terminal and in every repository, including the ones the factory was never
+installed into.
+
+`~/.claude/settings.json` is the one file the install writes that the factory
+does not own, so it is treated as somebody else's:
+
+- a `statusLine` that is already there and is not ours is never replaced. The
+  install says what it found and prints what to change to use this one.
+- the file as it was is kept beside it, as `settings.json.before-flow-factory`.
+- settings that do not parse as JSON are left untouched and named, and the
+  install carries on. The status line is a convenience; every skill works
+  without it.
+
+A session that is already open keeps its status line until it restarts.
 
 ## Where to start
 
@@ -86,7 +119,7 @@ there is to work on.
 | Directory | Holds | Installed |
 |---|---|---|
 | `skills/` | the skill sources | on the machine, once |
-| `machine/` | the tracker rules and the file templates skills write against | on the machine, once |
+| `machine/` | the tracker rules, the file templates skills write against, and the status line | on the machine, once |
 | `project/` | the settings file and the pointer file | in each project, once |
 | `install/` | the installer | not installed; it does the placing |
 | `docs/` | the reference docs | not installed; read them here |
