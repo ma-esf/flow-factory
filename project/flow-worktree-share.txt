@@ -13,10 +13,10 @@
 # slash, no inline comment, `#` lines and blanks ignored, newline at the end.
 #
 # The nesting rule. Never add a path that sits inside a folder the machine file
-# already links. `.flow` is linked as a folder, so `.flow/anything` is refused.
-# Through that link the destination is the source, so such a line can never do
-# anything: it prints a skip that reads like success. The skill refuses it and
-# names it; this header is so you do not write one in the first place.
+# already links. `.cortex` is linked as a folder, so `.cortex/anything` is
+# refused. Through that link the destination is the source, so such a line can
+# never do anything: it prints a skip that reads like success. The skill refuses
+# it and names it; this header is so you do not write one in the first place.
 
 # The most common entry. A project's context document, the file named by
 # `docs.context` in `flow-factory.toml`, belongs here when the project

@@ -48,7 +48,7 @@ Use when closing out a feature folder at a sprint boundary, when a group of
 already-done issues need to become sub-tasks together.
 
 1. Resolve the feature slug (from context, or ask).
-2. Scan `.flow/issues/<feature>/*.md` (skip `PRD.md`) for `Status: done`
+2. Scan `.cortex/issues/<feature>/*.md` (skip `PRD.md`) for `Status: done`
    files with no `Jira:` marker. If none, say so and stop.
 3. Extract and print one block per file (format below).
 4. Ask "Mark these N as reported?" as a numbered choice (`1. Yes, mark all N` /

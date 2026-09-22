@@ -62,8 +62,8 @@ In the project, once per project:
 
 - `flow-factory.toml` at the root, holding the answers. Installing into the
   same project again overwrites it, and the answers it held are gone.
-- `.flow/issues/` and `.flow/candidates/`, where work items live.
-- `.flow/README.md`, recording which version of the factory was installed and
+- `.cortex/issues/` and `.cortex/candidates/`, where work items live.
+- `.cortex/README.md`, recording which version of the factory was installed and
   when.
 
 Nothing else is installed. No service, no database, no state shared between

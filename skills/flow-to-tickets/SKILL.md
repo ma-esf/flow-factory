@@ -1,6 +1,6 @@
 ---
 name: flow-to-tickets
-description: Split a plan, spec, or PRD into slice tickets on this project's local tracker, each declaring what blocks it, written to .flow/issues/<feature>/. Quizzes the user on granularity and blocking edges before writing anything. Use when the user wants a spec or PRD broken into tickets, says "turn this into tickets", "split this into slices", "cut this into issues", or types /flow-to-tickets. For capturing a single unplanned finding mid-session, use /flow-park instead.
+description: Split a plan, spec, or PRD into slice tickets on this project's local tracker, each declaring what blocks it, written to .cortex/issues/<feature>/. Quizzes the user on granularity and blocking edges before writing anything. Use when the user wants a spec or PRD broken into tickets, says "turn this into tickets", "split this into slices", "cut this into issues", or types /flow-to-tickets. For capturing a single unplanned finding mid-session, use /flow-park instead.
 ---
 
 # flow-to-tickets - split a spec into slice tickets
@@ -58,7 +58,7 @@ Iterate until the user approves the breakdown.
 
 ### 5. Publish the tickets
 
-Write one file per ticket under `.flow/issues/<feature-slug>/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). One ticket per file, never a single combined file. Create the feature directory if it does not exist. Never renumber an existing ticket.
+Write one file per ticket under `.cortex/issues/<feature-slug>/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). One ticket per file, never a single combined file. Create the feature directory if it does not exist. Never renumber an existing ticket.
 
 Set each ticket's `Status:` to one of the contract's values:
 

@@ -182,8 +182,8 @@ question. Three checks against the codebase:
     invent a replacement angle, and never state a fixed number of angles.
 
   Already built is a `wontfix`.
-- **Prior decision or duplicate.** Grep the concept across `.flow/issues` and
-  `.flow/candidates`. A `wontfix` hit carries the argued rejection, so the
+- **Prior decision or duplicate.** Grep the concept across `.cortex/issues` and
+  `.cortex/candidates`. A `wontfix` hit carries the argued rejection, so the
   decision already exists. An open hit is a duplicate: name the older file and
   propose merging into it.
 - **Still true?** Run `/flow-reground`, and read its result with the same
@@ -320,9 +320,9 @@ rewrite wrote them or a Step 0 promote filled the gaps:
   write a sentence naming a route to take.
 - `## Depends on` is filled or reads "None, can start immediately."
 - `## Scope` names real paths and real symbols.
-- The file sits at its `.flow/issues/<feature>/<NN>-<slug>.md` path, per
+- The file sits at its `.cortex/issues/<feature>/<NN>-<slug>.md` path, per
   `### Where a promoted ticket lands` below. A promoted ticket still in
-  `.flow/candidates/` is not done.
+  `.cortex/candidates/` is not done.
 
 ### `ready-for-human`
 
@@ -333,10 +333,10 @@ judgment call, external access, a design decision, manual testing.
 
 Both exits above produce a ticket, and the contract says a work item lives at
 `<tracker>/issues/<feature>/<NN>-<slug>.md`. So a capture being promoted moves
-out of `.flow/candidates/` and into a feature folder. Move it last, after the
+out of `.cortex/candidates/` and into a feature folder. Move it last, after the
 rewrite and after the `Status:` flip, so what lands is already finished.
 
-- **Ask which feature folder.** List the folders under `.flow/issues/` and ask
+- **Ask which feature folder.** List the folders under `.cortex/issues/` and ask
   the user to pick one or name a new one. A capture belongs to no feature, so
   this is the user's answer and never yours. Do not read a folder off the
   capture's subject, and do not invent a catch-all such as `misc`.
@@ -348,10 +348,10 @@ rewrite and after the `Status:` flip, so what lands is already finished.
 
 Nothing may be left at the `candidates/` path.
 
-Only a promote moves a file. A file that arrived already under `.flow/issues/`,
-such as a spec-cut ticket waiting on its blockers, stays where it is, and so
-does a capture leaving for `needs-info` or `wontfix`. Only their `Status:`
-changes.
+Only a promote moves a file. A file that arrived already under
+`.cortex/issues/`, such as a spec-cut ticket waiting on its blockers, stays
+where it is, and so does a capture leaving for `needs-info` or `wontfix`. Only
+their `Status:` changes.
 
 ### `needs-info`
 

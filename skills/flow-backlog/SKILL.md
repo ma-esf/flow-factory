@@ -11,8 +11,8 @@ Do NOT edit any file, change a `Status:`, run git, or start work. End with a sin
 
 Two sources, one shape. `~/.flow-factory/tracker-contract.md` gives both:
 
-- **Issues** - `.flow/issues/<feature>/*.md`. Work items.
-- **Candidates** - `.flow/candidates/*.md`. Captures: something seen, not yet decided to be work.
+- **Issues** - `.cortex/issues/<feature>/*.md`. Work items.
+- **Candidates** - `.cortex/candidates/*.md`. Captures: something seen, not yet decided to be work.
 
 Every file in both carries a `Status:` line, so both are read the same way and sorted into the same buckets. What tells them apart in the report is the id, which keeps its `issues/` or `candidates/` prefix.
 
@@ -21,10 +21,10 @@ If `~/.flow-factory/tracker-contract.md` is not readable, the factory was never 
 ## Step 1 - Collect
 
 ```bash
-find .flow/issues .flow/candidates -name '*.md' ! -name 'PRD.md' -type f | LC_ALL=C sort | while read -r f; do
+find .cortex/issues .cortex/candidates -name '*.md' ! -name 'PRD.md' -type f | LC_ALL=C sort | while read -r f; do
   st=$(grep -m1 -iE '^Status:' "$f" | sed -E 's/^[Ss]tatus:[[:space:]]*//;s/[[:space:]]*$//')
   title=$(grep -m1 -E '^#[[:space:]]' "$f" | sed -E 's/^#+[[:space:]]*//')
-  rel=${f#.flow/}; rel=${rel%.md}
+  rel=${f#.cortex/}; rel=${rel%.md}
   printf '%s\t%s\t%s\n' "${st:-NO-STATUS}" "$rel" "${title:-(no heading)}"
 done
 ```

@@ -28,7 +28,7 @@
 # project, so there is no per-project moment at which a placeholder could be
 # substituted. `tracker-contract.md` pins the same path and the installer
 # creates it.
-.flow
+.cortex
 
 .claude/skills
 .claude/hooks

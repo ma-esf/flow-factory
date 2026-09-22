@@ -38,9 +38,9 @@ not, stop as `~/.flow-factory/settings-contract.md` says.
 
 The machine list is linked before any project line is judged. That order is
 load-bearing, not cosmetic, and for a worse reason than the refusal below.
-Measured: with a project entry `.flow/foo` read first, `mkdir -p` creates a
-**real** `.flow` directory in the worktree, `.flow` itself is then skipped as
-existing, and the worktree ends up with no tracker at all while every line
+Measured: with a project entry `.cortex/foo` read first, `mkdir -p` creates a
+**real** `.cortex` directory in the worktree, `.cortex` itself is then skipped
+as existing, and the worktree ends up with no tracker at all while every line
 reports success. Machine first is what prevents that.
 
 Project memory is linked separately, because it lives outside the repo:
@@ -169,7 +169,7 @@ names it, or it is the default branch's remote-tracking ref.
 - Base new branches on the default branch's remote-tracking ref (after fetch)
   unless the user explicitly named a different base. Never infer one from whatever
   branch the main checkout happens to be sitting on.
-- Symlinks are **absolute** and point back into the main checkout, so `.flow`
+- Symlinks are **absolute** and point back into the main checkout, so `.cortex`
   (the issue tracker) is one shared source across all worktrees, not a fork.
 - Writing through those symlinks gets blocked, always from a background session and
   often from a live one. It is a harness guard, so never weaken it with
