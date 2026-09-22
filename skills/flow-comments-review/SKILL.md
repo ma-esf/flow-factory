@@ -49,8 +49,11 @@ the base gained meanwhile. Diffing straight against a moved base invents finding
 ```bash
 BASE_AT=$(git merge-base "origin/$BASE" HEAD || git merge-base "$BASE" HEAD)  # bare "$BASE" if origin/$BASE is absent
 [ -n "$BASE_AT" ] || { echo "STOP: base \"$BASE\" resolves neither as origin/$BASE nor as $BASE"; exit 1; }
-RANGE="$BASE_AT"        # current branch: reaches the working tree, so uncommitted comments count
-RANGE="$BASE_AT HEAD"   # a PR or another branch: their working tree is not yours to review
+if [ -z "$TARGET" ] || [ "$TARGET" = "$(git branch --show-current)" ]; then
+  RANGE="$BASE_AT"        # current branch: reaches the working tree, so uncommitted comments count
+else
+  RANGE="$BASE_AT HEAD"   # a PR or another branch: their working tree is not yours to review
+fi
 git diff $RANGE --stat
 git ls-files --others --exclude-standard   # untracked: no diff sees these, read them whole
 ```

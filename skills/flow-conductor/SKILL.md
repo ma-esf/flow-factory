@@ -15,7 +15,8 @@ folder only if the conversation does not make it obvious. After that the user ty
   Never call the Agent tool: an in-process subagent has no tab the user can watch or
   interrupt, which is the whole point of dispatching.
 - **You do not triage.** `needs-triage` means hand it to `/flow-triage`, not decide its scope.
-- **You do not edit issue files.** `Status:` belongs to `/flow-ship-issue` and
+- **You do not edit issue files.** `Status:` belongs to the skills that claim,
+  promote and close: `/flow-triage`, `/flow-to-tickets`, `/flow-ship-issue` and
   `/flow-close-out`.
 
 ## The two kinds
@@ -64,11 +65,12 @@ back to the user.
 
 ## Step 2 - decide
 
-Read the **candidate files in full** - the ones at `ready-for-agent` or `needs-triage`,
-and nothing else in the folder. Two gates:
+Read the **candidate files in full** - the ones at `ready-for-agent`, `needs-triage` or
+`blocked`, and nothing else in the folder. Two gates:
 
-1. **Depends on.** Every issue it names must read `done` or `wontfix`. An issue that names
-   none has none.
+1. **Depends on.** Every issue it names must be satisfied, by the rule under "When a
+   dependency is satisfied" in `~/.flow-factory/tracker-contract.md`. An issue that
+   names none has none.
 2. **Collision.** Two candidates that write the same file cannot run at the same time.
    Judge on files, never on titles. Pick which one goes first, say why in one clause, and
    name the shared file so the user can check the call.
@@ -86,7 +88,7 @@ session per issue, so the batch is however many candidates pass both gates.
 A count line, a numbered pick list, then one line for the rest.
 
 ~~~
-23 issues: 16 done, 2 in review, 1 in progress, 3 ready, 1 needs triage, 3 wontfix.
+27 issues: 16 done, 2 in review, 1 in progress, 4 ready, 1 needs triage, 3 wontfix.
 
   1  ship  20  the importer keeps a stale cache between runs
   2  ship  22  amounts render without their declared unit
@@ -99,11 +101,11 @@ Pick numbers, or all.
 
 Rules for that output:
 
-- **The count line names every status present**, so it sums to the number of issue
-  files in the folder. Leaving `in-review` and `in-progress` out of it hides work in
-  flight. It is also the whole state report: nothing goes between it and the first
-  row, no diff against the last run and no note on what freed an issue. The user
-  watched those tabs.
+- **The count line names every status present**, `blocked` like any other, so it sums
+  to the number of issue files in the folder. Leaving `in-review` and `in-progress`
+  out of it hides work in flight. It is also the whole state report: nothing goes
+  between it and the first row, no diff against the last run and no note on what
+  freed an issue. The user watched those tabs.
 - **One row per dispatch:** pick number, the kind, issue number, then a short
   plain gloss of what it is. The gloss is what the user chooses from, so it earns its
   place. Do not print the commands. The user no longer pastes them, so they are clutter;
@@ -113,6 +115,9 @@ Rules for that output:
   when the issue looks fully specified: `/flow-triage` tells a ticket waiting
   only on its blockers from one needing a real evaluation, and promotes the first
   without re-opening its scope.
+- **A `blocked` issue whose blockers are all satisfied gets a `tri` row too**, because
+  `/flow-triage` is what promotes it. One still waiting goes on the `Held:` line with
+  the blocker it waits on.
 - **The `-n` name is the point.** It titles the pane so the user can tell them apart, and
   it is also how you address a pane later. Build it from the kind's prefix, then the
   issue filename cut short: `ship-20-stale-cache`, not the full slug.

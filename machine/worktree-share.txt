@@ -34,7 +34,9 @@
 .claude/hooks
 .claude/settings.json
 CLAUDE.md
-CONTEXT.md
+
+# A project's context document, the file named by `docs.context`, is not listed
+# here: this machine file cannot know its name.
 
 # The project's settings file. Correct whichever way the project went. If it is
 # committed, the worktree already has it and this line skips. If it is

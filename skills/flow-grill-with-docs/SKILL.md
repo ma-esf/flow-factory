@@ -1,6 +1,6 @@
 ---
 name: flow-grill-with-docs
-description: A relentless interview to sharpen a plan or design, which writes the vocabulary and decisions down as they land. Use when the user wants to sharpen an idea before building, says "grill me", "sharpen this", "let's design this properly", or types /flow-grill-with-docs. For an interview that writes nothing, use /flow-grilling.
+description: "A relentless interview to sharpen a plan or design before building, which writes the vocabulary and decisions down as they land: settled terms into the project's glossary, decisions into docs/adr/. Invoked by the user as /flow-grill-with-docs; no spoken phrase triggers it. For an interview that writes nothing, use /flow-grilling."
 disable-model-invocation: true
 ---
 

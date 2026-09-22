@@ -1,6 +1,6 @@
 ---
 name: flow-worktree-create
-description: Create a new git worktree and branch for a parallel agent session, then mirror the repo's git-excluded agent context (project rules, skills, tracker, settings) and the project memory into it via symlinks so the worktree session has the same rules, skills, docs and memory as the main checkout. Bases on the project's default branch by default, or on a branch the user names when stacking on an open PR. Use when the user says "new worktree", "create a worktree", "spin up a worktree", "stack a branch on", or /flow-worktree-create.
+description: Create a new git worktree and branch for a parallel agent session, then mirror the repo's git-excluded agent context (project rules, skills, tracker, settings) and the project memory into it via symlinks so the worktree session has the same rules, skills, docs and memory as the main checkout. Bases on the project's default branch by default, or on a branch the user or the calling skill names when stacking on an open PR. Use when the user says "new worktree", "create a worktree", "spin up a worktree", "stack a branch on", or /flow-worktree-create.
 ---
 
 # flow-worktree-create
@@ -54,11 +54,12 @@ default, no memory at all.
    carry a type prefix from `branch.prefixes` in this project's settings, read the
    way `~/.flow-factory/settings-contract.md` says. After the prefix comes a
    reader-POV description (the observable effect, not the files touched), with a
-   ticket id if there is one — e.g. `feat/feedback-record-status`,
+   ticket id if there is one, e.g. `feat/feedback-record-status`,
    `fix/dropped-income-rows`. This matches the repo's existing branches; if unsure,
    run `git branch -r` and follow the pattern there. A bare, prefixless name is
-   wrong — add the prefix before creating. The worktree directory name is the
-   branch's last path segment.
+   wrong: add the prefix before creating. The worktree directory name is the
+   whole branch with every `/` turned into `-`, so `feat/foo` and `fix/foo` get
+   different directories.
 
 2. **Create and link.** Fill in the first two lines before running any of it:
    an unsubstituted `BASE` assigns without error and only fails three lines
@@ -68,9 +69,10 @@ default, no memory at all.
    BRANCH="feat/foo"                     # <- the branch the user gave
    BASE="origin/<default branch>"        # <- origin/ + git.default_branch from
                                          #    this project's settings, unless the
-                                         #    user named a base
+                                         #    user or the calling skill named a
+                                         #    base, then origin/<that branch>
    MAIN="$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')"
-   NAME="${BRANCH##*/}"
+   NAME="${BRANCH//\//-}"
    WT="$MAIN/.claude/worktrees/$NAME"
 
    git -C "$MAIN" fetch origin -p

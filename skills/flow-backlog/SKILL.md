@@ -1,6 +1,6 @@
 ---
 name: flow-backlog
-description: List this project's local task backlog so the user can decide what to work on. Scans the tracker's issues and candidates, reads each file's Status line, and presents a scannable list grouped by how ready each item is to pick up. Read-only: it never edits a file, flips a Status, runs git, or starts a task. Use this whenever the user asks what they can work on, what's on the backlog / list / tracker, what's next, what issues are open, "what's up", or types /flow-backlog. This is about the TRACKER BACKLOG, not the session/git snapshot (that's /flow-status).
+description: "List this project's local task backlog so the user can decide what to work on. Scans the tracker's issues and candidates, reads each file's Status line, and presents a scannable list grouped by how ready each item is to pick up. Read-only: it never edits a file, flips a Status, runs git, or starts a task. Use this whenever the user asks what they can work on, what's on the backlog / list / tracker, what's next, what issues are open, \"what's up\", or types /flow-backlog. This is about the TRACKER BACKLOG, not the session/git snapshot (that's /flow-status)."
 ---
 
 # flow-backlog - What's on the tracker
@@ -59,6 +59,9 @@ Buckets and the statuses they hold, in order:
 ### Needs attention
 `needs-triage`, `needs-info`. Every capture `/flow-park` writes arrives here, because `needs-triage` is the only status it sets.
 
+### Waiting on other tickets
+`blocked`. Fully specified, so nothing to evaluate; each waits on a ticket named under its `## Depends on`, and `/flow-triage` promotes it once those land.
+
 ### Parked on purpose
 `backlog`. Not a queue item and not a rejection, so the open question is whether it is time to work this, which is `/flow-triage`'s call.
 
@@ -69,7 +72,7 @@ Buckets and the statuses they hold, in order:
 `done`. Do not enumerate these. Print one line with the count, e.g. `Done: 2 (not listed)`.
 
 ### Uncategorized
-Any item whose status is missing, or is not one of the ten values in `~/.flow-factory/tracker-contract.md`. Same `Item | What it is | Status` columns, so nothing is silently dropped. Omit the header if there are none.
+Any item whose status is missing, or is not one of the eleven values in `~/.flow-factory/tracker-contract.md`. Same `Item | What it is | Status` columns, so nothing is silently dropped. Omit the header if there are none.
 
 The contract matches a status value exactly, so `Status: Ready-For-Agent` is not `ready-for-agent` and belongs here. That is the intended answer, not a bug to work around: a file landing in Uncategorized is how a misspelled status becomes visible.
 

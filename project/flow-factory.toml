@@ -11,18 +11,18 @@
 # when this file is missing are written once in
 # `~/.flow-factory/settings-contract.md`. They are not repeated here.
 #
-# Twenty keys: sixteen as the port map reconciled them, plus
-# reports.stakeholder_dir (flow-stakeholder-update) and the three app.* keys
-# (flow-run-app). Twenty-one names: github.labels and github.assignees share
-# one row there.
+# Twenty-one keys: sixteen as the port map reconciled them, plus
+# reports.stakeholder_dir (flow-stakeholder-update), the three app.* keys
+# (flow-run-app) and github.create_issue. Twenty-two names: github.labels and
+# github.assignees share one row there.
 
 
 # --- git and branches ---
 
-# The default branch, as a bare name. Never `origin/main`: a skill that needs
-# the remote-tracking ref builds `origin/` + this value, and one that needs the
-# local name uses the value as it stands. Storing the remote form would make
-# the local one unwritable.
+# The default branch, as a bare name. Never the remote-tracking form with
+# `origin/` in front: a skill that needs the remote-tracking ref builds
+# `origin/` + this value, and one that needs the local name uses the value as
+# it stands. Storing the remote form would make the local one unwritable.
 # Get this one right first. It carries about thirty of the mapped lines, and in
 # a repository whose default branch is `master` a wrong value breaks
 # flow-status, flow-worktree-create, flow-worktree-close and flow-pr-summary on
@@ -38,10 +38,17 @@ branch.prefixes = ["feat/", "fix/", "docs/", "wip/"]
 # --- GitHub ---
 
 # How a pull request gets opened. `manual` means the skill pushes, prints the
-# URL and stops. `gh` means it may run `gh pr create`.
-# unset: default `manual`, which is the value that needs no tool and takes no
-# outward action on its own.
+# URL and stops, and the user opens the pull request. `gh` means the skill may
+# run `gh pr create`. Under both, skills read pull request state with
+# `gh pr view`, so `gh` has to be installed either way.
+# unset: default `manual`, which takes no outward action on its own.
 pr.create_mode = "manual"
+
+# Whether /flow-ship-issue opens a hosted GitHub issue for every ticket it
+# ships, beside the tracker ticket and the pull request. `false` means the
+# tracker ticket and the pull request carry the reasoning.
+# unset: default `false`
+github.create_issue = false
 
 # Whether a commit or PR body may carry tool attribution. `none` strips it,
 # `tool` keeps it. The agent harness adds attribution unless told otherwise, so

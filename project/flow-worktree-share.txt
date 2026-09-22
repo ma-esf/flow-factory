@@ -17,3 +17,10 @@
 # Through that link the destination is the source, so such a line can never do
 # anything: it prints a skip that reads like success. The skill refuses it and
 # names it; this header is so you do not write one in the first place.
+
+# The most common entry. A project's context document, the file named by
+# `docs.context` in `flow-factory.toml`, belongs here when the project
+# git-excludes it. The machine file cannot list it, because that file is
+# installed once per machine and the document's name is this project's own
+# answer. A project that commits the document needs no line: the worktree
+# already has it and the entry would print `skip (exists)`.

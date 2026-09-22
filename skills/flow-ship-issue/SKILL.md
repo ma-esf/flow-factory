@@ -27,7 +27,8 @@ not, stop as `~/.flow-factory/settings-contract.md` says.
 
 - Auto-advance every clean stage. The user can say "stop after each" to add gates.
 - Stop only for a failure, a material decision, a delegated skill's required
-  approval, `git push`, or worktree deletion.
+  approval, the commit message approval in Stage 4, `git push`, or worktree
+  deletion.
 - Use ASD-STE100 Simplified Technical English. When `docs.context` is set, also
   use the ubiquitous language in that file.
 - On each stage result, print one line:
@@ -55,8 +56,8 @@ Then read `Status:` and follow exactly:
 
 | Status | Action |
 |---|---|
-| `ready-for-agent` | Make the first write: set `in-progress`, without asking. On the next line write `Session:` followed by the value of `$CLAUDE_CODE_SESSION_ID` (run `echo $CLAUDE_CODE_SESSION_ID` to get it). |
-| `needs-triage`, `needs-info`, `backlog` | Invoke `/flow-triage`; if it returns `ready-for-agent`, claim it the same way and continue. |
+| `ready-for-agent` | Make the first write: set `in-progress`, without asking. Write the `Session:` line where "Header lines" in `~/.flow-factory/tracker-contract.md` puts it, holding the value of `$CLAUDE_CODE_SESSION_ID` (run `echo $CLAUDE_CODE_SESSION_ID` to get it). |
+| `needs-triage`, `needs-info`, `backlog`, `blocked` | Invoke `/flow-triage`; if it returns `ready-for-agent`, claim it the same way and continue. |
 | `in-triage`, `in-progress`, `in-review`, `done` | Stop; another session owns it or it shipped. |
 | `ready-for-human`, `wontfix` | Stop; reversal belongs to the user. |
 | anything else | Stop and ask what it means. |
@@ -64,10 +65,13 @@ Then read `Status:` and follow exactly:
 Claim before re-grounding so parallel dispatch cannot start the same ticket.
 An abandoned early claim intentionally blocks duplicate work.
 
-The `Session:` line is transient and says which session holds the claim, so an
-abandoned run can be told from a live one. Remove it whenever the status leaves
-`in-progress`: at the Stage 6 flip to `in-review`, and at any stop that puts the
-status back. A file at rest never carries it.
+The `Session:` line is transient and records which session holds the claim, so
+a person inspecting a stuck `in-progress` file can tell an abandoned run from a
+live one. `/flow-conductor` does not read it; `Status:` alone stops a second
+dispatch. Remove it whenever the status leaves `in-progress`: at the Stage 6
+flip to `in-review`, and at any stop that puts the status back. A file at rest
+never carries it. Its position, and every other header line, is under "Header
+lines" in `~/.flow-factory/tracker-contract.md`.
 
 Invoke `/flow-reground`. Continue after a clean result or an approved mechanical
 patch. On substantive staleness, stop and propose changing `Status:` to
@@ -75,12 +79,23 @@ patch. On substantive staleness, stop and propose changing `Status:` to
 
 ## Stage 1 - Isolate
 
-Invoke `/flow-worktree-create`. It resolves the base branch from this project's
-settings; do not name a base here.
+Invoke `/flow-worktree-create`. With `Branch base:` off the default branch,
+or no `## Depends on`, name no base; it resolves the default branch from this
+project's settings. Off ticket N's branch, resolve that branch from the pull
+request URL in N's `## Comments`:
+
+```bash
+gh pr view <url> --json headRefName,state
+```
+
+Pass `headRefName` as the base when `state` is `OPEN`. `MERGED` means it has
+landed already: use the default branch and say so in the stage line. `CLOSED`
+stops the run: the base was rejected.
 
 Then call `EnterWorktree` with the new path. Verify
 `git rev-parse --show-toplevel` equals that path. A mismatch stops the run; never
-review or build from the original checkout.
+review or build from the original checkout. On a stacked base, run the ticket's
+`Check before starting:` command here; a wrong output stops the run.
 
 ## Stage 2 - Build
 
@@ -147,7 +162,9 @@ a stop or a handoff, and the run is not verified.
 
 ## Stage 4 - Review and commit
 
-1. Invoke `/code-review` with an explicit effort:
+1. Invoke `/code-review`. It is Claude Code's built-in review skill, not one
+   the factory ships; if it is unavailable, stop the stage and name it rather
+   than reviewing from memory. Give it an explicit effort:
    - `low` for an ordinary diff.
    - `high` for test-only changes, correctness-critical calculation, parsing of
      documents from outside the project, or a change crossing two parts of the
@@ -164,10 +181,13 @@ a stop or a handoff, and the run is not verified.
    code is settled. Running it here and not earlier is deliberate: a code-review
    fix writes and rewords comments, and it changes which code the diff touches,
    so a comment pass before it judges text that is about to move.
-5. Confirm the diff covers what it changed. When it changes a non-test file,
-   confirm it also adds or changes a test. A fix for a reported defect needs the
-   test that reproduces it. If the diff has neither, name the untested change and
-   ask before committing.
+5. Confirm the diff covers what it changed. When it changes a non-test source
+   file, confirm it also adds or changes a test. A fix for a reported defect
+   needs the test that reproduces it. If the diff has neither, name the untested
+   change and ask before committing.
+   The gate is about source files. A diff that changes only documentation,
+   configuration or generated files, or a ticket whose provenance line says
+   docs only, has no test to add: say so in the stage line and continue.
    When `source.backend_dir` is set, this gate applies to changes under that
    directory. Unset, the project is one tree and the gate applies to every
    non-test file the diff changes. When `test.dir` is set, a new test file lands
@@ -175,8 +195,9 @@ a stop or a handoff, and the run is not verified.
 6. Commit after both reviews are clean. Tool attribution follows
    `~/.flow-factory/attribution-rule.md`; that rule governs this write point and
    is not restated here. The message is the subject line alone, with no body: the
-   reasoning belongs in the tracker ticket, the hosted issue, and the pull
-   request description, and repeating it in the commit only ages a fourth copy.
+   reasoning belongs in the tracker ticket, the pull request description, and
+   the hosted issue when one exists, and repeating it in the commit only ages
+   another copy.
    When you present the message for approval, open with it in a code block; put
    any status or file list after it, never as a lead-in before it.
 
@@ -198,13 +219,17 @@ reported either way rather than assumed to be outside the commit.
 When the work produced nothing to commit, this stage and Stage 6 have no work.
 Say which, and go to Stage 7.
 
-Create a hosted issue by default. Skip it only when the change is clearly
-mechanical and has no behavior or design rationale to preserve, such as a typo,
-format-only edit, or generated-file refresh. If uncertain, create the issue.
+Whether a hosted issue is opened is `github.create_issue` in this project's
+settings. When it is false, the tracker ticket and the pull request carry the
+reasoning: open no issue and go straight to `/flow-pr-summary`, with no
+`Closes #<n>`.
 
-Invoke `/flow-new-issue` without first asking whether an issue is wanted. Its
-creation approval still applies. Draft from the tracker problem statement, not
-the diff, and make the body readable by someone who has only the hosted
+When it is true, create a hosted issue by default. Skip it only when the change
+is clearly mechanical and has no behavior or design rationale to preserve, such
+as a typo, format-only edit, or generated-file refresh. If uncertain, create the
+issue. Invoke `/flow-new-issue` without first asking whether an issue is wanted.
+Its creation approval still applies. Draft from the tracker problem statement,
+not the diff, and make the body readable by someone who has only the hosted
 repository. Write the reasoning out. Do not point at a path under `.flow/` or at
 a decision-record identifier and leave the reader to find it.
 
@@ -224,11 +249,20 @@ the URL, and the numbered options as the whole output.
 Who opens the pull request is `pr.create_mode` in this project's settings. Under
 `manual` the user opens it and this skill never runs a command that creates one.
 Under `gh` the skill may run `gh pr create` after the same single approval.
+Under both, `gh` has to be installed: the resume check below reads the pull
+request through it.
 
 Lead the options with the copy step: option 1 offers to copy the body file
 `/flow-pr-summary` wrote to the clipboard, ready to paste as the description.
 Run `pbcopy < <body file>` (confirm with `pbpaste | wc -c`) only when the user
 selects it, never before.
+
+The tracker flip happens as soon as a pull request exists, without asking, the
+same way Stage 0 claims without asking: set `Status: in-review`, remove the
+`Session:` line, and append the pull request URL, plus the hosted issue URL when
+one exists, under `## Comments`. Under `gh` that is right after `gh pr create`
+returns. Under `manual` it is on resume, once the check below shows the pull
+request.
 
 On resume, verify with:
 
@@ -236,9 +270,8 @@ On resume, verify with:
 gh pr view <branch> --json url,state
 ```
 
-If the pull request exists, offer to set the tracker ticket to `in-review`,
-remove the `Session:` line, and append the pull request URL, plus the hosted
-issue URL when present, to `## Comments`. If none exists, report that and wait.
+If the pull request exists and the ticket still reads `in-progress`, make that
+flip now. If none exists, report that and wait.
 
 ## Stage 7 - Close out after merge
 

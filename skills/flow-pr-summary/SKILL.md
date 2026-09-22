@@ -112,14 +112,14 @@ Then re-check every product-level paraphrase against the diff. Translating code 
 
 Print the summary directly to the user, wrapped in one fenced code block. Your output is rendered as markdown in the terminal, so an unfenced summary reaches the user's clipboard already rendered: the `##` headings and the backticks are gone, and the PR body arrives as flat paragraphs.
 
-Then write it to `/tmp/pr-body-<branch>.md` with the Write tool (heredocs are blocked in worktree sessions). Never ask permission for that write, because the file is throwaway. Do not write the summary anywhere durable unless asked.
+Then write it to `/tmp/pr-body-<name>.md`, where `<name>` is the branch with every `/` turned into `-`, because a prefix such as `feat/` would otherwise name a directory that does not exist. Use the Write tool (heredocs are blocked in worktree sessions). Never ask permission for that write, because the file is throwaway. Do not write the summary anywhere durable unless asked.
 
 Close with a numbered choice the user can pick or type, never a yes/no question:
 
 1. Copy the PR summary to the clipboard, ready to paste as the PR body
 2. Edit the PR summary
 
-Copying replaces what the user was holding, so it stays their call. On 1, run `pbcopy < /tmp/pr-body-<branch>.md`, confirm with `pbpaste | wc -c`, and report the count. On 2, rewrite, print, and offer the same choice again.
+Copying replaces what the user was holding, so it stays their call. On 1, run `pbcopy < /tmp/pr-body-<name>.md`, confirm with `pbpaste | wc -c`, and report the count. On 2, rewrite, print, and offer the same choice again.
 
 Who opens the pull request is `pr.create_mode` in this project's settings. Under
 `manual` the user opens it and this skill never runs a command that creates one.

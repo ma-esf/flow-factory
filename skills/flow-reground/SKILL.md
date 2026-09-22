@@ -58,7 +58,7 @@ git fetch --all --prune && echo "FETCH_OK" || echo "FETCH_FAILED"
 
 # Baseline SHA for the provenance note, and how far the checkout sits from the base.
 git rev-parse --short "$BASE"
-git rev-list --left-right --count "HEAD...$BASE"   # "<behind>  <ahead>"
+git rev-list --left-right --count "$BASE...HEAD"   # "<behind>  <ahead>"
 ```
 
 If `FETCH_FAILED`, **STOP**. Report the error and do not run the check: a freshness

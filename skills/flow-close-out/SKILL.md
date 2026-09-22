@@ -36,7 +36,7 @@ PR) needs the two merge checks only. Say what you skipped and why.
 "It's merged" is a claim, not a state.
 
 ```bash
-gh pr view <n> --json state,mergedAt,mergeCommit,baseRefName
+gh pr view <n> --json state,mergedAt,mergeCommit,baseRefName,headRefName
 ```
 
 `state: MERGED` plus a `mergeCommit` is the proof. The local check beside it asks
@@ -44,6 +44,15 @@ two questions in order, the pair `/flow-worktree-close` asks. No
 `github.merge_strategy` read: neither question answers every strategy on its own,
 asking both costs one command, and whether work landed should not rest on a
 project having answered that key correctly.
+
+`HEAD` in the commands below is the branch the pull request shipped, which holds
+when the session stands in that branch's worktree. For a merge with no local
+branch, someone else's PR or a dependency bump, take `headRefName` from the
+reading above, `git fetch origin <headRefName>`, and run both checks against
+`origin/<headRefName>` in place of `HEAD`. When that branch is already deleted
+on the remote, the `gh pr view` reading is the only proof: say so in the report.
+Do not run the checks against whatever `HEAD` happens to be, which proves
+something about an unrelated branch.
 
 **Ancestry**, which answers a merge commit:
 
@@ -79,9 +88,12 @@ the branch's content matches the default branch, so a branch that shipped nothin
 reads exactly like a merge commit. It also reports commits that landed on the
 default branch after you branched, and so fails while your own content is merged.
 
-On `CLOSED` with no `mergeCommit` the PR was rejected. Delete nothing, say so,
-and put the tracker issue back to `ready-for-agent`. That needs a decision, not a
-close-out.
+On `CLOSED` with no `mergeCommit` the PR was rejected. Delete nothing and say
+so. Set the tracker issue to `needs-triage`, remove any `Session:` line, and
+append a dated comment under `## Comments` opening
+`Rejected: PR <url> closed unmerged.`, in that spelling: `/flow-triage` Step 0
+matches it. A rejection needs a decision, not a close-out, and `/flow-triage`
+is where that decision is made; the comment is what it reads.
 
 ## Confirm the content reached the default branch
 
@@ -99,7 +111,9 @@ anything. The `done` flip reports the work as finished, so it comes first.
 
 ## Check the GitHub issue closed itself
 
-When the branch had a GitHub issue, `Closes #<n>` in the PR body should have
+Only when a hosted issue exists, which the ticket's `## Comments` records. A
+project with `github.create_issue` false opens none, so skip this heading and
+say nothing about it. When one exists, `Closes #<n>` in the PR body should have
 closed it on merge:
 
 ```bash

@@ -63,7 +63,7 @@ Write one file per ticket under `.flow/issues/<feature-slug>/<NN>-<slug>.md`, nu
 Set each ticket's `Status:` to one of the contract's values:
 
 - Nothing blocks it -> `ready-for-agent`. The quiz in step 4 is the specification gate, so the ticket is agent-grabbable by construction.
-- Something blocks it -> `needs-triage`, plus a qualifier on the provenance line naming what promotes it, for example "Promote to `ready-for-agent` once step 2 merges." A blocked ticket can be fully specified and still not be ready to start.
+- Something blocks it -> `blocked`, plus a qualifier on the provenance line naming what promotes it, for example "Promote to `ready-for-agent` once step 2 merges." A blocked ticket is fully specified and still not ready to start, which is why it is not `needs-triage`: nothing about it needs evaluating, and `/flow-triage` promotes it once its blockers land.
 
 Work the **frontier**: any ticket whose blockers are all done. For a purely linear chain that means top to bottom.
 
@@ -71,13 +71,13 @@ Work the **frontier**: any ticket whose blockers are all done. For a purely line
 
 When the tickets came from a spec, write the numbered slice list into that spec's `## Slices` section, which `/flow-to-spec` left empty. Each ticket's `Slice <X.Y> of PRD.md` line has to point at a number that exists there; a spec with an empty slice list leaves every ticket cut from it pointing at nothing.
 
-This is the one edit you make to the spec. Do NOT otherwise close or modify it, except appending to a baseline log that it asks you to append to. Parallel agents write that one file, and git will not warn about the conflict.
+This is the one edit you make to the spec. Do NOT otherwise close or modify it: parallel agents write that one file, and git will not warn about the conflict.
 
 ### 7. The ticket body
 
 One shape, every ticket: `~/.flow-factory/templates/ticket.md`. Its headings, in its order, and the authoring guidance inside each section is the instruction for what to put there. Follow it; do not paraphrase it back into a bare heading, and do not keep a second copy of the shape here.
 
-Section names and the `Status:` line are tool contracts, not style. `/flow-backlog` reads `^Status:` at column 0 and the `# Title` heading, and `/flow-ship-issue` appends PR URLs to `## Comments`. When `jira.enabled` is true in this project's settings, read as `~/.flow-factory/settings-contract.md` says, `/flow-jira-subtask` also inserts a marker directly after the `Status:` line. Do not rename, reorder, or bold these fields.
+Section names and the `Status:` line are tool contracts, not style. `/flow-backlog` reads `^Status:` at column 0 and the `# Title` heading, and `/flow-ship-issue` appends PR URLs to `## Comments`. When `jira.enabled` is true in this project's settings, read as `~/.flow-factory/settings-contract.md` says, `/flow-jira-subtask` also inserts a marker in the header, at the position "Header lines" in `~/.flow-factory/tracker-contract.md` gives it. Do not rename, reorder, or bold these fields.
 
 Two things the template does not decide for you:
 
