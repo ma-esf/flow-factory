@@ -90,9 +90,10 @@ default branch after you branched, and so fails while your own content is merged
 
 On `CLOSED` with no `mergeCommit` the PR was rejected. Delete nothing and say
 so. Set the tracker issue to `needs-triage`, remove any `Session:` line, and
-append a dated comment under `## Comments` naming the closed PR and that it was
-rejected. A rejection needs a decision, not a close-out, and `/flow-triage` is
-where that decision is made; the comment is what it reads.
+append a dated comment under `## Comments` opening
+`Rejected: PR <url> closed unmerged.`, in that spelling: `/flow-triage` Step 0
+matches it. A rejection needs a decision, not a close-out, and `/flow-triage`
+is where that decision is made; the comment is what it reads.
 
 ## Confirm the content reached the default branch
 

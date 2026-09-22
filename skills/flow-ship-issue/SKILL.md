@@ -79,12 +79,23 @@ patch. On substantive staleness, stop and propose changing `Status:` to
 
 ## Stage 1 - Isolate
 
-Invoke `/flow-worktree-create`. It resolves the base branch from this project's
-settings; do not name a base here.
+Invoke `/flow-worktree-create`. With `Branch base:` off the default branch,
+or no `## Depends on`, name no base; it resolves the default branch from this
+project's settings. Off ticket N's branch, resolve that branch from the pull
+request URL in N's `## Comments`:
+
+```bash
+gh pr view <url> --json headRefName,state
+```
+
+Pass `headRefName` as the base when `state` is `OPEN`. `MERGED` means it has
+landed already: use the default branch and say so in the stage line. `CLOSED`
+stops the run: the base was rejected.
 
 Then call `EnterWorktree` with the new path. Verify
 `git rev-parse --show-toplevel` equals that path. A mismatch stops the run; never
-review or build from the original checkout.
+review or build from the original checkout. On a stacked base, run the ticket's
+`Check before starting:` command here; a wrong output stops the run.
 
 ## Stage 2 - Build
 

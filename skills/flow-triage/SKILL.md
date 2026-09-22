@@ -136,7 +136,10 @@ waiting on its blockers rather than on a judgment. So is a spec-cut ticket at
 `needs-triage`, written before `blocked` existed: a file carrying
 `## Acceptance` is already a ticket, and one that also carries a
 `Slice <X.Y> of PRD.md` provenance line was cut from a spec by
-`/flow-to-tickets`, whose quiz was the specification gate. Either way:
+`/flow-to-tickets`, whose quiz was the specification gate. Not once
+`## Comments` carries a line beginning `Rejected:`, which `/flow-close-out`
+writes when a PR was closed unmerged: that ticket was built and refused since
+the gate, so it gets a real triage. Otherwise, either way:
 
 - Every named blocker is satisfied, by the rule under "When a dependency is
   satisfied" in `~/.flow-factory/tracker-contract.md` -> **promote it**, after a

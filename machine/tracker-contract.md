@@ -125,8 +125,8 @@ A ticket names what it waits on under `## Depends on`, one line per blocker,
 each ending `at <in-review | merged to the default branch>`. A blocker at `done`
 or `wontfix` always satisfies its line. A blocker at `in-review` satisfies it
 only when the line asked for `in-review`: that ticket's branch is then the
-branch base, which is stacking, and `/flow-worktree-create` takes the base by
-name. Any other status leaves the dependency outstanding.
+branch base, which is stacking, and `/flow-ship-issue` names it to
+`/flow-worktree-create`. Any other status leaves the dependency outstanding.
 
 This is the one statement of the rule. `/flow-triage` promotes a `blocked`
 ticket by it, `/flow-conductor` lists one by it, and the ticket template points
