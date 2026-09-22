@@ -299,10 +299,10 @@ Rewrite the file into the ticket shape:
   the triage: the reason a guessed command is forbidden is that it reports a pass
   for a run that never happened, and a command named as missing cannot do that.
 
-Never put the command in `## Acceptance`. The guide names the test type, or the
-kind of check, that exposes the failure, which is a build-time call. A command
-pinned as an acceptance criterion would fail a builder who correctly chose
-another kind.
+Never put the command in `## Acceptance`. The guide picks the lowest test type,
+or the cheapest check, that exposes the failure, which is a build-time call. A
+command pinned as an acceptance criterion would fail a builder who correctly
+chose a lower one.
 
 Then flip `Status:`.
 

@@ -111,9 +111,8 @@ backend of a web application, the pipelines or models directory of a data
 project, or the service beside the prompts and evals of an AI project.
 
 Print the implementation approach and test seams in one short clause, then
-invoke `/flow-tdd` immediately. Run targeted tests while building, with whatever
-else `test.command` runs, and the full suite once at the end, all through
-`test.command`.
+invoke `/flow-tdd` immediately. Run targeted tests and typechecks while building
+and the full suite once at the end, all through `test.command`.
 
 Stop only for an ambiguous requirement, unexpected architecture seam, scope
 expansion, or failure. Otherwise continue directly to verification.
