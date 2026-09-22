@@ -12,18 +12,34 @@ stages.
 
 ## Before you install
 
-- **macOS.** The installer and the skills use macOS tools.
+These stop the install:
+
 - **Claude Code.** The skills are installed into `~/.claude/skills/`, and the
   installer stops when `~/.claude` is absent.
 - **git.** Both this checkout and the project you install into have to be git
-  repositories.
+  repositories, this one cloned with its history so it can name its release,
+  and the project carrying at least one commit.
+- **A project that is not this checkout.** The argument you pass names the
+  project, never the factory.
 
-One skill needs more than that. `/flow-conductor` launches a session per issue
-by driving iTerm2, so it needs iTerm2 installed and macOS Automation permission
-granted to the terminal the agent runs in. The installer probes for both,
-reports what failed and finishes anyway; only `/flow-conductor` is blocked.
-`machine/dispatch-prerequisites.md` holds the probes and what each failure
-looks like.
+Nothing else stops it, and what is left is worth knowing before you judge what
+the factory costs. The Deliver stage is built on `gh`, authenticated against
+GitHub, and on `/code-review`, Claude Code's built-in review skill that the
+factory does not ship. Without them it loses the proof that a squash merge
+landed and its review step, while the rest of the factory carries on working.
+Every skill that compares against the default branch needs a remote named
+`origin` carrying it. `/flow-conductor` needs iTerm2 and macOS Automation
+permission, and the other twenty-seven skills do not.
+
+macOS is what the factory has been run on. The only pieces left that nothing
+else has are the iTerm2 dispatch in `/flow-conductor` and the `pbcopy` step
+two skills offer, but that is a fact about where it has been tried rather than
+a claim that it travels: nobody has run the rest anywhere else.
+
+`machine/requirements.md` holds all fifteen, in three tiers, with the probe
+for each and what is lost without it.
+`machine/dispatch-prerequisites.md` holds the four dispatch probes and what
+each failure looks like.
 
 ## Install
 
@@ -86,7 +102,7 @@ there is to work on.
 | Directory | Holds | Installed |
 |---|---|---|
 | `skills/` | the skill sources | on the machine, once |
-| `machine/` | the tracker rules and the file templates skills write against | on the machine, once |
+| `machine/` | the requirements, the tracker rules and the file templates skills write against | on the machine, once |
 | `project/` | the settings file and the pointer file | in each project, once |
 | `install/` | the installer | not installed; it does the placing |
 | `docs/` | the reference docs | not installed; read them here |
