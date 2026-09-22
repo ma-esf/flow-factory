@@ -86,7 +86,11 @@ the way `~/.flow-factory/settings-contract.md` says. Read it once, before step 1
    When this session created the worktree with `EnterWorktree({name})`,
    `ExitWorktree({action: "remove"})` does the whole step in one call. Refused as
    unmerged (squash) means re-invoking with `discard_changes: true`; refused on
-   ownership means using git instead.
+   ownership means using git instead. That shortcut applies only to a worktree
+   this session created by name: the tool removes what it made and nothing else.
+   A worktree made by `/flow-worktree-create` and entered by path, which is what
+   `/flow-ship-issue` Stage 1 does and so the normal case for the ship pipeline,
+   always takes the route below.
 
    Otherwise get the session out first, cheapest move first:
    - `ExitWorktree({action: "keep"})`. Either it returns the shell to wherever the
@@ -119,6 +123,23 @@ the way `~/.flow-factory/settings-contract.md` says. Read it once, before step 1
    real copy, so diff it against the main checkout's first, once per worktree being
    removed. Each carries its own grants, and diffing only one loses the others. List and ask about any
    other untracked file.
+
+   Then remove the memory link `/flow-worktree-create` made for this worktree.
+   It lives outside the repository, so the removal above leaves it behind, and a
+   dangling link under `~/.claude/projects/` is what a later session with the
+   same worktree path trips over. `<key>` is the worktree's absolute path with
+   every `/` and `.` turned into `-`, the same rule that skill uses:
+
+     ```bash
+     [ -L ~/.claude/projects/<key>/memory ] && rm ~/.claude/projects/<key>/memory
+     rmdir ~/.claude/projects/<key>
+     ```
+
+   No trailing slash on the memory path, ever: `rm -rf .../memory/` follows the
+   link and deletes the shared memory in the main checkout. `rm` on the bare path
+   removes the link itself and never follows it, and `rmdir` removes the key
+   directory only when the link was all it held; when it refuses, the directory
+   holds something else and stays.
 
 4. **Clean up branches.** From the main checkout:
    - `git fetch origin -p`. Do not `git pull` without checking

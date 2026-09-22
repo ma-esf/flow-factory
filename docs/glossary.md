@@ -30,7 +30,7 @@ term used in only one file.
 - **Acceptance** - the criteria that decide an issue is done.
 - **Evidence** - an observed result supporting a claim, not an assertion.
 - **Verify** - check delivered behavior against acceptance.
-- **Re-ground** - recheck an aged item against latest `origin/main` before acting.
+- **Re-ground** - recheck an aged item against the project's default branch before acting.
 - **Close out** - after merge: flip the tracker item, clean up worktree/branch.
 
 ## Factory terms

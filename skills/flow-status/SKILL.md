@@ -3,11 +3,11 @@ name: flow-status
 description: Session and git status snapshot. Reads session history and live git state to report what we've been working on, current worktree, branch, commits made this session, uncommitted changes, branch delta against the project's default branch, and 3 next-step options. Use when user types /flow-status or asks "what's our status", "where are we", "what have we done".
 ---
 
-# flow-status — Session Status
+# flow-status - Session Status
 
 When invoked, resolve the base ref and refresh remote state FIRST, then run the git commands below, read the conversation history, then produce the report. All comparisons in the report use `$BASE` (the freshly fetched remote tip), not the local branch of the same name, because the local one may be stale or absent.
 
-## Step 0 — Resolve the base ref and refresh remote state (must run first, and must SUCCEED)
+## Step 0 - Resolve the base ref and refresh remote state (must run first, and must SUCCEED)
 
 `$BASE` is `origin/` followed by the `git.default_branch` key in this project's settings, read as `~/.flow-factory/settings-contract.md` says. Never write a branch name into this skill: in a repository whose default branch is `master` the guessed remote ref does not exist, every comparison below compares against nothing, and the report prints anyway.
 
@@ -27,7 +27,7 @@ stat -f '%Sm  %N' "$(git rev-parse --git-common-dir)/FETCH_HEAD" 2>/dev/null
 
 If the output contains `FETCH_FAILED` (an authentication failure, a network error, a proxy or firewall refusing the connection), **STOP. Do not run Step 1 and do not produce the report.** Every comparison would otherwise silently use a stale cached `$BASE` and mislead: it reports the tip as it was at the last successful fetch, which can be hours or days behind, and nothing in the report says so. Instead report only: the fetch error, the last successful fetch time (the `FETCH_HEAD` mtime above), and tell the user to resolve the fetch failure and re-run `/flow-status`. Continue to Step 1 only after the fetch succeeds.
 
-## Step 1 — Collect git state (run after the fetch completes)
+## Step 1 - Collect git state (run after the fetch completes)
 
 ```bash
 # Set BASE again. Step 0 and Step 1 are separate runs, because the fetch has to be
@@ -90,9 +90,9 @@ git for-each-ref --format='%(refname:short)' refs/heads/ | while read b; do
 done
 ```
 
-## Step 2 — Produce the report
+## Step 2 - Produce the report
 
-Output exactly these 7 sections, in order. Keep each section tight — no padding.
+Output exactly these 7 sections, in order. Keep each section tight, no padding.
 
 ---
 
@@ -100,7 +100,7 @@ Output exactly these 7 sections, in order. Keep each section tight — no paddin
 One paragraph, plain English. Synthesise from the conversation history: what problem, what approach, what outcome so far.
 
 ### 2. Worktree
-`<absolute path>` — note if it is a secondary worktree (not the main clone) or the main repo.
+`<absolute path>`, and note if it is a secondary worktree (not the main clone) or the main repo.
 
 ### 3. Branch
 `<branch name>` and its upstream if it has one (e.g. `feature/foo -> origin/feature/foo`). If the branch is already fully merged into `$BASE` (per the `--is-ancestor` check), append: `(already merged to <the base>, safe to delete)`.
@@ -127,7 +127,7 @@ Then position vs `$BASE`:
 If local branches other than the current one are already merged into `$BASE` (per the per-branch loop in Step 1), list them in a sub-bullet as cleanup candidates. The loop covers every local branch, so say for each whether a worktree has it checked out, reading `git worktree list`: a merged branch with a worktree means a worktree to remove, a merged branch without one means only a branch to delete. Skip if none.
 
 ### 7. What's next
-Offer exactly 3 options, lettered A / B / C. Derive them from the session context — what was in progress, what was blocked, what was mentioned as upcoming. Be specific (file names, feature names), not generic.
+Offer exactly 3 options, lettered A / B / C. Derive them from the session context: what was in progress, what was blocked, what was mentioned as upcoming. Be specific (file names, feature names), not generic.
 
 ---
 

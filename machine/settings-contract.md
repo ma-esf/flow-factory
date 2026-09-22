@@ -78,7 +78,8 @@ Four lines from four skills, as the port map classified them, and the sentence
 each becomes under this rule. Two are substitutions and two are conditionals,
 because a rule that only substitutes passes on most keys and is still wrong.
 
-**`flow-worktree-create:45`, `BASE="origin/main"`** -> Set `BASE` to `origin/`
+**`flow-worktree-create:45`, `BASE` hardcoded to `origin/` plus one branch
+name** -> Set `BASE` to `origin/`
 followed by `git.default_branch`. The same key, used bare, serves the line that
 says a branch is based on the latest default branch.
 
@@ -94,7 +95,8 @@ asks both in order and reads no key here.
 set, write one header line, that field name followed by the value the user
 gives. Unset, the line is not written and the user is not asked for it.
 
-**`flow-grill-with-docs:31`, "the settled term goes in root CONTEXT.md"** ->
+**`flow-grill-with-docs:31`, "the settled term goes in one hardcoded root
+document"** ->
 Write the settled term into the first file in `docs.glossaries`. Check terms
 against every file in the list. Unset, there is no glossary: keep challenging
 the terms, write the outcome nowhere.

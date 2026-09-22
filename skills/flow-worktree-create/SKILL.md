@@ -54,11 +54,12 @@ default, no memory at all.
    carry a type prefix from `branch.prefixes` in this project's settings, read the
    way `~/.flow-factory/settings-contract.md` says. After the prefix comes a
    reader-POV description (the observable effect, not the files touched), with a
-   ticket id if there is one — e.g. `feat/feedback-record-status`,
+   ticket id if there is one, e.g. `feat/feedback-record-status`,
    `fix/dropped-income-rows`. This matches the repo's existing branches; if unsure,
    run `git branch -r` and follow the pattern there. A bare, prefixless name is
-   wrong — add the prefix before creating. The worktree directory name is the
-   branch's last path segment.
+   wrong: add the prefix before creating. The worktree directory name is the
+   whole branch with every `/` turned into `-`, so `feat/foo` and `fix/foo` get
+   different directories.
 
 2. **Create and link.** Fill in the first two lines before running any of it:
    an unsubstituted `BASE` assigns without error and only fails three lines
@@ -70,7 +71,7 @@ default, no memory at all.
                                          #    this project's settings, unless the
                                          #    user named a base
    MAIN="$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')"
-   NAME="${BRANCH##*/}"
+   NAME="${BRANCH//\//-}"
    WT="$MAIN/.claude/worktrees/$NAME"
 
    git -C "$MAIN" fetch origin -p

@@ -80,7 +80,7 @@ entirely and summarize the whole history instead (`git log --oneline`). Do not r
 `git describe --tags --abbrev=0` to find out: with no tags it exits 128 with
 `fatal: No names found, cannot describe anything.` and prints nothing on stdout.
 Substituting that empty result into a range gives `..HEAD`, which git reads as
-`HEAD..HEAD`, exits 0 and prints nothing — a confident, wrong "no changes" for a
+`HEAD..HEAD`, exits 0 and prints nothing: a confident, wrong "no changes" for a
 release that contains the entire project.
 
 ## Show what changed since the last release
@@ -121,10 +121,10 @@ confirm it.
 Nothing checks that the prose agrees with the tags, so every file that names the
 current release goes stale the moment one is cut. Check all three:
 
-- `docs/roadmap.md` — the heading saying what the current release gives you
+- `docs/roadmap.md`, the heading saying what the current release gives you
   today, and anything under the deferred list this release actually shipped
-- `docs/glossary.md` — if it names the current release by number
-- `docs/skills.md` — the skill count and the list, if this release changed either
+- `docs/glossary.md`, if it names the current release by number
+- `docs/skills.md`, the skill count and the list, if this release changed either
 
 Stage by explicit filename and commit naming the same paths. The checkout is
 shared and so is the index, so a bare `git commit` writes whatever another session
@@ -139,7 +139,7 @@ git commit -m "<subject>" -- docs/roadmap.md <other paths>
 ```
 
 Show the diff and the exact commit message, and get an explicit go before
-committing. **Write no attribution in it** — no `Co-Authored-By`, no mention of
+committing. **Write no attribution in it**: no `Co-Authored-By`, no mention of
 the agent, the vendor or the tool, whatever the harness adds by default. That is
 stated here rather than pointed at on purpose: the factory's own instruction file
 is not in the published repository, so a maintainer working from a fresh clone has
@@ -168,7 +168,7 @@ because after the next heading it is not.
 
 Both, in that order, and the branch is not optional. A tag pushed alone still
 uploads its commit, so every object is present on the remote and nothing appears
-to be wrong — but no branch reaches that commit, so a fresh clone stands on a
+to be wrong, but no branch reaches that commit, so a fresh clone stands on a
 default branch that predates it and describes as the *previous* release. Every
 install made from that clone stamps the wrong version into a customer's
 `.flow/README.md`, silently. This is the failure the first heading describes,

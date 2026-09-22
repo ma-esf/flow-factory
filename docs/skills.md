@@ -39,11 +39,13 @@ Several skills are useful in more than one stage. Each is listed once.
 ## Deliver
 
 - `/flow-ship-issue` - ship a ready ticket end to end: implement, verify,
-  review, prepare the pull request, close out
+  review, prepare the pull request, close out. Its review stage depends on
+  `/code-review`, Claude Code's built-in review skill, which the factory does
+  not ship
 - `/flow-worktree-create` - create the worktree and branch for a piece of
   work, and mirror your agent context into it
-- `/flow-tdd` - build through a failing test, then the implementation, then
-  the refactor
+- `/flow-tdd` - build through a failing test and the smallest implementation
+  that passes it; refactoring waits for review
 - `/flow-comments-review` - review the comments and docstrings beside changed
   code, and cut the ones that do not earn their place
 - `/flow-pr-summary` - summarize the branch diff for a reviewer who will not
