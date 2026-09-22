@@ -54,8 +54,10 @@ Every line a skill may write in the header, in the order they appear. A skill
 that writes one of them points here instead of describing its own line's
 position, so the positions cannot drift apart.
 
-1. `Status:`. Required. Written by the skills that claim, promote and close:
-   `/flow-triage`, `/flow-to-tickets`, `/flow-ship-issue` and `/flow-close-out`.
+1. `Status:`. Required. Written at `needs-triage` by the capture writers
+   `/flow-park` and `/flow-research`, and by the skills that claim, promote
+   and close: `/flow-triage`, `/flow-to-tickets`, `/flow-ship-issue` and
+   `/flow-close-out`.
 2. `Session: <id>`, directly after `Status:`. Transient. `/flow-triage` and
    `/flow-ship-issue` write it when they claim, holding
    `$CLAUDE_CODE_SESSION_ID`, and remove it when the status leaves the value
@@ -126,7 +128,9 @@ each ending `at <in-review | merged to the default branch>`. A blocker at `done`
 or `wontfix` always satisfies its line. A blocker at `in-review` satisfies it
 only when the line asked for `in-review`: that ticket's branch is then the
 branch base, which is stacking, and `/flow-ship-issue` names it to
-`/flow-worktree-create`. Any other status leaves the dependency outstanding.
+`/flow-worktree-create`. Once the blocker is `done` its branch is deleted, so a
+`Branch base:` naming it means the default branch. Any other status leaves the
+dependency outstanding.
 
 This is the one statement of the rule. `/flow-triage` promotes a `blocked`
 ticket by it, `/flow-conductor` lists one by it, and the ticket template points
