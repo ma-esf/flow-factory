@@ -121,6 +121,8 @@ Close with a numbered choice the user can pick or type, never a yes/no question:
 
 Copying replaces what the user was holding, so it stays their call. On 1, run `pbcopy < /tmp/pr-body-<name>.md`, confirm with `pbpaste | wc -c`, and report the count. On 2, rewrite, print, and offer the same choice again.
 
+Offer option 1 only when `command -v pbcopy` succeeds. `pbcopy` is macOS only, and it copies text the user already has: the summary is printed above and the file path is named. Where there is no clipboard, drop the option rather than running a command that is not there.
+
 Who opens the pull request is `pr.create_mode` in this project's settings. Under
 `manual` the user opens it and this skill never runs a command that creates one.
 Under `gh` it may run `gh pr create` after an explicit approval. Either way the

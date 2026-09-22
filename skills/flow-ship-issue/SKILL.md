@@ -255,7 +255,9 @@ request through it.
 Lead the options with the copy step: option 1 offers to copy the body file
 `/flow-pr-summary` wrote to the clipboard, ready to paste as the description.
 Run `pbcopy < <body file>` (confirm with `pbpaste | wc -c`) only when the user
-selects it, never before.
+selects it, never before, and offer the option only when `command -v pbcopy`
+succeeds. `pbcopy` is macOS only and copies a file the user can already open,
+so where there is none, lead with the body file's path instead.
 
 The tracker flip happens as soon as a pull request exists, without asking, the
 same way Stage 0 claims without asking: set `Status: in-review`, remove the
