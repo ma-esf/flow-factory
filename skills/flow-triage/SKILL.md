@@ -1,6 +1,6 @@
 ---
 name: flow-triage
-description: Triage a tracker item: verify its claim, then promote it into a buildable ticket, ask for what is missing, or close it with the reason kept. Use when a file reads needs-triage, when the user asks what needs triage or names an item to triage, or invokes /flow-triage. For cutting new tickets from a spec use /flow-to-tickets; for building an already-ready ticket use /flow-ship-issue.
+description: "Triage a tracker item: verify its claim, then promote it into a buildable ticket, ask for what is missing, or close it with the reason kept. Use when a file reads needs-triage or blocked, when the user asks what needs triage or names an item to triage, or invokes /flow-triage. For cutting new tickets from a spec use /flow-to-tickets; for building an already-ready ticket use /flow-ship-issue."
 ---
 
 # flow-triage: promote a captured item into a buildable ticket
@@ -32,8 +32,8 @@ not, stop as `~/.flow-factory/settings-contract.md` says.
 - `~/.flow-factory/tracker-contract.md` owns the statuses, the headings, the
   three file shapes and how to tell them apart.
 
-Read both. Do not restate either one here or in your own notes. Seven of the
-contract's ten statuses are yours to write, so a restatement that drifts is a
+Read both. Do not restate either one here or in your own notes. Eight of the
+contract's eleven statuses are yours to write, so a restatement that drifts is a
 skill writing statuses no other skill matches.
 
 Project settings are read per `~/.flow-factory/settings-contract.md`. That file
@@ -44,6 +44,11 @@ No key's rule is repeated here.
 
 `needs-triage` is the queue. From there an item leaves for `needs-info`,
 `ready-for-agent`, `ready-for-human`, or `wontfix`.
+
+`blocked` is a fully specified ticket waiting on a ticket named under
+`## Depends on`. It is not the queue: nothing about it needs evaluating, and
+the only question is whether its blockers have landed. Step 0 answers that and
+promotes it, or puts `blocked` back.
 
 `backlog` also arrives here, because `/flow-ship-issue` refuses to build one. It
 means the user parked the work on purpose, so it is not a rejection and not a
@@ -80,12 +85,14 @@ start at Step 0. Three branches:
 
 ## The queue view
 
-Two buckets, oldest first:
+Three buckets, oldest first:
 
 1. **`needs-triage`** -> in the queue.
 2. **`needs-info`** -> show each one's open question and who owes the answer, so
    the user can answer it here and now. A local tracker has no reporter-activity
    signal to wait for, so the queue view is the exit.
+3. **`blocked`** -> show the blocker each one waits on and that blocker's
+   current status, so the user sees what is stuck and on what.
 
 Counts, then one line each. Let the user pick.
 
@@ -107,29 +114,32 @@ recommendation. Never report a verdict the check did not produce.
 
 ## Step 0: promote, or evaluate?
 
-**Claim it first.** Flip `Status:` to `in-triage`, no ask. On the next line write
-`Session:` followed by the value of `$CLAUDE_CODE_SESSION_ID` (run
+**Claim it first.** Flip `Status:` to `in-triage`, no ask. Write the `Session:`
+line where "Header lines" in `~/.flow-factory/tracker-contract.md` puts it,
+holding the value of `$CLAUDE_CODE_SESSION_ID` (run
 `echo $CLAUDE_CODE_SESSION_ID` to get it). That is your first write, before the
 re-ground and before any exploration.
 
-`Session:` is a header line the ticket template does not carry, the same shape as
-the epic line `/flow-park` writes. It is transient: the line is removed whenever
-the status leaves the one the skill claimed with, so a file at rest carries none.
-`/flow-ship-issue` claims with `in-progress` and removes the line at the flip to
-`in-review`, for the same reason. The `Status:` line is what stops
-`/flow-conductor` dispatching the same file twice; the `Session:` line records
-which session holds the claim, so `/flow-conductor` can tell an abandoned run
-from a live one. Every exit below flips `Status:` again and removes the
-`Session:` line, so the claim clears itself. The one exception is the
-outstanding-blocker stop just below, which puts `needs-triage` back and removes
-the `Session:` line.
+`Session:` is transient: the line is removed whenever the status leaves the one
+the skill claimed with, so a file at rest carries none. `/flow-ship-issue`
+claims with `in-progress` and removes the line at the flip to `in-review`, for
+the same reason. The `Status:` line is what stops `/flow-conductor` dispatching
+the same file twice; the `Session:` line records which session holds the claim,
+so a person inspecting a stuck `in-triage` file can tell an abandoned run from a
+live one. `/flow-conductor` does not read it. Every exit below flips `Status:`
+again and removes the `Session:` line, so the claim clears itself. The one
+exception is the outstanding-blocker stop just below, which puts `blocked` back
+and removes the `Session:` line.
 
-Use the contract to tell what arrived. A file carrying `## Acceptance` is already
-a ticket. A ticket that also carries a `Slice <X.Y> of PRD.md` provenance line
-was cut from a spec by `/flow-to-tickets`, whose quiz was the specification gate,
-so that file is waiting on its blockers rather than on a judgment:
+Use the contract to tell what arrived. A file that arrived as `blocked` is
+waiting on its blockers rather than on a judgment. So is a spec-cut ticket at
+`needs-triage`, written before `blocked` existed: a file carrying
+`## Acceptance` is already a ticket, and one that also carries a
+`Slice <X.Y> of PRD.md` provenance line was cut from a spec by
+`/flow-to-tickets`, whose quiz was the specification gate. Either way:
 
-- Every named blocker reads `done` or `wontfix` -> **promote it**, after a
+- Every named blocker is satisfied, by the rule under "When a dependency is
+  satisfied" in `~/.flow-factory/tracker-contract.md` -> **promote it**, after a
   re-ground. Run `/flow-reground`, because a file that waited on blockers was
   specified against a codebase that has since changed, and its mechanism is stale
   by default. Then split what you found the way `/flow-ship-issue` Stage 0 does:
@@ -143,8 +153,9 @@ so that file is waiting on its blockers rather than on a judgment:
   Also fill any section of `~/.flow-factory/templates/ticket.md` the file is
   missing. Then flip `Status:` to `ready-for-agent`, append the promote entry
   under `## Comments` as Step 5 describes, and stop.
-- A blocker is outstanding -> name which one, put `Status:` back to
-  `needs-triage`, and stop.
+- A blocker is outstanding -> name which one, put `Status:` to `blocked`, and
+  stop. `blocked`, not `needs-triage`: the file needs no evaluation, and putting
+  it in the queue would send the next triage back through this same check.
 
 Anything else is a real triage. Continue.
 
@@ -372,8 +383,7 @@ reopen the item does not have to go and find the file.
 
 `<the path of the file you just wrote>` -> `<its new status>`
 
-Then stop. No "next", no dispatch suggestion, no offer of follow-on work. This
-overrides the global rule about ending a turn by pointing at what comes next.
+Then stop. No "next", no dispatch suggestion, no offer of follow-on work.
 Triage ends here; the user picks the next move.
 
 ## Resuming

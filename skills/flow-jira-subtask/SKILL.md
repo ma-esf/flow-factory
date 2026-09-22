@@ -1,14 +1,14 @@
 ---
 name: flow-jira-subtask
-description: Turn a local tracker issue that just shipped, or a feature folder's already-done issues, into paste-ready Jira sub-tasks — an action-verb title, an Implement bullet, verifiable Done when bullets, and a GitHub link. Use right after a PR merges, when closing out a feature at a sprint boundary, or whenever the user says "add this to Jira," "list these as sub-tasks," "turn these into Jira items," or invokes /flow-jira-subtask.
+description: Turn a local tracker issue that just shipped, or a feature folder's already-done issues, into paste-ready Jira sub-tasks (an action-verb title, an Implement bullet, verifiable Done when bullets, and a GitHub link). Use right after a PR merges, when closing out a feature at a sprint boundary, or whenever the user says "add this to Jira," "list these as sub-tasks," "turn these into Jira items," or invokes /flow-jira-subtask.
 ---
 
 # flow-jira-subtask
 
 Local work (issue files, PRs, GitHub issues) never reaches Jira on its own. This
 skill is the one-way bridge: read what already shipped, write Jira-ready text. It
-never touches Jira itself — there is no API access — so the output is always a
-block the user copies by hand.
+never touches Jira itself, because there is no API access, so the output is
+always a block the user copies by hand.
 
 Check first that this project has a `flow-factory.toml` at its root. If it does
 not, stop as `~/.flow-factory/settings-contract.md` says.
@@ -30,7 +30,7 @@ post-merge sequence.
 1. Resolve the issue file: the one just shipped, from session context, or ask
    for the feature and number.
 2. If its `Status:` line isn't `done` (`~/.flow-factory/tracker-contract.md` pins
-   that value, lowercase), ask before continuing — this skill reports
+   that value, lowercase), ask before continuing: this skill reports
    finished work, it doesn't decide when something is finished.
 3. If it already carries a `Jira:` marker (see below), say so and ask whether to
    regenerate anyway before doing it again.
@@ -44,8 +44,8 @@ post-merge sequence.
 
 ## Mode: batch
 
-Use when closing out a feature folder at a sprint boundary — a group of
-already-done issues that need to become sub-tasks together.
+Use when closing out a feature folder at a sprint boundary, when a group of
+already-done issues need to become sub-tasks together.
 
 1. Resolve the feature slug (from context, or ask).
 2. Scan `.flow/issues/<feature>/*.md` (skip `PRD.md`) for `Status: done`
@@ -96,7 +96,7 @@ detail for whoever wants it.
   Ten words or fewer.
 - **Implement** is one bullet on what the work changed or delivered, in
   ASD-STE100 Simplified Technical English: short words, one idea, active voice.
-  Draw it from the file's Goal, not its Problem section — the problem is why the
+  Draw it from the file's Goal, not its Problem section: the problem is why the
   work existed, not what shipped. Two bullets only when the slice genuinely
   delivered two separable things.
 - **Done when** is one bullet per condition a reader can check without opening
@@ -117,10 +117,10 @@ One blank line between blocks.
 
 ## The `Jira:` marker
 
-A one-line marker, added right after the `Status:` line: `Jira: reported
-<YYYY-MM-DD>`. Its only job is to stop batch mode re-listing something already
-copied into Jira. Without it, every batch run would repeat every prior run's
-output.
+A one-line marker, `Jira: reported <YYYY-MM-DD>`, at the position "Header
+lines" in `~/.flow-factory/tracker-contract.md` gives it. Its only job is to
+stop batch mode re-listing something already copied into Jira. Without it,
+every batch run would repeat every prior run's output.
 
 ## Hard rules
 

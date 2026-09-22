@@ -1,6 +1,6 @@
 # <reader-facing title, no NN prefix>
 
-Status: <ready-for-agent, or needs-triage when something blocks it>
+Status: <ready-for-agent; blocked when a ticket under ## Depends on has not landed; needs-triage when something else is unresolved>
 Created: <YYYY-MM-DD>
 Slice <X.Y> of PRD.md. <Qualifier when one applies: "Docs only, no code." / "Promote to ready-for-agent once step 2 merges." / "May end up near-empty; that is an acceptable outcome."> <Omit this line entirely on a ticket written straight into the tracker.>
 
@@ -37,7 +37,7 @@ Each exclusion names its owner: another slice, another feature, or a decision id
 
 ## Depends on
 
-<Ticket>, at <in-review | merged to the default branch>. <Why the dependency is real.>
+<Ticket>, at <in-review | merged to the default branch>. <Why the dependency is real. Ask for in-review only when this ticket stacks on that one's branch; "When a dependency is satisfied" in tracker-contract.md says when each form is met, and is not restated here.>
 Branch base: <off the default branch | off ticket N's branch>.
 Check before starting: <one command, and the output that means you are on the right base>.
 

@@ -48,9 +48,33 @@ never meet a file without the section.
 `PRD.md` is the one exception to the header: a spec is not work, so it carries
 no `Status:` line, and skills that list work skip it by filename.
 
+## Header lines
+
+Every line a skill may write in the header, in the order they appear. A skill
+that writes one of them points here instead of describing its own line's
+position, so the positions cannot drift apart.
+
+1. `Status:`. Required. Written by the skills that claim, promote and close:
+   `/flow-triage`, `/flow-to-tickets`, `/flow-ship-issue` and `/flow-close-out`.
+2. `Session: <id>`, directly after `Status:`. Transient. `/flow-triage` and
+   `/flow-ship-issue` write it when they claim, holding
+   `$CLAUDE_CODE_SESSION_ID`, and remove it when the status leaves the value
+   they claimed with, so a file at rest never carries it. `/flow-conductor` does
+   not read it: it is for a person inspecting a stuck `in-progress` or
+   `in-triage` file, who can then tell an abandoned run from a live one.
+3. `Jira: reported <YYYY-MM-DD>`, directly after `Status:`. Written by
+   `/flow-jira-subtask` on a `done` file, so it never coexists with `Session:`.
+4. `Created:`. Required.
+5. `Slice <X.Y> of PRD.md`, directly after `Created:`. Only on a ticket cut
+   from a spec, written by `/flow-to-tickets`. A qualifier may follow it on the
+   same line, as the ticket template shows.
+6. `<tracker.epic_field>: <value>`, after that. Only when the key is set,
+   written by `/flow-park` and carried through a promote.
+
 ## The three shapes
 
-**Capture.** Written by `/flow-park`, read by `/flow-triage`. Sections:
+**Capture.** Written by `/flow-park` and `/flow-research`, read by
+`/flow-triage`. Sections:
 `## What was observed`, `## Why it matters`, `## Comments`. No goal and no
 acceptance: a capture records something seen, not something decided.
 
@@ -87,12 +111,26 @@ cut from a spec, has none.
 | `needs-info` | Waiting on an answer. The file names the question and who owes it. |
 | `ready-for-agent` | Fully specified, ready for an unattended agent. |
 | `ready-for-human` | Needs a judgment call, external access, or manual testing. |
+| `blocked` | Fully specified, waiting on a ticket named under `## Depends on`. Not the triage queue: `/flow-triage` promotes it once those land. |
 | `wontfix` | Will not be actioned. The file keeps the argued reason. |
 | `backlog` | Deliberately not worked yet. Not a rejection, not in the queue. |
 | `in-triage` | A session has claimed this to triage it. Transient. |
 | `in-progress` | A session has claimed this to build it. |
 | `in-review` | Open for review, waiting on review or merge. |
 | `done` | Finished. See below. |
+
+## When a dependency is satisfied
+
+A ticket names what it waits on under `## Depends on`, one line per blocker,
+each ending `at <in-review | merged to the default branch>`. A blocker at `done`
+or `wontfix` always satisfies its line. A blocker at `in-review` satisfies it
+only when the line asked for `in-review`: that ticket's branch is then the
+branch base, which is stacking, and `/flow-worktree-create` takes the base by
+name. Any other status leaves the dependency outstanding.
+
+This is the one statement of the rule. `/flow-triage` promotes a `blocked`
+ticket by it, `/flow-conductor` lists one by it, and the ticket template points
+at it. None of them restates it.
 
 ## One spelling per heading
 
