@@ -106,11 +106,14 @@ happened, and Stage 3 rests on the same key.
 When `test.guide_path` is set, read that file before the handoff. It decides test
 type, placement, markers, and test data, which `/flow-tdd` is generic about and
 cannot know for this project. When `source.backend_dir` is set, the guide governs
-work under that directory.
+work under that directory: the one the project's test rules govern, which is the
+backend of a web application, the pipelines or models directory of a data
+project, or the service beside the prompts and evals of an AI project.
 
 Print the implementation approach and test seams in one short clause, then
-invoke `/flow-tdd` immediately. Run targeted tests and typechecks while building
-and the full suite once at the end, all through `test.command`.
+invoke `/flow-tdd` immediately. Run targeted tests while building, with whatever
+else `test.command` runs, and the full suite once at the end, all through
+`test.command`.
 
 Stop only for an ambiguous requirement, unexpected architecture seam, scope
 expansion, or failure. Otherwise continue directly to verification.
@@ -167,8 +170,9 @@ a stop or a handoff, and the run is not verified.
    than reviewing from memory. Give it an explicit effort:
    - `low` for an ordinary diff.
    - `high` for test-only changes, correctness-critical calculation, parsing of
-     documents from outside the project, or a change crossing two parts of the
-     stack.
+     documents from outside the project, a change crossing two parts of the
+     stack, a SQL transformation feeding a report, a migration, a prompt
+     change, or a change to an eval set.
    Never drop a returned finding because today's data masks it. A statement that
    the input which would trigger the defect never occurs describes the present,
    and a defect that only fires on a future input is still a defect. Test it
@@ -182,16 +186,19 @@ a stop or a handoff, and the run is not verified.
    fix writes and rewords comments, and it changes which code the diff touches,
    so a comment pass before it judges text that is about to move.
 5. Confirm the diff covers what it changed. When it changes a non-test source
-   file, confirm it also adds or changes a test. A fix for a reported defect
-   needs the test that reproduces it. If the diff has neither, name the untested
-   change and ask before committing.
+   file, confirm it also adds or changes a test. A test is whatever the guide at
+   `test.guide_path` calls one: in a data project that may be a schema test in
+   YAML or a data-quality assertion, and in an AI project a case added to an
+   eval set. When that key is unset, a test is a file `test.command` runs. A
+   fix for a reported defect needs the test that reproduces it. If the diff has
+   neither, name the untested change and ask before committing.
    The gate is about source files. A diff that changes only documentation,
    configuration or generated files, or a ticket whose provenance line says
    docs only, has no test to add: say so in the stage line and continue.
    When `source.backend_dir` is set, this gate applies to changes under that
-   directory. Unset, the project is one tree and the gate applies to every
-   non-test file the diff changes. When `test.dir` is set, a new test file lands
-   there.
+   directory, the one Stage 2 describes. Unset, the project is one tree and the
+   gate applies to every non-test file the diff changes. When `test.dir` is set,
+   a new test file lands there.
 6. Commit after both reviews are clean. Tool attribution follows
    `~/.flow-factory/attribution-rule.md`; that rule governs this write point and
    is not restated here. The message is the subject line alone, with no body: the

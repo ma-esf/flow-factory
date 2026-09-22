@@ -29,6 +29,14 @@ Use these terms exactly; do not substitute "component," "service," "API," or "bo
 
 **Locality**: what maintainers get from depth: change, bugs, knowledge, and verification concentrate in one place rather than spreading across callers. Fix once, fixed everywhere.
 
+## The same words in three stacks
+
+The vocabulary carries no stack. One line each, so nobody translates alone:
+
+- **Software.** A module is a function, class or package. The seam is its call signature plus everything a caller must know. Adapters are a Postgres repository and an in-memory fake.
+- **Data.** A module is a dbt model, a pipeline stage or a DAG. The seam is the output table's contract: columns, types, grain, freshness. Adapters are the warehouse and a local engine over fixture tables. Depth is how much transformation sits behind one well-named table.
+- **AI.** A module is a retrieval step, a prompt-plus-model call or an eval. The seam is the interface the rest of the system calls (`retrieve(query) -> passages`, `answer(question, passages) -> answer`), never the model API itself. Adapters are the live model and a fake that returns a recorded or fixed reply. Depth is how much prompt construction, parsing and fallback sits behind that one call.
+
 ## Deep vs shallow
 
 **Deep module** = small interface + lots of implementation:
@@ -82,6 +90,15 @@ Good interfaces make testing natural:
    }
    ```
 
+   ```python
+   # Testable
+   def answer(question, passages, model): ...
+
+   # Hard to test
+   def answer(question, passages):
+       model = ModelClient(os.environ["MODEL_API_KEY"])
+   ```
+
 2. **Return results, don't produce side effects.**
 
    ```typescript
@@ -92,6 +109,15 @@ Good interfaces make testing natural:
    function applyDiscount(cart): void {
      cart.total -= discount;
    }
+   ```
+
+   ```python
+   # Testable
+   def daily_totals(orders: Table) -> Table: ...
+
+   # Hard to test
+   def build_daily_totals(engine) -> None:
+       engine.execute("insert into daily_totals select ...")
    ```
 
 3. **Small surface area.** Fewer methods = fewer tests needed. Fewer params = simpler test setup.

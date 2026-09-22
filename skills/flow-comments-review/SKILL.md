@@ -93,6 +93,10 @@ while the code under it changed. Set B holds the highest-value findings, because
 comment nobody edited is a comment nobody re-read.
 
 Docstrings, block comments, trailing comments, and YAML or JSX comments all count.
+So do SQL comments, Jinja comments in a dbt model, the `description:` fields in a dbt
+`schema.yml`, a markdown cell in a notebook, and a comment inside a prompt template.
+That list is examples of one class, prose beside code that a reader trusts, not the
+set: anything of that class the diff touched is in scope.
 
 ## Step 2 - Judge Set A
 

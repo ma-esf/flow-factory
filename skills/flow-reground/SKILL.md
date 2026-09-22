@@ -76,7 +76,9 @@ Read the artifact and list every element that can be re-grounded. Don't assume
 density: a `/flow-park` capture is anchor-rich, a PRD deliberately has almost none.
 Check whatever is present:
 
-- **Anchors** - `file:line`, paths, symbols, referenced commits / PRs / `#N`.
+- **Anchors** - `file:line`, paths, symbols, referenced commits / PRs / `#N`; in
+  data or model work, table and column names, dbt model names, DAG or task ids,
+  prompt names, model versions and eval datasets.
 - **Decision refs** - the ADRs, and the documents in `project.decision_docs`, that
   the artifact leans on.
 - **Claimed behavior** - what the artifact says should be built (for the
@@ -123,6 +125,10 @@ For each element, resolve it against `$BASE` and sort it into one of three bucke
   - the behavior is **already built** (search by domain concept, not wording);
   - an **acceptance criterion is now invalid**;
   - **scope or premise has moved**;
+  - an **upstream table or column is gone**, dropped or renamed away, so the data
+    the ticket relies on no longer exists (a rename alone is mechanical);
+  - a **model version is deprecated**;
+  - an **eval set's baseline moved**;
   - an **ADR reversed** a decision the artifact depends on.
 - **Never-true claim** - the reasoning was wrong when written, so nothing drifted and
   every check above passes. Test the claims the scope rests on, not just the

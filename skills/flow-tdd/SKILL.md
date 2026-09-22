@@ -39,3 +39,13 @@ When the shape of that interface is itself in question (how deep the module is, 
 - **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
 - **One slice at a time.** One seam, one test, one minimal implementation per cycle.
 - **Refactoring is not part of the loop.** It belongs to the review stage (see the `code-review` skill), not the red -> green implementation cycle.
+
+## Red and green in other stacks
+
+Two kinds of behaviour change what red and green look like without changing the loop.
+
+When the behaviour under test is a transformation over data, the seam is the output table for a given input table. The fixture is a small input table, the expected value is the rows that should come out, and red is a failing assertion over those rows, usually against a local engine standing in for the warehouse. A test that queries an intermediate table the model does not promise is the side-channel anti-pattern above, with SQL in place of a database call.
+
+When the behaviour under test is non-deterministic, as a model call is, one exact string is not an expected value. Assert a property of the output, a threshold, or a score over a labelled set; run the case enough times to trust the rate; and fix the seed or the temperature wherever the interface allows it. Red is then a score below the threshold and green is clearing it, not matching one sample. Where the model sits behind a seam, test what the module does with the model's reply by replacing the model with a fake that returns a fixed one, and keep the real model for the scored set.
+
+Everything else in this file holds unchanged: the seam is still agreed first, the expected value still comes from an independent source, and a threshold lowered until the test passes is the tautological test in a new coat. [tests.md](tests.md) shows both shapes.

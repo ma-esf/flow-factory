@@ -169,8 +169,11 @@ question. Three checks against the codebase:
 
 - **Redundancy.** Search these angles, and name in the verdict which ones you
   ran, the terms you searched per angle, and their hits:
-  - **Code symbols.** The domain term as the code spells it.
-  - **Test names.** The same concept as a test would name it.
+  - **Code symbols.** The domain term as the code spells it: a function or
+    class, a table or column name, a dbt model name, a DAG or task id, a prompt
+    name, an eval case id.
+  - **Test names.** The same concept as a test would name it, a schema test or
+    an eval case included.
   - **The user-facing label**, only when `docs.glossaries` is set. Translate the
     domain term through the first file in that list, then search user-facing
     strings and routes for that other name. Unset, this angle does not run: with
@@ -195,8 +198,12 @@ a triage does not re-open a decision either one already made.
 
 Before any recommendation, check the claim holds. Reproduce the bug from what the
 file describes, wherever it describes it: read for the claim rather than for a
-heading. Report one of three: confirmed, with the code path; failed; or too thin
-to test, which is a strong `needs-info` signal.
+heading. A claim about data is reproduced with a query. A claim about a model's
+output is reproduced by running the input several times and reporting how often
+the wrong output appears, because one run settles nothing when the output is
+non-deterministic. Report one of three: confirmed, with the code path, the
+query, or the rate; failed; or too thin to test, which is a strong `needs-info`
+signal.
 
 A confirmed claim makes a much stronger ticket, because the acceptance criteria
 can then name a real observed value.
@@ -226,8 +233,10 @@ one name and hold it through the whole brief. Separate the items with blank
 lines.
 
 - **Where:** the place and moment the user meets it: which screen, during what
-  action. For a change with no user-facing surface, the component it belongs to:
-  which stage or service, in plain words. File paths belong in Scope, not here.
+  action; for a data item, which table or report; for an AI item, which prompt
+  or which answer. For a change with no user-facing surface, the component it
+  belongs to: which stage or service, in plain words. File paths belong in
+  Scope, not here.
 - **What:** the behaviour change itself, one plain sentence. Not its location:
   "stop showing a false reason", not "fixes on the confirm page".
 - **Why:** what it costs today, and who hits it.
@@ -278,8 +287,8 @@ Rewrite the file into the ticket shape:
 **The test command.** For a ticket that changes code:
 
 - When `source.backend_dir` is set, these rules apply to the part of the work
-  under that directory. Unset, the project is one tree and they apply to the
-  whole ticket.
+  under that directory, the one the project's test rules govern. Unset, the
+  project is one tree and they apply to the whole ticket.
 - When `test.guide_path` is set, name that guide in `## Scope` and say the
   builder takes the test type and the folder from it. Unset, write no guide
   sentence and name no path.
@@ -290,9 +299,10 @@ Rewrite the file into the ticket shape:
   the triage: the reason a guessed command is forbidden is that it reports a pass
   for a run that never happened, and a command named as missing cannot do that.
 
-Never put the command in `## Acceptance`. The guide picks the lowest test type
-that exposes the failure, which is a build-time call. A command pinned as an
-acceptance criterion would fail a builder who correctly chose a lower type.
+Never put the command in `## Acceptance`. The guide names the test type, or the
+kind of check, that exposes the failure, which is a build-time call. A command
+pinned as an acceptance criterion would fail a builder who correctly chose
+another kind.
 
 Then flip `Status:`.
 

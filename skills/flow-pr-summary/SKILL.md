@@ -52,8 +52,8 @@ If the diff is large, save it to a unique temp file (`mktemp /tmp/pr-diff.XXXXXX
 Skim it with three questions in mind:
 
 - **What does this do, and why?** Name the actual mechanism (library, function, endpoint, schema field) so you have it exact; step 3 decides how much of it the reader needs by name. For a pure refactor or infra change, "why" often matters more than "what": what was wrong with the old way, what broke because of it, what specifically was checked to confirm the new way is equivalent.
-- **How would I check it works?** A concrete command or smoke test the reviewer can run without extra setup.
-- **What needs the reviewer's eyes specifically?** Removals, replaced behavior, schema or API changes, new or dropped dependencies, anything that would surprise them.
+- **How would I check it works?** A concrete command or smoke test the reviewer can run without extra setup. The check is a command in every stack: a test, a query with the rows it should return, or an eval command with the score it should clear.
+- **What needs the reviewer's eyes specifically?** Removals, replaced behavior, schema or API changes, new or dropped dependencies, a migration that needs a backfill, a prompt or model-version change, a change to the eval set that moves the baseline, a data contract change downstream consumers see, anything that would surprise them.
 
 ### 3. Write the summary
 
@@ -95,7 +95,7 @@ Max 30 words. One or two steps, each a real command with its exact expected resu
 
 ## Needs your attention
 
-Max 40 words. Only what needs a conscious sign-off: removed behavior, new or dropped dependencies, schema or API changes, anything destructive, behavior changes in shared code paths. State each as the product-visible change the reviewer approves, not the code that carries it ("a total now rounds the same way as the rows it sums", not "routed through one shared rounding helper"); a sentence built only from function, file, and variable names belongs in the diff. One sentence per item, written as a plain sentence, never a bullet with a bolded lead-in.
+Max 40 words. Only what needs a conscious sign-off: removed behavior, new or dropped dependencies, schema or API changes, a migration that needs a backfill, a prompt or model-version change, a change to the eval set that moves the baseline, a data contract change downstream consumers see, anything destructive, behavior changes in shared code paths. State each as the product-visible change the reviewer approves, not the code that carries it ("a total now rounds the same way as the rows it sums", not "routed through one shared rounding helper"); a sentence built only from function, file, and variable names belongs in the diff. One sentence per item, written as a plain sentence, never a bullet with a bolded lead-in.
 
 ## Known limitations
 

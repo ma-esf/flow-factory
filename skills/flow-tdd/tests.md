@@ -75,3 +75,57 @@ test("calculateTotal sums line items", () => {
   expect(calculateTotal([{ price: 10 }, { price: 5 }])).toBe(15);
 });
 ```
+
+## The same rules over a table
+
+The seam is the model's output table for a known input table. The expected rows are literals, not a recomputation.
+
+```python
+# GOOD: known input table in, literal output rows out
+def test_daily_totals_sum_each_day_once(engine):
+    load(engine, "orders", [
+        {"order_id": 1, "day": "2026-01-01", "amount": 10},
+        {"order_id": 2, "day": "2026-01-01", "amount": 5},
+        {"order_id": 3, "day": "2026-01-02", "amount": 7},
+    ])
+    assert run_model(engine, "daily_totals") == [
+        {"day": "2026-01-01", "total": 15},
+        {"day": "2026-01-02", "total": 7},
+    ]
+```
+
+```python
+# BAD: recomputes the expected value from the same input, so it passes by construction
+def test_daily_totals(engine):
+    orders = load(engine, "orders", fixture_orders)
+    expected = sum(o["amount"] for o in orders if o["day"] == "2026-01-01")
+    assert run_model(engine, "daily_totals")[0]["total"] == expected
+
+# BAD: verifies through an intermediate table the model does not promise
+def test_daily_totals_reads_staging(engine):
+    run_model(engine, "daily_totals")
+    assert engine.execute("select count(*) from stg_orders").scalar() == 3
+```
+
+## The same rules at a model boundary
+
+The seam is the module's interface, not the model API. Behind a fake model, assert what the module does with the reply. Against the real model, assert a score over a set, never one string.
+
+```python
+# GOOD: the model is replaced, the module's own behaviour is what is asserted
+def test_answer_drops_a_citation_to_a_passage_it_was_not_given(fake_model):
+    fake_model.reply("The limit is 10 per day [2][7].")
+    answer = answer_question("what is the limit?", passages=two_passages, model=fake_model)
+    assert answer.citations == {2}
+
+# GOOD: against the real model, a threshold over a labelled set
+def test_answers_clear_the_faithfulness_baseline(eval_set, real_model):
+    score = run_eval(eval_set, model=real_model, seed=0)
+    assert score.faithfulness >= 0.9
+```
+
+```python
+# BAD: one exact string from a non-deterministic call
+def test_answer(real_model):
+    assert answer_question("what is the limit?", model=real_model).text == "The limit is 10 per day."
+```

@@ -84,8 +84,10 @@ Every field is written for the **Jira-only reader**: someone who runs the sprint
 board and never opens this repo. Two kinds of wording fail that reader.
 Identifiers that resolve only in these docs: an ADR number, a PRD reference, a
 slice id. And engineer vocabulary: test-type names (unit, component, contract),
-protocol acronyms (SSE, ASGI), mechanism words (framing, fixtures, seams). Name
-the product surface and what the work buys ("a signed-in user stays signed in when the
+protocol acronyms (SSE, ASGI), mechanism words (framing, fixtures, seams), data
+words (dbt, DAG, backfill), model words (embedding, eval, RAG). Name the product
+surface (the page a user reloads, the report or table a team reads, the answer a
+user sees) and what the work buys ("a signed-in user stays signed in when the
 page reloads, and a break fails the build"), not the mechanism that produced it
 ("session-refresh tests, split into unit and contract"). The link carries the
 detail for whoever wants it.

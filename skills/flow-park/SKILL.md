@@ -11,7 +11,7 @@ You're deep in one task (call it A). Mid-flow you hit something else worth keepi
 
 So `flow-park` does one thing well: snapshot B into the tracker **with the context already earned in this session**, then get the user back to A. It is deliberately fast. It does not grill, quiz, explore the codebase, or plan. The context it needs is already in the conversation; harvest it, don't re-derive it.
 
-The single most valuable thing this skill captures is the **specifics that are cheap now and expensive later**: real file paths, the mechanism, the honest caveat. A capture that a future session (or AFK agent) can pick up cold is the goal.
+The single most valuable thing this skill captures is the **specifics that are cheap now and expensive later**: real file paths, the mechanism, the honest caveat. In data or model work they are the table or dataset, the query that showed it, the run or trace id, the exact input, and the prompt or model version. A capture that a future session (or AFK agent) can pick up cold is the goal.
 
 ## How it fits the tracker
 
@@ -46,7 +46,7 @@ Two things the template does not carry:
 - **The epic line.** When `tracker.epic_field` is set in this project's settings, write one header line, that field name followed by the value the user gives, at the position "Header lines" in `~/.flow-factory/tracker-contract.md` gives it. Unset, the line is not written and the user is not asked for it. `~/.flow-factory/settings-contract.md` holds the rule for reading the key; if the user has not already named the value, fold the request into step 1's one question.
 - **What you were working on.** Open `## What was observed` by naming the task this interrupted, in one clause, then give the observation. A reader who picks this up cold needs to know it was seen in passing, not sought.
 
-Pull every concrete detail from the conversation: file paths, the mechanism, the caveat you already voiced. That harvesting is the whole value, a capture with no specifics is just a stub with extra steps.
+Pull every concrete detail from the conversation: file paths, the mechanism, the caveat you already voiced, and where the work is data or a model, the table, the query, the run or trace id, the input, the prompt or model version. That harvesting is the whole value, a capture with no specifics is just a stub with extra steps.
 
 ### 5. Confirm in one line, then hand back to A
 

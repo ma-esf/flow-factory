@@ -12,7 +12,7 @@ Pure computation, in-memory state, no I/O. Always deepenable: merge the modules 
 
 ### 2. Local-substitutable
 
-Dependencies that have local test stand-ins (PGLite for Postgres, in-memory filesystem). Deepenable if the stand-in exists. The deepened module is tested with the stand-in running in the test suite. The seam is internal; no port at the module's external interface.
+Dependencies that have local test stand-ins (PGLite for Postgres, DuckDB over fixture tables for the warehouse, an in-memory filesystem). Deepenable if the stand-in exists. The deepened module is tested with the stand-in running in the test suite. The seam is internal; no port at the module's external interface.
 
 ### 3. Remote but owned (Ports & Adapters)
 
@@ -23,6 +23,8 @@ Recommendation shape: *"Define a port at the seam, implement an HTTP adapter for
 ### 4. True external (Mock)
 
 Third-party services (Stripe, Twilio, etc.) you don't control. The deepened module takes the external dependency as an injected port; tests provide a mock adapter.
+
+The model API is this category with one extra rule. Its adapter for tests replays a recorded response or returns a fixed one, and a test at that seam asserts what the module does with the reply (parsing, fallback, citation checks), not what the model said. What the model says is measured by a scored eval set against the live adapter, which is a different test at the same seam.
 
 ## Seam discipline
 

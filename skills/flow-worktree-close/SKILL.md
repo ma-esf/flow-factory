@@ -119,7 +119,11 @@ the way `~/.flow-factory/settings-contract.md` says. Read it once, before step 1
    `git branch -d`, which is where that gate lives.
 
    Disposable: caches, build output, and the paths `flow-worktree-create` symlinked
-   in, which are the ones its two manifests list. `.claude/settings.local.json` is a
+   in, which are the ones its two manifests list. So are a Python virtualenv, a
+   dbt `target/` directory, a local DuckDB file, downloaded model weights and
+   notebook checkpoints, all reproducible from the repository. A locally
+   generated dataset or artefact that is not reproducible from the repository is
+   asked about, never assumed disposable. `.claude/settings.local.json` is a
    real copy, so diff it against the main checkout's first, once per worktree being
    removed. Each carries its own grants, and diffing only one loses the others. List and ask about any
    other untracked file.

@@ -71,8 +71,10 @@ Read the **candidate files in full** - the ones at `ready-for-agent`, `needs-tri
    dependency is satisfied" in `~/.flow-factory/tracker-contract.md`. An issue that
    names none has none.
 2. **Collision.** Two candidates that write the same file cannot run at the same time.
-   Judge on files, never on titles. Pick which one goes first, say why in one clause, and
-   name the shared file so the user can check the call.
+   Judge on files, never on titles. A shared artefact that is not one file collides too:
+   a table, a migration sequence, an eval set or a prompt that both tickets change. Files
+   stay the default evidence. Pick which one goes first, say why in one clause, and name
+   the shared file or artefact so the user can check the call.
 
 **Read for the fact, not for a section name.** The contract fixes the headings, but it
 does not make a ticket say what it touches: some name no path at all, and you have to
