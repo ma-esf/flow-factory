@@ -34,34 +34,59 @@ project to install into:
 ./install/install.sh <project-root>
 ```
 
-The argument is the project, never the factory. Run it bare from this checkout
-and it stops and tells you to pass the project.
+The argument is the project, never the factory. Run it bare inside a project
+and it asks whether that is the one; run it bare from this checkout and it
+stops and tells you to pass the project. `--machine` installs the skills on
+this Mac without touching any project, `--help` lists the rest.
 
-The installer asks a short list of questions about the project and writes the
-answers to `flow-factory.toml`: the default branch, the command that runs its
-tests, where it keeps its docs and decision records, how pull requests get
-opened and merged, and whether Jira is in play. A few more arrive with a
-default, which you keep or replace.
+The install runs in three sections, each announced as it starts.
 
-Two of the answers behave differently from the rest. It detects your default
-branch and asks you to confirm it, because a repository showing one branch is
-the repository answering, not you. The test command has no default, so leaving
-it empty means every skill that runs tests stops and names it. For several of
-the remaining questions an empty answer is a real answer: it says the project
-has no such thing.
+**1/3 This machine.** The skills, the contracts and the templates land in
+`~/.claude/skills/` and `~/.flow-factory/`. No questions here, and running it
+again refreshes what is there. It ends by probing the four things `/flow-conductor` needs and
+saying which are missing; nothing else waits on them.
+
+**2/3 Your project.** Six quick questions, then one that covers seven more,
+then one that covers the four keys with a default. Enter takes the answer in
+brackets and a menu takes a number. The installer puts forward what the
+project can tell it, to confirm rather than accept: the default branch from
+the repository, the test command from `package.json`, `pyproject.toml`,
+`Cargo.toml` and the like, the test directory and the glossary from where
+they usually sit. Nothing detected is written unconfirmed, because a
+repository showing one branch is the repository answering, not you.
+
+Two answers behave differently. The test command has no fallback, so left
+empty every skill that runs tests stops and names it, and the install says so
+at the end. The seven keys about docs, tests and decision records take empty
+as a real answer meaning the project has no such thing, which is why they are
+offered as a group rather than skipped.
+
+Every answer is shown in one table before anything is written. Say no there,
+or press Ctrl-C at any question, and the project is left as it was.
+
+The questions are not in the installer. Each one lives in
+`project/flow-factory.toml` beside the key it sets, as `ask:`, `hint:`,
+`group:`, `choice:`, `detect:` and `verify:` lines, and the installer strips
+them when it writes that file into a project. Edit a question there and the
+installer asks it; add a key without one and the installer stops and says so.
+The alternative was a second list, and a second list is the one that drifts.
+
+**3/3 Check.** Every file and skill an installed skill refers to is looked up
+on this machine. A miss is a factory bug and the install says so.
 
 The install leaves files in two places.
 
 On the machine, once:
 
 - `~/.claude/skills/flow-*`, one directory per skill.
-- `~/.flow-factory/`, the tracker and settings contracts and the file templates
-  the skills write against.
+- `~/.flow-factory/`, the tracker and settings contracts and the file
+  templates the skills write against.
 
 In the project, once per project:
 
 - `flow-factory.toml` at the root, holding the answers. Installing into the
-  same project again overwrites it, and the answers it held are gone.
+  same project again reads it first, so its answers are the defaults and
+  Enter keeps each one.
 - `.flow/issues/` and `.flow/candidates/`, where work items live.
 - `.flow/README.md`, recording which version of the factory was installed and
   when.

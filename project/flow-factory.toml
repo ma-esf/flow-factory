@@ -11,10 +11,14 @@
 # when this file is missing are written once in
 # `~/.flow-factory/settings-contract.md`. They are not repeated here.
 #
-# Twenty keys: sixteen as the port map reconciled them, plus
-# reports.stakeholder_dir (flow-stakeholder-update) and the three app.* keys
-# (flow-run-app). Twenty-one names: github.labels and github.assignees share
-# one row there.
+# The installer's questions live beside the keys they set, as `ask:`, `hint:`,
+# `group:`, `choice:`, `detect:` and `verify:` lines in the factory's copy of
+# this file. The installer strips them when it writes this file into a
+# project, so the copy you are reading may not carry them. There is no second
+# list of questions anywhere: change one here and the installer asks it.
+#
+# Sixteen keys, as the port map reconciled them. Seventeen names: github.labels
+# and github.assignees share one row there.
 
 
 # --- git and branches ---
@@ -28,60 +32,56 @@
 # flow-status, flow-worktree-create, flow-worktree-close and flow-pr-summary on
 # the day the factory is installed.
 # unset: default `main`
+# ask: Which branch do pull requests merge into?
+# hint: Skills base new work on this branch and measure every other branch
+#   against it. Detected from the repository; confirm it or type another.
+# group: core
+# detect: default_branch
+# verify: branch
 git.default_branch = "main"
 
 # Branch name prefixes offered when a skill names a new branch.
 # unset: default `["feat/", "fix/", "docs/", "wip/"]`
+# ask: Which prefixes may a new branch name start with?
+# hint: Comma separated.
+# group: defaults
 branch.prefixes = ["feat/", "fix/", "docs/", "wip/"]
-
-
-# --- GitHub ---
-
-# How a pull request gets opened. `manual` means the skill pushes, prints the
-# URL and stops. `gh` means it may run `gh pr create`.
-# unset: default `manual`, which is the value that needs no tool and takes no
-# outward action on its own.
-pr.create_mode = "manual"
-
-# Whether a commit or PR body may carry tool attribution. `none` strips it,
-# `tool` keeps it. The agent harness adds attribution unless told otherwise, so
-# an unanswered project must not discover that in a customer's repository.
-# unset: default `none`
-github.attribution = "none"
-
-# How this repository merges pull requests: `squash`, `merge` or `rebase`.
-# Under `squash` and `rebase`, `git merge-base --is-ancestor` reports landed
-# work as unmerged; under `merge` it is sound. This is a correctness switch,
-# not a preference.
-# unset: default `squash`. The value records how this repository merges. No
-# skill gates on it: `/flow-close-out` and `/flow-worktree-close` both ask
-# ancestry and then the content diff, because neither answers all three alone.
-github.merge_strategy = "squash"
-
-# Labels and assignees put on a new issue or PR. Empty means the skill adds
-# none and does not ask.
-# unset: default `[]`
-github.labels = []
-github.assignees = []
 
 
 # --- tests ---
 
 # The command that runs this project's tests.
 # unset: stop
+# ask: What command runs this project's tests?
+# hint: Skills run it before they call work done. Left empty they stop and ask
+#   for it rather than guess, because a guessed command reports a pass for a
+#   run that never happened.
+# group: core
+# detect: test_command
 test.command = ""
 
 # Where a new test file must land.
 # unset: does not apply
+# ask: Where do new test files go?
+# hint: A path from the project root, such as tests.
+# group: optional
+# detect: test_dir
 test.dir = ""
 
 # The project's testing guide, read before writing a test.
 # unset: does not apply
+# ask: Which guide is read before writing a test?
+# hint: A path from the project root, such as docs/testing.md.
+# group: optional
 test.guide_path = ""
 
 # The backend source directory, when the project separates backend from
 # frontend. It gates the rules that apply only to backend work.
 # unset: does not apply, and the repository is treated as one tree
+# ask: Does the backend live in its own directory?
+# hint: A path from the project root, such as api. Empty treats the whole
+#   repository as one tree.
+# group: optional
 source.backend_dir = ""
 
 
@@ -103,9 +103,84 @@ source.backend_dir = ""
 # Empty lists mean the project has no app to run, and both skills stop and
 # say so.
 # unset: stop
+# ask: What is the service called?
+# hint: One service at a time. An empty name ends the list, and an empty
+#   first name says the project has no app to run, which is what both skills
+#   are told.
+# group: app
 app.services = []
+
+# The command for the service named in the same position above.
+# unset: stop
+# ask: What command starts it?
+# hint: It runs from the worktree root, so begin with `cd <dir> &&` when the
+#   service lives in a subdirectory. Write {NN} where the port suffix goes.
+# group: app
 app.start_commands = []
+
+# The port for the service named in the same position above.
+# unset: stop
+# ask: Which port does it listen on?
+# hint: Digits, with {NN} for the two-digit suffix the skill picks per run,
+#   as in 80{NN}. A port without {NN} is fixed, and the project then runs one
+#   instance at a time.
+# group: app
+# verify: port
 app.ports = []
+
+
+# --- GitHub ---
+
+# How this repository merges pull requests: `squash`, `merge` or `rebase`.
+# Under `squash` and `rebase`, `git merge-base --is-ancestor` reports landed
+# work as unmerged; under `merge` it is sound. This is a correctness switch,
+# not a preference.
+# unset: default `squash`. The value records how this repository merges. No
+# skill gates on it: `/flow-close-out` and `/flow-worktree-close` both ask
+# ancestry and then the content diff, because neither answers all three alone.
+# ask: How does this repository merge pull requests?
+# hint: Under squash and rebase a landed branch does not look merged to git,
+#   so close-out checks the diff as well as the ancestry.
+# group: core
+# choice: squash | one commit per pull request, the GitHub default
+# choice: merge | a merge commit, every commit kept
+# choice: rebase | the commits replayed onto the base branch
+github.merge_strategy = "squash"
+
+# How a pull request gets opened. `manual` means the skill pushes, prints the
+# URL and stops. `gh` means it may run `gh pr create`.
+# unset: default `manual`, which is the value that needs no tool and takes no
+# outward action on its own.
+# ask: When work is ready, how should the pull request be opened?
+# group: core
+# choice: manual | the skill pushes, prints the URL and stops. You open it.
+# choice: gh | the skill runs gh pr create and opens it for you
+pr.create_mode = "manual"
+
+# Whether a commit or PR body may carry tool attribution. `none` strips it,
+# `tool` keeps it. The agent harness adds attribution unless told otherwise, so
+# an unanswered project must not discover that in a customer's repository.
+# unset: default `none`
+# ask: May a commit or pull request say an agent wrote it?
+# group: core
+# choice: none | no. Strip the Co-Authored-By line the agent adds.
+# choice: tool | yes. Keep it.
+github.attribution = "none"
+
+# Labels and assignees put on a new issue or PR. Empty means the skill adds
+# none and does not ask. Two keys, one rule; they are split here because every
+# key carries its own unset tag.
+# unset: default `[]`
+# ask: Which labels go on every new issue and pull request?
+# hint: Comma separated. Empty adds none.
+# group: defaults
+github.labels = []
+
+# unset: default `[]`
+# ask: Who is assigned to every new issue and pull request?
+# hint: Comma separated GitHub usernames. Empty assigns nobody.
+# group: defaults
+github.assignees = []
 
 
 # --- documents ---
@@ -116,6 +191,10 @@ app.ports = []
 
 # The file holding this project's domain vocabulary and conventions.
 # unset: does not apply
+# ask: Which file holds this project's domain language?
+# hint: Read before a skill writes anything. Often CLAUDE.md, or a file
+#   under docs/.
+# group: optional
 docs.context = ""
 
 # The project's glossaries, in order. The first is where a newly settled term
@@ -127,18 +206,31 @@ docs.context = ""
 # project chose, and pinning one name would mean renaming an existing document
 # and would leave no way to say a project has none.
 # unset: does not apply
+# ask: Which files are this project's glossaries?
+# hint: Comma separated, in order. A newly settled term is written to the
+#   first; the rest are only checked.
+# group: optional
+# detect: glossary
 docs.glossaries = []
 
 # Project documents a skill may cite as a settled decision, beyond the ADR
 # directory the factory pins.
 # unset: does not apply
+# ask: Which documents record a settled decision?
+# hint: Comma separated. Anything under docs/adr/ is read already.
+# group: optional
 project.decision_docs = []
 
 # The directory holding this project's stakeholder reports, where
 # /flow-stakeholder-update finds the previous one and writes the next. A report
 # names customers and their data, so this should be a git-excluded directory.
 # unset: stop
+# ask: Where do stakeholder reports go?
+# hint: A git-excluded directory. /flow-stakeholder-update reads the last
+#   report there and writes the next one beside it.
+# group: optional
 reports.stakeholder_dir = ""
+
 
 
 # --- tracker and privacy ---
@@ -152,6 +244,10 @@ reports.stakeholder_dir = ""
 # already conditional. Empty is the honest state for most projects, and under
 # the reading rule that omits the line without asking for a value.
 # unset: does not apply
+# ask: What is the epic field called on a ticket?
+# hint: One header line on a ticket, such as Epic. Empty means this project
+#   has no epics.
+# group: optional
 tracker.epic_field = ""
 
 # Whether Jira exists for this project. Read at run time, not at install: one
@@ -159,9 +255,18 @@ tracker.epic_field = ""
 # and a non-Jira one at once. No skill talks to Jira; they write text a human
 # pastes.
 # unset: default `false`
+# ask: Does this project track work in Jira as well?
+# group: core
+# choice: false | no
+# choice: true | yes. Skills draft text you paste; they never connect to Jira.
 jira.enabled = false
 
 # Whether a skill strips real company names and figures from anything it
 # prints or commits.
 # unset: default `true`
+# ask: Should a skill strip real company names and figures from what it
+#   prints and commits?
+# group: defaults
+# choice: true | yes
+# choice: false | no
 privacy.redact_client_data = true
