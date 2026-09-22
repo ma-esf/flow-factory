@@ -15,9 +15,8 @@ folder only if the conversation does not make it obvious. After that the user ty
   Never call the Agent tool: an in-process subagent has no tab the user can watch or
   interrupt, which is the whole point of dispatching.
 - **You do not triage.** `needs-triage` means hand it to `/flow-triage`, not decide its scope.
-- **You do not edit issue files.** `Status:` belongs to the skills that claim,
-  promote and close: `/flow-triage`, `/flow-to-tickets`, `/flow-ship-issue` and
-  `/flow-close-out`.
+- **You do not edit issue files.** `Status:` belongs to the skills "Header
+  lines" in `~/.flow-factory/tracker-contract.md` names as writing it.
 
 ## The two kinds
 
