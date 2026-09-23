@@ -9,3 +9,6 @@ CLAUDE.md
 
 # Agent session state, per machine.
 .claude/
+
+# Finder view settings, written into any folder opened on macOS.
+.DS_Store
