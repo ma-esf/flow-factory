@@ -129,7 +129,7 @@ Apply Tier 1 to every comment.
 Apply Tier 2 only when relevant; each check earns one grep or file open.
 
 8. **Pointer:** Can a fresh clone resolve every reference? Prefer a stable file and
-   symbol over a bare issue number, line number, or commit SHA.
+   symbol over a bare GitHub issue number, line number, or commit SHA.
 9. **Source:** Does the cited source establish the exact claim? Open it and verify.
 10. **Synchronization:** If the comment says two places agree or instructs a manual
     update, identify both places and confirm the instruction remains correct.

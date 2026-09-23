@@ -24,7 +24,7 @@ Several skills are useful in more than one stage. Each is listed once.
   belongs, and what makes a module easy to test and navigate
 - `/flow-triage` - verify a tracker item's claim, then promote it to a
   ticket, ask for what is missing, or close it with the reason kept
-- `/flow-reground` - recheck an aged issue, candidate or spec against the
+- `/flow-reground` - recheck an aged ticket, candidate or spec against the
   project's latest default branch
 
 ## Decompose
@@ -33,12 +33,12 @@ Several skills are useful in more than one stage. Each is listed once.
   work that spans several sessions
 - `/flow-to-tickets` - cut a spec into independently buildable slices, each
   naming what blocks it
-- `/flow-conductor` - pick the next issues to dispatch from one issue folder
+- `/flow-conductor` - pick the next tickets to dispatch from one feature folder
   and launch a session per pick, without letting them collide
 
 ## Deliver
 
-- `/flow-ship-issue` - ship a ready ticket end to end: implement, verify,
+- `/flow-ship-ticket` - ship a ready ticket end to end: implement, verify,
   review, prepare the pull request, close out. Its review stage depends on
   `/code-review`, Claude Code's built-in review skill, which the factory does
   not ship
@@ -50,14 +50,13 @@ Several skills are useful in more than one stage. Each is listed once.
   code, and cut the ones that do not earn their place
 - `/flow-pr-summary` - summarize the branch diff for a reviewer who will not
   read it line by line
-- `/flow-new-issue` - open a GitHub issue, drafted first and created only on
-  your explicit go
+- `/flow-new-github-issue` - open a GitHub issue, drafted first and created
+  only on your explicit go
 - `/flow-close-out` - confirm the merge landed and flip the tracker item to
   done
 - `/flow-worktree-close` - remove the worktree and delete the branch once the
   merge is verified
-- `/flow-jira-subtask` - turn shipped tracker issues into paste-ready Jira
-  sub-tasks
+- `/flow-jira-subtask` - turn shipped tickets into paste-ready Jira sub-tasks
 - `/flow-status` - report where this session stands: branch, commits made,
   uncommitted changes, and the delta against the default branch
 - `/flow-to-core` - cut one prose artifact (a skill, a doc, a CLAUDE.md, a

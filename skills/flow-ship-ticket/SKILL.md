@@ -1,10 +1,10 @@
 ---
-name: flow-ship-issue
+name: flow-ship-ticket
 description: Ship a ready tracker ticket through implementation, verification, review, pull request preparation, and post-merge close-out.
 disable-model-invocation: true
 ---
 
-# /flow-ship-issue
+# /flow-ship-ticket
 
 Conduct the ticket-to-close-out pipeline by invoking the skills below. Sequence
 them; do not reimplement them.
@@ -201,7 +201,7 @@ a stop or a handoff, and the run is not verified.
    `~/.flow-factory/attribution-rule.md`; that rule governs this write point and
    is not restated here. The message is the subject line alone, with no body: the
    reasoning belongs in the tracker ticket, the pull request description, and
-   the hosted issue when one exists, and repeating it in the commit only ages
+   the GitHub issue when one exists, and repeating it in the commit only ages
    another copy.
    When you present the message for approval, open with it in a code block; put
    any status or file list after it, never as a lead-in before it.
@@ -224,21 +224,21 @@ reported either way rather than assumed to be outside the commit.
 When the work produced nothing to commit, this stage and Stage 6 have no work.
 Say which, and go to Stage 7.
 
-Whether a hosted issue is opened is `github.create_issue` in this project's
+Whether a GitHub issue is opened is `github.create_issue` in this project's
 settings. When it is false, the tracker ticket and the pull request carry the
-reasoning: open no issue and go straight to `/flow-pr-summary`, with no
-`Closes #<n>`.
+reasoning: open no GitHub issue and go straight to `/flow-pr-summary`, with
+no `Closes #<n>`.
 
-When it is true, create a hosted issue by default. Skip it only when the change
+When it is true, create a GitHub issue by default. Skip it only when the change
 is clearly mechanical and has no behavior or design rationale to preserve, such
 as a typo, format-only edit, or generated-file refresh. If uncertain, create the
-issue. Invoke `/flow-new-issue` without first asking whether an issue is wanted.
-Its creation approval still applies. Draft from the tracker problem statement,
-not the diff, and make the body readable by someone who has only the hosted
-repository. Write the reasoning out. Do not point at a path under `.cortex/` or
-at a decision-record identifier and leave the reader to find it.
+GitHub issue. Invoke `/flow-new-github-issue` without first asking whether one
+is wanted. Its creation approval still applies. Draft from the tracker problem
+statement, not the diff, and make the body readable by someone who has only the
+hosted repository. Write the reasoning out. Do not point at a path under `.cortex/`
+or at a decision-record identifier and leave the reader to find it.
 
-Then invoke `/flow-pr-summary`. Include `Closes #<n>` when a hosted issue exists.
+Then invoke `/flow-pr-summary`. Include `Closes #<n>` when a GitHub issue exists.
 Treat the summary as editable user text: only flag facts that are wrong, not
 sections the user shortens or removes. Let it draft and write the body file, but
 leave the clipboard copy to Stage 6, so it lands after the push and a copied pull
@@ -264,7 +264,7 @@ selects it, never before.
 
 The tracker flip happens as soon as a pull request exists, without asking, the
 same way Stage 0 claims without asking: set `Status: in-review`, remove the
-`Session:` line, and append the pull request URL, plus the hosted issue URL when
+`Session:` line, and append the pull request URL, plus the GitHub issue URL when
 one exists, under `## Comments`. Under `gh` that is right after `gh pr create`
 returns. Under `manual` it is on resume, once the check below shows the pull
 request.

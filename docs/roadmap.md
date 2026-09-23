@@ -12,7 +12,7 @@ MVP 1 carries one flow from an unclear idea to a merged, closed-out change.
   system.
 - **The four stages.** Discover, Define, Decompose and Deliver, with the
   skills that serve each of them (`skills.md`).
-- **The tracker.** Markdown issues and candidates inside your project, with
+- **The tracker.** Markdown tickets and candidates inside your project, with
   statuses, dependencies, acceptance criteria and close-out. You read it
   through a skill that prints it, not through a separate interface.
 - **The installer.** One run places the skills and the tracker rules on your

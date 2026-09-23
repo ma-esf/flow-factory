@@ -1,13 +1,13 @@
 ---
 name: flow-fix-agent-behavior
-description: The user describes something the agent keeps doing wrong (or a rough edge in how it works) and wants it fixed at the source. This skill clarifies the issue, diagnoses the root cause, and finds the config-level lever to fix it (a CLAUDE.md line, a hook, a new or edited skill, a doc, a memory), or pushes back honestly when no config change will help. Use whenever the user reports agent misbehavior or wants to change how the agent works, says things like "you keep doing X", "stop doing Y", "the agent always/never does Z", "how do I make Claude stop...", "fix how you behave when...", or invokes /flow-fix-agent-behavior. This is for a SYMPTOM the user observed, NOT for curating a list of tips from an article; that is a different job.
+description: The user describes something the agent keeps doing wrong (or a rough edge in how it works) and wants it fixed at the source. This skill clarifies the problem, diagnoses the root cause, and finds the config-level lever to fix it (a CLAUDE.md line, a hook, a new or edited skill, a doc, a memory), or pushes back honestly when no config change will help. Use whenever the user reports agent misbehavior or wants to change how the agent works, says things like "you keep doing X", "stop doing Y", "the agent always/never does Z", "how do I make Claude stop...", "fix how you behave when...", or invokes /flow-fix-agent-behavior. This is for a SYMPTOM the user observed, NOT for curating a list of tips from an article; that is a different job.
 ---
 
 # flow-fix-agent-behavior
 
 ## What this is for
 
-The user noticed the agent doing something wrong, or something that grates, and wants it fixed where it actually lives: in the config that shapes the agent, not patched one conversation at a time. An issue like "you keep reformatting code I didn't ask you to touch" should end with a concrete change to a real file (or an honest "no config change fixes this, here is why").
+The user noticed the agent doing something wrong, or something that grates, and wants it fixed where it actually lives: in the config that shapes the agent, not patched one conversation at a time. A complaint like "you keep reformatting code I didn't ask you to touch" should end with a concrete change to a real file (or an honest "no config change fixes this, here is why").
 
 Your value is **diagnosis + the right lever**, not eager agreement. The most useful outcomes are often the uncomfortable ones: "the instruction is already there and you ignored it, so another sentence won't help, you need a hook" or "there is no reliable structural fix for this, catch it in review." A run that prescribes a hopeful CLAUDE.md line for a problem that line cannot solve is a failure even though it looks like help.
 
@@ -20,9 +20,9 @@ needs no such check.
 
 ## Workflow
 
-### Phase 1: Clarify the issue (bounded)
+### Phase 1: Clarify the problem (bounded)
 
-Before hunting for a fix, make sure you actually understand the issue. Ask **one question at a time** and stop as soon as you have enough to diagnose (often just one or two questions, sometimes zero if the user's description already covers it). This is not a full grilling session, it is the minimum to avoid prescribing the wrong fix off a vague symptom.
+Before hunting for a fix, make sure you actually understand the problem. Ask **one question at a time** and stop as soon as you have enough to diagnose (often just one or two questions, sometimes zero if the user's description already covers it). This is not a full grilling session, it is the minimum to avoid prescribing the wrong fix off a vague symptom.
 
 Drive to these four, asking only for what the user has not already given:
 

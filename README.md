@@ -1,6 +1,6 @@
 # Flow Factory
 
-Flow Factory is an agentic software factory: a set of skills, a markdown issue
+Flow Factory is an agentic software factory: a set of skills, a markdown ticket
 tracker and an installer that carry one piece of work from an unclear idea to a
 merged, closed-out change.
 
@@ -18,7 +18,7 @@ stages.
 - **git.** Both this checkout and the project you install into have to be git
   repositories.
 
-One skill needs more than that. `/flow-conductor` launches a session per issue
+One skill needs more than that. `/flow-conductor` launches a session per ticket
 by driving iTerm2, so it needs iTerm2 installed and macOS Automation permission
 granted to the terminal the agent runs in. The installer probes for both,
 reports what failed and finishes anyway; only `/flow-conductor` is blocked.
@@ -62,7 +62,7 @@ In the project, once per project:
 
 - `flow-factory.toml` at the root, holding the answers. Installing into the
   same project again overwrites it, and the answers it held are gone.
-- `.cortex/issues/` and `.cortex/candidates/`, where work items live.
+- `.cortex/tickets/` and `.cortex/candidates/`, where work items live.
 - `.cortex/README.md`, recording which version of the factory was installed and
   when.
 
@@ -73,7 +73,7 @@ projects.
 
 The everyday chain is `/flow-park` to capture something worth doing,
 `/flow-triage` to turn a capture into a buildable ticket, and
-`/flow-ship-issue` to build, verify and ship it. `/flow-backlog` answers what
+`/flow-ship-ticket` to build, verify and ship it. `/flow-backlog` answers what
 there is to work on.
 
 - `docs/4d-system.md` - the four stages work moves through.

@@ -7,11 +7,11 @@ skill only ever reads one shape.
 ## Where files live
 
 `<tracker>` is `.cortex/` at the root of the project, with two children,
-`issues/` and `candidates/`. The installer creates it.
+`tickets/` and `candidates/`. The installer creates it.
 
-- `<tracker>/issues/<feature>/<NN>-<slug>.md` is one work item. Numbering is per
-  folder and has gaps, so the highest number is not the count.
-- `<tracker>/issues/<feature>/PRD.md` is that feature's spec.
+- `<tracker>/tickets/<feature>/<NN>-<slug>.md` is one work item. Numbering is
+  per folder and has gaps, so the highest number is not the count.
+- `<tracker>/tickets/<feature>/PRD.md` is that feature's spec.
 - `<tracker>/candidates/<slug>.md` is a capture that is not yet a work item.
 
 ## Where decisions live
@@ -56,10 +56,10 @@ position, so the positions cannot drift apart.
 
 1. `Status:`. Required. Written at `needs-triage` by the capture writers
    `/flow-park` and `/flow-research`, and by the skills that claim, promote
-   and close: `/flow-triage`, `/flow-to-tickets`, `/flow-ship-issue` and
+   and close: `/flow-triage`, `/flow-to-tickets`, `/flow-ship-ticket` and
    `/flow-close-out`.
 2. `Session: <id>`, directly after `Status:`. Transient. `/flow-triage` and
-   `/flow-ship-issue` write it when they claim, holding
+   `/flow-ship-ticket` write it when they claim, holding
    `$CLAUDE_CODE_SESSION_ID`, and remove it when the status leaves the value
    they claimed with, so a file at rest never carries it. `/flow-conductor` does
    not read it: it is for a person inspecting a stuck `in-progress` or
@@ -81,7 +81,7 @@ position, so the positions cannot drift apart.
 acceptance: a capture records something seen, not something decided.
 
 **Ticket.** Written by `/flow-to-tickets`, and by `/flow-triage` when it
-promotes a capture into one, built by `/flow-ship-issue`.
+promotes a capture into one, built by `/flow-ship-ticket`.
 Sections, in order: `## Background`, `## Goal`, `## Scope`, `## Not in scope`,
 `## Acceptance`, `## How to verify`, `## Depends on`, `## Comments`. A ticket
 cut from a spec carries one provenance line under `Created:`, reading
@@ -127,7 +127,7 @@ A ticket names what it waits on under `## Depends on`, one line per blocker,
 each ending `at <in-review | merged to the default branch>`. A blocker at `done`
 or `wontfix` always satisfies its line. A blocker at `in-review` satisfies it
 only when the line asked for `in-review`: that ticket's branch is then the
-branch base, which is stacking, and `/flow-ship-issue` names it to
+branch base, which is stacking, and `/flow-ship-ticket` names it to
 `/flow-worktree-create`. Once the blocker is `done` its branch is deleted, so a
 `Branch base:` naming it means the default branch. Any other status leaves the
 dependency outstanding.

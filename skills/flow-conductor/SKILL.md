@@ -1,21 +1,22 @@
 ---
 name: flow-conductor
-description: Pick the next issues to dispatch from one tracker issue folder, list them for the user to choose from, then launch a named Claude session per pick as a vertical split, builds in one iTerm2 tab and triages in another. Checks status, dependencies and file collisions so several agents can run in parallel without conflicting. Use when the user names an issue folder to coordinate, types /flow-conductor, says "conduct", says an agent is free, or asks what to dispatch next. For a read-only backlog list across the whole project use /flow-backlog instead.
+description: Pick the next tickets to dispatch from one feature folder, list them for the user to choose from, then launch a named Claude session per pick as a vertical split, builds in one iTerm2 tab and triages in another. Checks status, dependencies and file collisions so several agents can run in parallel without conflicting. Use when the user names a feature folder to coordinate, types /flow-conductor, says "conduct", says an agent is free, or asks what to dispatch next. For a read-only backlog list across the whole project use /flow-backlog instead.
 ---
 
-# flow-conductor - what to dispatch next from one issue folder
+# flow-conductor - what to dispatch next from one feature folder
 
-Invoked on a folder: `/flow-conductor .cortex/issues/backend-testing`. Ask which
-folder only if the conversation does not make it obvious. After that the user types
-`conduct` (or "what's next", "update") to refresh. Every run does the same four steps.
+Invoked on a folder: `/flow-conductor .cortex/tickets/backend-testing`. Ask
+which folder only if the conversation does not make it obvious. After that the user
+types `conduct` (or "what's next", "update") to refresh. Every run does the same four
+steps.
 
 ## What you do not do
 
-- **You do not do the issues.** You launch a terminal session per issue and stop there.
+- **You do not do the tickets.** You launch a terminal session per ticket and stop there.
   Never call the Agent tool: an in-process subagent has no tab the user can watch or
   interrupt, which is the whole point of dispatching.
 - **You do not triage.** `needs-triage` means hand it to `/flow-triage`, not decide its scope.
-- **You do not edit issue files.** `Status:` belongs to the skills "Header
+- **You do not edit ticket files.** `Status:` belongs to the skills "Header
   lines" in `~/.flow-factory/tracker-contract.md` names as writing it.
 
 ## The two kinds
@@ -27,7 +28,7 @@ drifts between the name and the lookup makes every lookup miss.
 
 | Kind | Skill it dispatches | Session-name prefix |
 |---|---|---|
-| ship | `/flow-ship-issue` | `ship-` |
+| ship | `/flow-ship-ticket` | `ship-` |
 | tri | `/flow-triage` | `tri-` |
 
 ## Step 1 - read
@@ -38,7 +39,7 @@ One command. Run it every time, never answer from earlier in this conversation.
 grep -m1 '^Status:' <folder>/[0-9]*.md
 ```
 
-The `[0-9]*` glob keeps `PRD.md` and any other non-issue file out of the count. This
+The `[0-9]*` glob keeps `PRD.md` and any other non-ticket file out of the count. This
 skill and `/flow-backlog` filter differently on purpose: that one excludes `PRD.md` by
 name because it promises every item reaches a bucket, and this one takes the glob
 because a dispatcher wants only files it could hand to an agent, and a file whose name
@@ -46,19 +47,19 @@ does not start with a digit is not one.
 
 That is the whole state read. No `git fetch`, no worktree or session scan. The
 `Status:` line is canonical, as `~/.flow-factory/tracker-contract.md` says:
-`/flow-ship-issue` flips it to `in-progress` on pickup, `/flow-triage` flips it to
+`/flow-ship-ticket` flips it to `in-progress` on pickup, `/flow-triage` flips it to
 `in-triage`, and `/flow-close-out` flips it to `done` after the merge. So a triage in
 flight is visible too, not only a build.
 
 It has two failure modes, both stale state, both in the cautious direction. Work merged
-and `/flow-close-out` never ran, so the issue still reads `in-review` and you call the
-work behind it blocked. Or a run was abandoned after it claimed its issue, so the issue
+and `/flow-close-out` never ran, so the ticket still reads `in-review` and you call the
+work behind it blocked. Or a run was abandoned after it claimed its ticket, so the ticket
 reads `in-progress` or `in-triage` with no session on it. If the user says something
 merged, or that a session is gone, take it and move on.
 
-Being wrong in the dangerous direction takes work started without `/flow-ship-issue` or
-`/flow-triage`. Both claim at pickup as their first write, so the window where an issue
-reads free while a session has it is seconds wide. Trust it: list the issue, or do not.
+Being wrong in the dangerous direction takes work started without `/flow-ship-ticket` or
+`/flow-triage`. Both claim at pickup as their first write, so the window where a ticket
+reads free while a session has it is seconds wide. Trust it: list the ticket, or do not.
 Never list one hedged with "pick this only if that tab is gone". That hands the tracking
 back to the user.
 
@@ -67,8 +68,8 @@ back to the user.
 Read the **candidate files in full** - the ones at `ready-for-agent`, `needs-triage` or
 `blocked`, and nothing else in the folder. Two gates:
 
-1. **Depends on.** Every issue it names must be satisfied, by the rule under "When a
-   dependency is satisfied" in `~/.flow-factory/tracker-contract.md`. An issue that
+1. **Depends on.** Every ticket it names must be satisfied, by the rule under "When a
+   dependency is satisfied" in `~/.flow-factory/tracker-contract.md`. A ticket that
    names none has none.
 2. **Collision.** Two candidates that write the same file cannot run at the same time.
    Judge on files, never on titles. A shared artefact that is not one file collides too:
@@ -82,14 +83,14 @@ work out what they touch from what they describe. Grepping `## Scope` for a file
 silently misses those, so read the file.
 
 There is no third gate. Do not ask how many agents the user has: dispatch opens a new
-session per issue, so the batch is however many candidates pass both gates.
+session per ticket, so the batch is however many candidates pass both gates.
 
 ## Step 3 - print
 
 A count line, a numbered pick list, then one line for the rest.
 
 ~~~
-27 issues: 16 done, 2 in review, 1 in progress, 4 ready, 1 needs triage, 3 wontfix.
+27 tickets: 16 done, 2 in review, 1 in progress, 4 ready, 1 needs triage, 3 wontfix.
 
   1  ship  20  the importer keeps a stale cache between runs
   2  ship  22  amounts render without their declared unit
@@ -103,35 +104,35 @@ Pick numbers, or all.
 Rules for that output:
 
 - **The count line names every status present**, `blocked` like any other, so it sums
-  to the number of issue files in the folder. Leaving `in-review` and `in-progress`
+  to the number of ticket files in the folder. Leaving `in-review` and `in-progress`
   out of it hides work in flight. It is also the whole state report: nothing goes
   between it and the first row, no diff against the last run and no note on what
-  freed an issue. The user watched those tabs.
-- **One row per dispatch:** pick number, the kind, issue number, then a short
+  freed a ticket. The user watched those tabs.
+- **One row per dispatch:** pick number, the kind, ticket number, then a short
   plain gloss of what it is. The gloss is what the user chooses from, so it earns its
   place. Do not print the commands. The user no longer pastes them, so they are clutter;
   print one only when a launch fails and it has to be pasted by hand.
-- **A `needs-triage` issue gets a `tri` row** and `/flow-triage <path>` in place of
-  `/flow-ship-issue <path>`. Triage runs in parallel like anything else. List it even
-  when the issue looks fully specified: `/flow-triage` tells a ticket waiting
+- **A `needs-triage` ticket gets a `tri` row** and `/flow-triage <path>` in place of
+  `/flow-ship-ticket <path>`. Triage runs in parallel like anything else. List it even
+  when the ticket looks fully specified: `/flow-triage` tells a ticket waiting
   only on its blockers from one needing a real evaluation, and promotes the first
   without re-opening its scope.
-- **A `blocked` issue whose blockers are all satisfied gets a `tri` row too**, because
+- **A `blocked` ticket whose blockers are all satisfied gets a `tri` row too**, because
   `/flow-triage` is what promotes it. One still waiting goes on the `Held:` line with
   the blocker it waits on.
 - **The `-n` name is the point.** It titles the pane so the user can tell them apart, and
   it is also how you address a pane later. Build it from the kind's prefix, then the
-  issue filename cut short: `ship-20-stale-cache`, not the full slug.
+  ticket filename cut short: `ship-20-stale-cache`, not the full slug.
 - **Always a new session.** Never reuse an idle pane and never address a prompt to an
   existing one. A reused session carries stale beliefs about the default branch and about
-  what has merged. The dispatched skill re-grounds from the issue file anyway, so a cold
+  what has merged. The dispatched skill re-grounds from the ticket file anyway, so a cold
   start costs nothing.
-- **List every issue that passes both gates.** Parallel work on independent issues is the
+- **List every ticket that passes both gates.** Parallel work on independent tickets is the
   normal case. The user picks; never pre-select, never shorten the list to what you would
   have chosen, and never rank it.
 - **No note in the prompt** unless it changes what the agent does. The dispatched skill
-  reads the whole issue file, so copying its scope or open questions in just creates a
-  second copy that drifts. If the issue file is missing something, fix the issue file.
+  reads the whole ticket file, so copying its scope or open questions in just creates a
+  second copy that drifts. If the ticket file is missing something, fix the ticket file.
 - **Nothing dispatchable is a real answer.** Say the folder is idle and name the
   bottleneck in one clause, usually unmerged work or a dependency. Do not invent work.
 
@@ -231,8 +232,8 @@ its own result. If a launch did not appear, print that one command for hand-past
 
 ## Learned rules
 
-If a run surfaces a rule the remaining issues need, say it and offer to put it in a doc or
-a memory. Do not store it in this skill or in the issue folder.
+If a run surfaces a rule the remaining tickets need, say it and offer to put it in a doc or
+a memory. Do not store it in this skill or in the feature folder.
 
 ## Editing this skill
 

@@ -8,7 +8,7 @@ description: Create a new git worktree and branch for a parallel agent session, 
 Prepare a worktree for a *separate* parallel session: create it, base it on the
 latest default branch, and symlink in the git-excluded context that a fresh
 worktree would otherwise lack. Worktrees only check out tracked files, so anything
-gitignored or in `.git/info/exclude` (rules, repo skills, issue tracker, context
+gitignored or in `.git/info/exclude` (rules, repo skills, tracker, context
 docs) is missing until linked.
 
 This does **not** enter the worktree. The point is to stage it for another agent
@@ -170,7 +170,7 @@ names it, or it is the default branch's remote-tracking ref.
   unless the user explicitly named a different base. Never infer one from whatever
   branch the main checkout happens to be sitting on.
 - Symlinks are **absolute** and point back into the main checkout, so `.cortex`
-  (the issue tracker) is one shared source across all worktrees, not a fork.
+  (the tracker) is one shared source across all worktrees, not a fork.
 - Writing through those symlinks gets blocked, always from a background session and
   often from a live one. It is a harness guard, so never weaken it with
   `worktree.bgIsolation: "none"`: that drops write isolation for the whole repo, and

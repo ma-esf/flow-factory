@@ -1,13 +1,13 @@
 ---
-name: flow-new-issue
-description: Create a GitHub issue through a quick, approval-gated flow. Drafts the title and body in one shot, then creates only on the user's explicit go. Never creates the issue without explicit approval. Use when the user wants to open a GitHub issue safely.
+name: flow-new-github-issue
+description: Create a GitHub issue through a quick, approval-gated flow. Drafts the title and body in one shot, then creates only on the user's explicit go. Never creates the GitHub issue without explicit approval. Use when the user wants to open a GitHub issue safely.
 ---
 
-# /flow-new-issue
+# /flow-new-github-issue
 
 Create a GitHub issue for this project. The user supplies the context (a bug, a task, a
-paste of notes, a link). Turn it into a clean issue and create it with `gh issue create`,
-but **only after explicit, final approval**.
+paste of notes, a link). Turn it into a clean GitHub issue and create it with
+`gh issue create`, but **only after explicit, final approval**.
 
 Two visible gates: **Draft** (title + body together) and **Create** (explicit go). Keep
 it tight; do not re-show the same content across multiple previews.
@@ -27,15 +27,16 @@ not, stop as `~/.flow-factory/settings-contract.md` says.
   synthetic values with the same shape. The key defaults to true and this text
   leaves the project, so the default is the safe one.
 - **Tool attribution follows `~/.flow-factory/attribution-rule.md`**, which names
-  the issue title and body as one of its three write points. That rule is not
-  restated here.
+  the GitHub issue title and body as one of its three write points. That rule is
+  not restated here.
 - **The body must be readable from a fresh clone.** Write the reasoning out
   instead of pointing at a path under `.cortex/` or at a decision-record
   identifier: a project may commit its tracker or git-exclude it and the factory
-  cannot know which, so an issue body must never depend on that path being
-  reachable. The rule lives in this skill because this skill owns the issue body
-  and can be invoked directly, not only through `/flow-ship-issue`.
-- **One issue per invocation.** Do not batch-create.
+  cannot know which, so a GitHub issue body must never depend on that path
+  being reachable. The rule lives in this skill because this skill owns the
+  GitHub issue body and can be invoked directly, not only through
+  `/flow-ship-ticket`.
+- **One GitHub issue per invocation.** Do not batch-create.
 
 ## Step 0 - Precheck (silent unless it fails)
 
@@ -68,14 +69,14 @@ not the goal: if the draft is over 100, cut before showing it.
    why nobody notices it.
 2. An `**Examples**` block: a concrete case of the behavior, one to three short lines,
    each shaped `input -> what happens now -> what is correct`. Always include one when
-   the issue describes a behavior, a bug, or a concrete output; skip it only when there
-   is genuinely no case to show. Prefer a case actually observed over an invented one,
-   because a real instance proves the problem is real, not hypothetical. Keep the real
-   shape and replace any client name or figure with a synthetic one of the same shape
-   (see the redaction rule): a real bug never needs real client data to show it. When
-   the behavior is non-deterministic, as a model output is, give the output observed
-   and the property or range that is correct, and say how often the wrong one appeared,
-   because one sample is not the behavior.
+   the GitHub issue describes a behavior, a bug, or a concrete output; skip it only
+   when there is genuinely no case to show. Prefer a case actually observed over an
+   invented one, because a real instance proves the problem is real, not hypothetical.
+   Keep the real shape and replace any client name or figure with a synthetic one of
+   the same shape (see the redaction rule): a real bug never needs real client data to
+   show it. When the behavior is non-deterministic, as a model output is, give the
+   output observed and the property or range that is correct, and say how often the
+   wrong one appeared, because one sample is not the behavior.
 3. A `**Done looks like**` bullet list. One outcome per bullet, not a task. Fold a
    constraint into the bullet it belongs to instead of giving it its own.
 4. `Prerequisite:` one line, only when something must land first.
@@ -84,15 +85,15 @@ Keep the technical level; simplify only the words around the technical terms. Cu
 sentence that repeats a point already made, even a good one.
 
 Apply while drafting:
-- **Separate the filing reason from the problem.** Why the issue is being opened ("need
-  a ticket to reference from a PR", "branch isn't tracked") is meta and does NOT belong
-  in the issue. Capture the underlying problem or task. If the user's context is mostly a
-  filing reason, ask what the real problem is before drafting.
+- **Separate the filing reason from the problem.** Why the GitHub issue is being
+  opened ("need a GitHub issue to reference from a PR", "branch isn't tracked") is
+  meta and does NOT belong in it. Capture the underlying problem or task. If the user's
+  context is mostly a filing reason, ask what the real problem is before drafting.
 - **Labels and assignees come from the project.** Use `github.labels` and
   `github.assignees` from this project's settings. Both empty means add none and
   do not ask; only add others if the user brings them up.
-- If the issue stems from an existing branch or PR, you may reference it, and link it
-  after creation (Step 3).
+- If the GitHub issue stems from an existing branch or PR, you may reference it, and
+  link it after creation (Step 3).
 
 Ask the user to edit or approve. **Loop here** until the draft is settled.
 
@@ -119,11 +120,12 @@ On a clear go, run it.
 
 ## Step 3 - After creation
 
-Return the issue URL that `gh` prints.
+Return the GitHub issue URL that `gh` prints.
 
-**Link to related work.** If the issue relates to an in-flight branch or PR, remind the
-user they can connect them by adding a closing keyword to the **PR body**: `Closes #<n>`
-(or `Fixes #<n>` / `Resolves #<n>`), which auto-closes the issue when the PR merges.
+**Link to related work.** If the GitHub issue relates to an in-flight branch or PR,
+remind the user they can connect them by adding a closing keyword to the **PR body**:
+`Closes #<n>` (or `Fixes #<n>` / `Resolves #<n>`), which auto-closes the GitHub issue
+when the PR merges.
 Under `pr.create_mode` set to `manual`, the user opens the pull request, so hand them
 the line to paste and do not edit a pull request or run `gh pr` commands. Under `gh`
 the line still comes from this skill; whoever opens the pull request puts it in the body.

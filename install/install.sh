@@ -212,8 +212,8 @@ git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1 \
 say "$PROJECT_ROOT"
 
 step "Step 6. Create the work-items folder"
-mkdir -p "$PROJECT_ROOT/.cortex/issues" "$PROJECT_ROOT/.cortex/candidates"
-say "ready .cortex/issues and .cortex/candidates"
+mkdir -p "$PROJECT_ROOT/.cortex/tickets" "$PROJECT_ROOT/.cortex/candidates"
+say "ready .cortex/tickets and .cortex/candidates"
 
 step "Step 7. Prepare flow-factory.toml"
 # Built in a temporary copy of the template, which carries the comments and the
