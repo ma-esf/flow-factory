@@ -3,9 +3,9 @@
 Mock at **system boundaries** only:
 
 - External APIs (payment, email, etc.)
-- The model API. The stand-in replays a recorded response or returns a fixed reply, and the test asserts on what your module does with that reply, never on the reply itself. The real model is exercised by a scored eval set, not by a unit test.
-- Databases and the warehouse (sometimes). Prefer a real test database, or a local engine such as DuckDB over fixture tables, to a mock: a mocked query proves nothing about the SQL.
-- Time/randomness, including sampling. A seed, or a temperature of zero where the interface allows it, is part of the fixture.
+- The model API. The stand-in replays a recorded response or returns a fixed reply, and it, not a temperature of zero, is what makes the test deterministic. The real model is exercised by a scored eval set, not by a unit test.
+- Databases and the warehouse (sometimes). Prefer a real test database, or a local engine over fixture tables, to a mock: a mocked query proves nothing about the SQL. DuckDB stands in for the warehouse only when production runs DuckDB or the SQL runs unchanged on both.
+- Time/randomness
 - File system (sometimes)
 
 Don't mock:
@@ -33,19 +33,6 @@ function processPayment(order) {
   const client = new StripeClient(process.env.STRIPE_KEY);
   return client.charge(order.total);
 }
-```
-
-The same move at a model boundary:
-
-```python
-# Easy to replace with a fake
-def answer_question(question, passages, model):
-    return parse(model.complete(build_prompt(question, passages)))
-
-# Hard to replace: the client is built inside
-def answer_question(question, passages):
-    model = ModelClient(os.environ["MODEL_API_KEY"])
-    return parse(model.complete(build_prompt(question, passages)))
 ```
 
 **2. Prefer SDK-style interfaces over generic fetchers**

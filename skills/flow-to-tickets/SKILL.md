@@ -29,7 +29,7 @@ Break the work into **tracer bullet** tickets.
 
 <vertical-slice-rules>
 
-- Each slice cuts a narrow but COMPLETE path from where the request or the data enters to where a user or consumer observes the result (schema to API to UI to test; source to staging to mart to the report or downstream table; input to retrieval to generation to the eval that scores it) - vertical, NOT a horizontal slice of one layer
+- Each slice cuts a narrow but COMPLETE path from input to observed result (schema, API, UI, tests; source, staging, mart, report; input, retrieval, generation, eval) - vertical, NOT a horizontal slice of one layer
 - A completed slice is demoable or verifiable on its own
 - Each slice is sized to fit in a single fresh context window
 - Any prefactoring should be done first

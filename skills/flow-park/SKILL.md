@@ -11,7 +11,7 @@ You're deep in one task (call it A). Mid-flow you hit something else worth keepi
 
 So `flow-park` does one thing well: snapshot B into the tracker **with the context already earned in this session**, then get the user back to A. It is deliberately fast. It does not grill, quiz, explore the codebase, or plan. The context it needs is already in the conversation; harvest it, don't re-derive it.
 
-The single most valuable thing this skill captures is the **specifics that are cheap now and expensive later**: real file paths, the mechanism, the honest caveat. In data or model work they are the table or dataset, the query that showed it, the run or trace id, the exact input, and the prompt or model version. A capture that a future session (or AFK agent) can pick up cold is the goal.
+The single most valuable thing this skill captures is the **specifics that are cheap now and expensive later**: real file paths, the mechanism, the honest caveat. A capture that a future session (or AFK agent) can pick up cold is the goal.
 
 ## How it fits the tracker
 

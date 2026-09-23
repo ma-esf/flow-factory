@@ -199,11 +199,13 @@ a triage does not re-open a decision either one already made.
 Before any recommendation, check the claim holds. Reproduce the bug from what the
 file describes, wherever it describes it: read for the claim rather than for a
 heading. A claim about data is reproduced with a query. A claim about a model's
-output is reproduced by running the input several times and reporting how often
+output is reproduced by running the input N times and reporting N and how often
 the wrong output appears, because one run settles nothing when the output is
-non-deterministic. Report one of three: confirmed, with the code path, the
-query, or the rate; failed; or too thin to test, which is a strong `needs-info`
-signal.
+non-deterministic. When the issue reports a rate, choose N so that rate would
+show: at one in twenty, 60 runs still miss it about one time in twenty. Report
+one of three: confirmed, with the code path, the query, or the rate; failed,
+written for a non-deterministic claim as "not seen in N runs"; or too thin to
+test, which is a strong `needs-info` signal.
 
 A confirmed claim makes a much stronger ticket, because the acceptance criteria
 can then name a real observed value.
@@ -287,8 +289,8 @@ Rewrite the file into the ticket shape:
 **The test command.** For a ticket that changes code:
 
 - When `source.backend_dir` is set, these rules apply to the part of the work
-  under that directory, the one the project's test rules govern. Unset, the
-  project is one tree and they apply to the whole ticket.
+  under that directory. Unset, the project is one tree and they apply to the
+  whole ticket.
 - When `test.guide_path` is set, name that guide in `## Scope` and say the
   builder takes the test type and the folder from it. Unset, write no guide
   sentence and name no path.
