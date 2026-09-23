@@ -16,7 +16,18 @@ stages.
 - **Claude Code.** The skills are installed into `~/.claude/skills/`, and the
   installer stops when `~/.claude` is absent.
 - **git.** Both this checkout and the project you install into have to be git
-  repositories.
+  repositories, and the project needs at least one commit.
+
+The installer does not check three more, and the skills that ship work need
+all of them:
+
+- **`gh`, installed and authenticated.** `/flow-close-out` reads it as the
+  proof that a pull request merged, and `/flow-new-github-issue` cannot run
+  without it.
+- **A remote named `origin` carrying the default branch.** Every skill that
+  compares a branch with the default branch compares with `origin`'s copy.
+- **`/code-review`**, Claude Code's built-in review skill, which the factory
+  does not ship. `/flow-ship-ticket` reviews with it.
 
 One skill needs more than that. `/flow-conductor` launches a session per ticket
 by driving iTerm2, so it needs iTerm2 installed and macOS Automation permission
