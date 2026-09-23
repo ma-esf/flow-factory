@@ -7,6 +7,10 @@ dev/
 # to read it, and it is developer material like the rest of dev/.
 CLAUDE.md
 
+# The factory's own settings, a symlink into dev/. Installed projects get theirs
+# from project/flow-factory.toml, which stays tracked.
+/flow-factory.toml
+
 # Agent session state, per machine.
 .claude/
 
