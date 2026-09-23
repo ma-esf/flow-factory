@@ -75,12 +75,14 @@ test.dir = ""
 # group: optional
 test.guide_path = ""
 
-# The backend source directory, when the project separates backend from
-# frontend. It gates the rules that apply only to backend work.
+# The one directory the test rules govern: a change there needs a test and
+# follows test.guide_path, and the rest of the tree is exempt. A web app's
+# backend, a data project's pipelines or models, an AI project's service
+# beside its prompts and evals.
 # unset: does not apply, and the repository is treated as one tree
-# ask: Does the backend live in its own directory?
-# hint: A path from the project root, such as api. Empty treats the whole
-#   repository as one tree.
+# ask: Which one directory do the test rules govern?
+# hint: A path from the project root, such as api, models or service; the
+#   rest of the tree is exempt. Empty treats the whole repository as one tree.
 # group: optional
 source.backend_dir = ""
 
