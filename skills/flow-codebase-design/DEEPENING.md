@@ -12,7 +12,7 @@ Pure computation, in-memory state, no I/O. Always deepenable: merge the modules 
 
 ### 2. Local-substitutable
 
-Dependencies that have local test stand-ins (PGLite for Postgres, an in-memory filesystem, DuckDB over fixture tables when production runs DuckDB or the SQL runs unchanged on both). Deepenable if the stand-in exists. The deepened module is tested with the stand-in running in the test suite. The seam is internal; no port at the module's external interface.
+Dependencies that have local test stand-ins (PGLite for Postgres, an in-memory filesystem, DuckDB over fixture tables, whose green does not cover a different production engine's own function return types and NULL and date semantics, which need a check against that engine). Deepenable if the stand-in exists. The deepened module is tested with the stand-in running in the test suite. The seam is internal; no port at the module's external interface.
 
 ### 3. Remote but owned (Ports & Adapters)
 

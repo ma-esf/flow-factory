@@ -4,7 +4,7 @@ Mock at **system boundaries** only:
 
 - External APIs (payment, email, etc.)
 - The model API. The stand-in replays a recorded response or returns a fixed reply, and it, not a temperature of zero, is what makes the test deterministic. The real model is exercised by a scored eval set, not by a unit test.
-- Databases and the warehouse (sometimes). Prefer a real test database, or a local engine over fixture tables, to a mock: a mocked query proves nothing about the SQL. DuckDB stands in for the warehouse only when production runs DuckDB or the SQL runs unchanged on both.
+- Databases and the warehouse (sometimes). Prefer a real test database, or a local engine over fixture tables, to a mock: a mocked query proves nothing about the SQL. When production runs another engine, a green on DuckDB does not cover what engines disagree on even in identical SQL, such as function return types and NULL and date semantics (`DATE_TRUNC('month', <date>)` returns a TIMESTAMP in DuckDB and a DATE in Snowflake); check that behaviour against the production engine.
 - Time/randomness
 - File system (sometimes)
 
