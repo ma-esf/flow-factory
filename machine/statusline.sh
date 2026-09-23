@@ -38,10 +38,11 @@ read_with_jq() {
     printf '%s' "$input" | jq -r '
       @sh "model=\(.model.display_name // .model.id // "")",
       @sh "effort=\(.effort.level // "")",
-      @sh "pct=\(.context_window.used_percentage // "")",
       @sh "used=\(.context_window.total_input_tokens // 0)",
       @sh "window=\(.context_window.context_window_size // 0)",
-      @sh "cwd=\(.workspace.current_dir // .cwd // "")"
+      @sh "cwd=\(.workspace.current_dir // .cwd // "")",
+      @sh "quota=\(.rate_limits.five_hour.used_percentage // "")",
+      @sh "pr=\(.pr.number // "")"
     '
 }
 
@@ -62,17 +63,18 @@ def g(*path, default=""):
 out = {
     "model":  g("model", "display_name") or g("model", "id"),
     "effort": g("effort", "level"),
-    "pct":    g("context_window", "used_percentage"),
     "used":   g("context_window", "total_input_tokens", default=0),
     "window": g("context_window", "context_window_size", default=0),
     "cwd":    g("workspace", "current_dir") or g("cwd"),
+    "quota":  g("rate_limits", "five_hour", "used_percentage"),
+    "pr":     g("pr", "number"),
 }
 for k, v in out.items():
     print("%s=%s" % (k, shlex.quote(str(v))))
 '
 }
 
-model=""; effort=""; pct=""; used=0; window=0; cwd=""
+model=""; effort=""; used=0; window=0; cwd=""; quota=""; pr=""
 
 if command -v jq >/dev/null 2>&1; then
     fields=$(read_with_jq 2>/dev/null) || fields=""
@@ -93,11 +95,11 @@ fi
 # colourless in the product.
 # ---------------------------------------------------------------------------
 if [ -n "${NO_COLOR:-}" ]; then
-    DIM=""; OFF=""; CYAN=""; MAGENTA=""; GREEN=""; YELLOW=""; RED=""
+    DIM=""; OFF=""; BOLD=""; CYAN=""; MAGENTA=""; GREEN=""; YELLOW=""; RED=""; BLUE=""
 else
-    DIM=$'\033[2m';  OFF=$'\033[0m'
+    DIM=$'\033[2m';  OFF=$'\033[0m';  BOLD=$'\033[1m'
     CYAN=$'\033[36m'; MAGENTA=$'\033[35m'; GREEN=$'\033[32m'
-    YELLOW=$'\033[33m'; RED=$'\033[31m'
+    YELLOW=$'\033[33m'; RED=$'\033[31m'; BLUE=$'\033[94m'
 fi
 
 segments=()
@@ -108,35 +110,34 @@ segments=()
 # ---------------------------------------------------------------------------
 # Context used
 #
-# The percentage is what the eye wants and the token counts are what answers
-# "how much room is left", so both are printed and the counts are dimmed.
+# This session's own number, and the one the line is really for, so it is bold
+# and carries the colour: green, yellow past 70 per cent, red past 90.
 #
-# Rounded with printf rather than bash arithmetic, which cannot divide the
-# float the session sends. The comparisons that follow are integer, on the
-# rounded value.
+# The percentage is computed here rather than read from the session, which
+# sends one of its own. used and window already carry it, and a second source
+# for one fact is a second thing to keep true. It is computed and not printed:
+# 85k/1M already says eight per cent to anyone reading it.
+#
+# Half a thousand added before the divide, so 84_600 reads 85k and not 84k.
+# Integer division truncates; every other rounding here is to the nearest.
 # ---------------------------------------------------------------------------
-if [ -n "$pct" ]; then
-    rounded=$(printf '%.0f' "$pct" 2>/dev/null) || rounded=""
-fi
-if [ -n "${rounded:-}" ]; then
-    if   [ "$rounded" -ge 90 ]; then level=$RED
-    elif [ "$rounded" -ge 70 ]; then level=$YELLOW
-    else                             level=$GREEN
+if [ "$window" -gt 0 ]; then
+    full=$(( (used * 100 + window / 2) / window ))
+    if   [ "$full" -ge 90 ]; then level=$RED
+    elif [ "$full" -ge 70 ]; then level=$YELLOW
+    else                          level=$GREEN
     fi
-    if [ "$window" -gt 0 ]; then
-        # Half a thousand added before the divide, so 84_600 reads 85k and not
-        # 84k. Integer division truncates; every other rounding here is to the
-        # nearest.
-        k=$(( (used + 500) / 1000 ))
-        if [ "$window" -ge 1000000 ]; then
-            size="$(( window / 1000000 ))M"
-        else
-            size="$(( window / 1000 ))k"
-        fi
-        segments+=("${level}${rounded}%${OFF}${DIM} ${k}k/${size}${OFF}")
+    k=$(( (used + 500) / 1000 ))
+    if [ "$window" -ge 1000000 ]; then
+        size="$(( window / 1000000 ))M"
     else
-        segments+=("${level}${rounded}%${OFF}")
+        size="$(( window / 1000 ))k"
     fi
+    segments+=("${BOLD}${level}${k}k/${size}${OFF}")
+elif [ "$used" -gt 0 ]; then
+    # A session that sent tokens but no window size. Nothing to colour it
+    # against, so it goes bold and plain.
+    segments+=("${BOLD}$(( (used + 500) / 1000 ))k${OFF}")
 fi
 
 # ---------------------------------------------------------------------------
@@ -160,9 +161,37 @@ if [ -n "$cwd" ] && [ -d "$cwd" ]; then
     if [ -n "$branch" ]; then
         dirty=""
         [ -n "$(git -C "$cwd" status --porcelain 2>/dev/null | head -n 1)" ] && dirty="*"
-        segments+=("${YELLOW}${branch}${dirty}${OFF}")
+        segments+=("${BLUE}${branch}${dirty}${OFF}")
     fi
 fi
+
+# ---------------------------------------------------------------------------
+# The pull request
+#
+# The number alone, and no colour: it is an identifier, not a status. The
+# review state the session also sends is left out, because it changes without
+# the line redrawing and a stale "approved" is worse than no answer. The key is
+# absent when the branch has no pull request, so the segment appears exactly
+# when there is one.
+# ---------------------------------------------------------------------------
+[ -n "$pr" ] && segments+=("#${pr}")
+
+# ---------------------------------------------------------------------------
+# The five-hour window, last and dim
+#
+# How much of the rolling five-hour allowance is gone. It sits at the end and
+# stays dim whatever it reads: it is a fact about the account rather than about
+# this session, and it must not compete with the context, which is the number
+# the line is for.
+#
+# Labelled `5h`, because a bare second percentage says nothing about which
+# limit it belongs to. The reset time the session also sends is left out: it
+# answers "when does this clear", a question for the moment you are blocked
+# rather than for every redraw.
+# ---------------------------------------------------------------------------
+q=""
+[ -n "$quota" ] && { q=$(printf '%.0f' "$quota" 2>/dev/null) || q=""; }
+[ -n "$q" ] && segments+=("${DIM}5h ${q}%${OFF}")
 
 # Nothing to say. Printing an empty line is right: Claude Code keeps the last
 # text it was given, so a status line that prints nothing on a bad read would

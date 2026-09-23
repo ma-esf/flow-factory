@@ -77,14 +77,21 @@ Claude Code draws a line under the prompt, and the install points it at
 `~/.flow-factory/statusline.sh`:
 
 ```
-Opus 5 · high · 8% 85k/1M · main*
+Opus 5 · high · 85k/1M · main* · #42 · 5h 41%
 ```
 
-The model, the effort level, how much of the context window is in use, and the
-branch the session is on, with a `*` when the working tree is dirty. The
-percentage turns yellow past 70% and red past 90%. A segment is dropped rather
-than printed empty: a model with no effort levels shows none, and a session
-that has not made a request yet shows no context.
+The model, the effort level, the context window this session has used, the
+branch with a `*` when the working tree is dirty, the pull request for that
+branch, and how much of the rolling five-hour allowance is gone.
+
+The context is the number the line is for, so it is bold and turns yellow past
+70% and red past 90%. The allowance is a fact about the account rather than
+about this session, so it stays dim and sits last.
+
+A segment is dropped rather than printed empty, so the line is usually shorter
+than that: a model with no effort levels shows none, a session that has not
+made a request yet shows no context, and the pull request and allowance appear
+only when the branch has one and the account reports a limit.
 
 It is not tied to iTerm2 and it reads no project settings, so it works in any
 terminal and in every repository, including the ones the factory was never
