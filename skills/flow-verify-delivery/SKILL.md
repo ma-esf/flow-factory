@@ -29,8 +29,8 @@ are then the whole verification.
   not verify a ticket against criteria you invented. With no ticket at all,
   confirm a one-line "done looks like" with the user in-session and anchor on
   that. **Persist it nowhere** — if a one-liner needs a durable home, that's the
-  signal the work warranted a real ticket. Never anchor on a hosted issue, even
-  when one exists: the tracker ticket is the contract, and the hosted issue is
+  signal the work warranted a real ticket. Never anchor on a GitHub issue, even
+  when one exists: the tracker ticket is the contract, and the GitHub issue is
   written from it.
 - **The worktree.** Inferred from conversation context, exactly as
   `/flow-run-app` does. When ambiguous, ask.

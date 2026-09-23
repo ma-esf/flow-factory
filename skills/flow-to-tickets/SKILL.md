@@ -1,6 +1,6 @@
 ---
 name: flow-to-tickets
-description: Split a plan, spec, or PRD into slice tickets on this project's local tracker, each declaring what blocks it, written to .cortex/issues/<feature>/. Quizzes the user on granularity and blocking edges before writing anything. Use when the user wants a spec or PRD broken into tickets, says "turn this into tickets", "split this into slices", "cut this into issues", or types /flow-to-tickets. For capturing a single unplanned finding mid-session, use /flow-park instead.
+description: Split a plan, spec, or PRD into slice tickets on this project's local tracker, each declaring what blocks it, written to .cortex/tickets/<feature>/. Quizzes the user on granularity and blocking edges before writing anything. Use when the user wants a spec or PRD broken into tickets, says "turn this into tickets", "split this into slices", "cut this into issues", or types /flow-to-tickets. For capturing a single unplanned finding mid-session, use /flow-park instead.
 ---
 
 # flow-to-tickets - split a spec into slice tickets
@@ -15,7 +15,7 @@ Check first that this project has a `flow-factory.toml` at its root. If it does 
 
 ### 1. Gather context
 
-Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments.
+Work from whatever is already in the conversation context. If the user passes a reference (a spec path, a GitHub issue number or URL) as an argument, fetch it and read its full body and comments.
 
 ### 2. Explore the codebase (optional)
 
@@ -58,7 +58,7 @@ Iterate until the user approves the breakdown.
 
 ### 5. Publish the tickets
 
-Write one file per ticket under `.cortex/issues/<feature-slug>/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). One ticket per file, never a single combined file. Create the feature directory if it does not exist. Never renumber an existing ticket.
+Write one file per ticket under `.cortex/tickets/<feature-slug>/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). One ticket per file, never a single combined file. Create the feature directory if it does not exist. Never renumber an existing ticket.
 
 Set each ticket's `Status:` to one of the contract's values:
 
@@ -77,7 +77,7 @@ This is the one edit you make to the spec. Do NOT otherwise close or modify it: 
 
 One shape, every ticket: `~/.flow-factory/templates/ticket.md`. Its headings, in its order, and the authoring guidance inside each section is the instruction for what to put there. Follow it; do not paraphrase it back into a bare heading, and do not keep a second copy of the shape here.
 
-Section names and the `Status:` line are tool contracts, not style. `/flow-backlog` reads `^Status:` at column 0 and the `# Title` heading, and `/flow-ship-issue` appends PR URLs to `## Comments`. When `jira.enabled` is true in this project's settings, read as `~/.flow-factory/settings-contract.md` says, `/flow-jira-subtask` also inserts a marker in the header, at the position "Header lines" in `~/.flow-factory/tracker-contract.md` gives it. Do not rename, reorder, or bold these fields.
+Section names and the `Status:` line are tool contracts, not style. `/flow-backlog` reads `^Status:` at column 0 and the `# Title` heading, and `/flow-ship-ticket` appends PR URLs to `## Comments`. When `jira.enabled` is true in this project's settings, read as `~/.flow-factory/settings-contract.md` says, `/flow-jira-subtask` also inserts a marker in the header, at the position "Header lines" in `~/.flow-factory/tracker-contract.md` gives it. Do not rename, reorder, or bold these fields.
 
 Two things the template does not decide for you:
 

@@ -44,7 +44,7 @@ branch.prefixes = ["feat/", "fix/", "docs/", "wip/"]
 # unset: default `manual`, which takes no outward action on its own.
 pr.create_mode = "manual"
 
-# Whether /flow-ship-issue opens a hosted GitHub issue for every ticket it
+# Whether /flow-ship-ticket opens a GitHub issue for every ticket it
 # ships, beside the tracker ticket and the pull request. `false` means the
 # tracker ticket and the pull request carry the reasoning.
 # unset: default `false`
@@ -65,8 +65,8 @@ github.attribution = "none"
 # ancestry and then the content diff, because neither answers all three alone.
 github.merge_strategy = "squash"
 
-# Labels and assignees put on a new issue or PR. Empty means the skill adds
-# none and does not ask.
+# Labels and assignees put on a new GitHub issue or PR. Empty means the skill
+# adds none and does not ask.
 # unset: default `[]`
 github.labels = []
 github.assignees = []

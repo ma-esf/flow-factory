@@ -1,11 +1,11 @@
 ---
 name: flow-jira-subtask
-description: Turn a local tracker issue that just shipped, or a feature folder's already-done issues, into paste-ready Jira sub-tasks (an action-verb title, an Implement bullet, verifiable Done when bullets, and a GitHub link). Use right after a PR merges, when closing out a feature at a sprint boundary, or whenever the user says "add this to Jira," "list these as sub-tasks," "turn these into Jira items," or invokes /flow-jira-subtask.
+description: Turn a ticket that just shipped, or a feature folder's already-done tickets, into paste-ready Jira sub-tasks (an action-verb title, an Implement bullet, verifiable Done when bullets, and a GitHub link). Use right after a PR merges, when closing out a feature at a sprint boundary, or whenever the user says "add this to Jira," "list these as sub-tasks," "turn these into Jira items," or invokes /flow-jira-subtask.
 ---
 
 # flow-jira-subtask
 
-Local work (issue files, PRs, GitHub issues) never reaches Jira on its own. This
+Local work (tickets, PRs, GitHub issues) never reaches Jira on its own. This
 skill is the one-way bridge: read what already shipped, write Jira-ready text. It
 never touches Jira itself, because there is no API access, so the output is
 always a block the user copies by hand.
@@ -22,12 +22,12 @@ settled at install would answer for the wrong one.
 
 Two modes. Ask which one if it isn't obvious from what the user just said.
 
-## Mode: single issue
+## Mode: single ticket
 
 Use right after one PR merges. `/flow-close-out` owns where this sits in the
 post-merge sequence.
 
-1. Resolve the issue file: the one just shipped, from session context, or ask
+1. Resolve the ticket: the one just shipped, from session context, or ask
    for the feature and number.
 2. If its `Status:` line isn't `done` (`~/.flow-factory/tracker-contract.md` pins
    that value, lowercase), ask before continuing: this skill reports
@@ -39,22 +39,22 @@ post-merge sequence.
    paste is still outstanding.
 5. Ask whether it is now in Jira, as a numbered choice the user can answer with a
    number (`1. In Jira now` / `2. Not yet`). Only on the "In Jira now" answer, add
-   the marker (below) to the issue file. Printing a block is not reporting it, and
-   a premature marker hides the issue from every future batch run.
+   the marker (below) to the ticket. Printing a block is not reporting it, and
+   a premature marker hides the ticket from every future batch run.
 
 ## Mode: batch
 
 Use when closing out a feature folder at a sprint boundary, when a group of
-already-done issues need to become sub-tasks together.
+already-done tickets need to become sub-tasks together.
 
 1. Resolve the feature slug (from context, or ask).
-2. Scan `.cortex/issues/<feature>/*.md` (skip `PRD.md`) for `Status: done`
+2. Scan `.cortex/tickets/<feature>/*.md` (skip `PRD.md`) for `Status: done`
    files with no `Jira:` marker. If none, say so and stop.
 3. Extract and print one block per file (format below).
 4. Ask "Mark these N as reported?" as a numbered choice (`1. Yes, mark all N` /
    `2. Not yet`). On the "Yes" answer, add the marker to each.
 
-This mode only lists already-done work. Drafting a new issue for what's still
+This mode only lists already-done work. Drafting a sub-task for what's still
 open is a separate conversation, not something this skill does.
 
 ## Extracting a block
@@ -131,7 +131,7 @@ every batch run would repeat every prior run's output.
   strip any real company name and any real figure a file's Goal or Comments
   section carries before printing. The key defaults to true and this text leaves
   the repository, so the default is the safe one.
-- Never invent a link. An issue with no GitHub reference gets no `Link:` line,
+- Never invent a link. A ticket with no GitHub reference gets no `Link:` line,
   not a guessed one.
 - Every `Done when` bullet must be objectively verifiable. If you cannot say how
   a reader would check it, it is a restatement of the title and belongs nowhere.

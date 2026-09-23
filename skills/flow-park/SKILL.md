@@ -1,6 +1,6 @@
 ---
 name: flow-park
-description: Quickly capture a tangent or side-issue discovered mid-session into the project's tracker, with the context already learned in this conversation, then hand the user straight back to what they were doing. Use whenever the user wants to note something for later without breaking focus on the current task, says things like "park this", "capture this for later", "let's not lose this", "note this tangent", "capture this but keep going", "we'll deal with this later", "/flow-park", or otherwise flags a worthwhile side-thread they do NOT want to act on right now. Do not start implementing the parked thing, and do not turn this into a planning or triage session; the whole point is a fast capture that preserves focus.
+description: Quickly capture a tangent discovered mid-session into the project's tracker, with the context already learned in this conversation, then hand the user straight back to what they were doing. Use whenever the user wants to note something for later without breaking focus on the current task, says things like "park this", "capture this for later", "let's not lose this", "note this tangent", "capture this but keep going", "we'll deal with this later", "/flow-park", or otherwise flags a worthwhile side-thread they do NOT want to act on right now. Do not start implementing the parked thing, and do not turn this into a planning or triage session; the whole point is a fast capture that preserves focus.
 ---
 
 # flow-park
@@ -17,7 +17,7 @@ The single most valuable thing this skill captures is the **specifics that are c
 
 - **Nothing installed, nothing written.** If `~/.flow-factory/tracker-contract.md` and `~/.flow-factory/templates/capture.md` are not readable, the factory was never installed on this machine. Say so and stop. Do not rebuild the shape from what this file describes: a capture missing a section is worse than no capture, because every skill after this one reads it as complete. Check first that this project has a `flow-factory.toml` at its root. If it does not, stop as `~/.flow-factory/settings-contract.md` says.
 - **Container**: one capture file, `.cortex/candidates/<slug>.md`. `~/.flow-factory/tracker-contract.md` gives the shape and `~/.flow-factory/templates/capture.md` is what you write.
-- **A capture is not a work item.** It records something seen, not something decided. Promoting it into a ticket under `.cortex/issues/<feature>/` is a separate, later decision, and `/flow-triage` makes it.
+- **A capture is not a work item.** It records something seen, not something decided. Promoting it into a ticket under `.cortex/tickets/<feature>/` is a separate, later decision, and `/flow-triage` makes it.
 - **Resume side is already covered**: don't build a "what's parked" view here. `/flow-backlog` lists these and `/flow-triage` works them. `flow-park` just creates.
 
 ## Workflow

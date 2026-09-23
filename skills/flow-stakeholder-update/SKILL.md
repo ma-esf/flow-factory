@@ -38,8 +38,9 @@ Done when you hold a start date, an end date, and the set of numbers to skip.
 
 ### 2. Enumerate every shipped item
 
-Enumerate by merged PR, then add closed issues. A PR can merge with no issue
-behind it, and an issue can close in the window with its PR merged earlier.
+Enumerate by merged PR, then add closed GitHub issues. A PR can merge with no
+GitHub issue behind it, and a GitHub issue can close in the window with its PR
+merged earlier.
 
 ```bash
 gh pr list --state merged --search 'merged:>=START merged:<=END' --limit 100 \
@@ -60,15 +61,15 @@ gh pr view N --json body,title,closingIssuesReferences
 gh issue view N --json body,title
 ```
 
-The issue body states the problem in the user's language and the PR body states
-the fix, so a linked pair gives you both halves. Some PRs land with an empty
-body. For those, read `gh pr diff N --stat` and the commit titles, and say what
-changed from the diff.
+The GitHub issue body states the problem in the user's language and the PR body
+states the fix, so a linked pair gives you both halves. Some PRs land with an
+empty body. For those, read `gh pr diff N --stat` and the commit titles, and say
+what changed from the diff.
 
-`.cortex/issues/<feature>/` holds the ticket for items this project's own agents
-shipped: its `## Acceptance` and `## How to verify` say what was checked, and
-`## Comments` carries the PR. That is often absent from the PR body and is what
-makes the Test line honest.
+`.cortex/tickets/<feature>/` holds the ticket for items this project's own
+agents shipped: its `## Acceptance` and `## How to verify` say what was checked,
+and `## Comments` carries the PR. That is often absent from the PR body and is
+what makes the Test line honest.
 
 Done when, for each item, you can state the before, the after, and one concrete
 thing to do in the product to see it.
@@ -112,7 +113,7 @@ Each item:
 - Input: the outcome from step 4.
 ```
 
-Link the issue when one exists, the PR otherwise.
+Link the GitHub issue when one exists, the PR otherwise.
 
 An item still open gets the same shape with the headline led by `In progress:`,
 `Before` replaced by `Currently:`, a `Status:` line saying what is left, and

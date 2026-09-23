@@ -1,11 +1,11 @@
 ---
 name: flow-triage
-description: "Triage a tracker item: verify its claim, then promote it into a buildable ticket, ask for what is missing, or close it with the reason kept. Use when a file reads needs-triage or blocked, when the user asks what needs triage or names an item to triage, or invokes /flow-triage. For cutting new tickets from a spec use /flow-to-tickets; for building an already-ready ticket use /flow-ship-issue."
+description: "Triage a tracker item: verify its claim, then promote it into a buildable ticket, ask for what is missing, or close it with the reason kept. Use when a file reads needs-triage or blocked, when the user asks what needs triage or names an item to triage, or invokes /flow-triage. For cutting new tickets from a spec use /flow-to-tickets; for building an already-ready ticket use /flow-ship-ticket."
 ---
 
 # flow-triage: promote a captured item into a buildable ticket
 
-The middle step of `/flow-park` -> `/flow-triage` -> `/flow-ship-issue`. A capture
+The middle step of `/flow-park` -> `/flow-triage` -> `/flow-ship-ticket`. A capture
 records an observation. A ticket records a decision. This skill does that
 conversion, and it is a **promote**: the file that arrives is rewritten, and
 moved to where its new shape belongs. One file arrives and one file leaves.
@@ -50,8 +50,8 @@ No key's rule is repeated here.
 the only question is whether its blockers have landed. Step 0 answers that and
 promotes it, or puts `blocked` back.
 
-`backlog` also arrives here, because `/flow-ship-issue` refuses to build one. It
-means the user parked the work on purpose, so it is not a rejection and not a
+`backlog` also arrives here, because `/flow-ship-ticket` refuses to build one.
+It means the user parked the work on purpose, so it is not a rejection and not a
 queue item. Treat it as a question rather than a promote: ask whether it is time
 to work this, and only then triage it.
 
@@ -59,7 +59,7 @@ to work this, and only then triage it.
 at pickup, see Step 0, and every exit clears it. A file already reading
 `in-triage`, `in-progress`, `in-review` or `done` when you arrive is another
 session's: say so and stop. `in-progress`, `in-review` and `done` are otherwise
-`/flow-ship-issue`'s and `/flow-close-out`'s. A status in neither of those groups
+`/flow-ship-ticket`'s and `/flow-close-out`'s. A status in neither of those groups
 is undocumented: ask what it means rather than reading it as one of yours.
 
 ## The disclaimer
@@ -121,7 +121,7 @@ holding the value of `$CLAUDE_CODE_SESSION_ID` (run
 re-ground and before any exploration.
 
 `Session:` is transient: the line is removed whenever the status leaves the one
-the skill claimed with, so a file at rest carries none. `/flow-ship-issue`
+the skill claimed with, so a file at rest carries none. `/flow-ship-ticket`
 claims with `in-progress` and removes the line at the flip to `in-review`, for
 the same reason. The `Status:` line is what stops `/flow-conductor` dispatching
 the same file twice; the `Session:` line records which session holds the claim,
@@ -145,7 +145,8 @@ the gate, so it gets a real triage. Otherwise, either way:
   satisfied" in `~/.flow-factory/tracker-contract.md` -> **promote it**, after a
   re-ground. Run `/flow-reground`, because a file that waited on blockers was
   specified against a codebase that has since changed, and its mechanism is stale
-  by default. Then split what you found the way `/flow-ship-issue` Stage 0 does:
+  by default. Then split what you found the way `/flow-ship-ticket` Stage 0
+  does:
   - **Mechanical** staleness, where the named mechanism, paths, symbols, versions
     or commands no longer match the codebase. Patch it, and say in the triage
     notes what you replaced and what you verified it against.
@@ -182,7 +183,7 @@ question. Three checks against the codebase:
     invent a replacement angle, and never state a fixed number of angles.
 
   Already built is a `wontfix`.
-- **Prior decision or duplicate.** Grep the concept across `.cortex/issues` and
+- **Prior decision or duplicate.** Grep the concept across `.cortex/tickets` and
   `.cortex/candidates`. A `wontfix` hit carries the argued rejection, so the
   decision already exists. An open hit is a duplicate: name the older file and
   propose merging into it.
@@ -201,7 +202,7 @@ file describes, wherever it describes it: read for the claim rather than for a
 heading. A claim about data is reproduced with a query. A claim about a model's
 output is reproduced by running the input N times and reporting N and how often
 the wrong output appears, because one run settles nothing when the output is
-non-deterministic. When the issue reports a rate, choose N so that rate would
+non-deterministic. When the file reports a rate, choose N so that rate would
 show: at one in twenty, 60 runs still miss it about one time in twenty. Report
 one of three: confirmed, with the code path, the query, or the rate; failed,
 written for a non-deterministic claim as "not seen in N runs"; or too thin to
@@ -320,7 +321,7 @@ rewrite wrote them or a Step 0 promote filled the gaps:
   write a sentence naming a route to take.
 - `## Depends on` is filled or reads "None, can start immediately."
 - `## Scope` names real paths and real symbols.
-- The file sits at its `.cortex/issues/<feature>/<NN>-<slug>.md` path, per
+- The file sits at its `.cortex/tickets/<feature>/<NN>-<slug>.md` path, per
   `### Where a promoted ticket lands` below. A promoted ticket still in
   `.cortex/candidates/` is not done.
 
@@ -332,13 +333,13 @@ judgment call, external access, a design decision, manual testing.
 ### Where a promoted ticket lands
 
 Both exits above produce a ticket, and the contract says a work item lives at
-`<tracker>/issues/<feature>/<NN>-<slug>.md`. So a capture being promoted moves
+`<tracker>/tickets/<feature>/<NN>-<slug>.md`. So a capture being promoted moves
 out of `.cortex/candidates/` and into a feature folder. Move it last, after the
 rewrite and after the `Status:` flip, so what lands is already finished.
 
-- **Ask which feature folder.** List the folders under `.cortex/issues/` and ask
-  the user to pick one or name a new one. A capture belongs to no feature, so
-  this is the user's answer and never yours. Do not read a folder off the
+- **Ask which feature folder.** List the folders under `.cortex/tickets/` and
+  ask the user to pick one or name a new one. A capture belongs to no feature,
+  so this is the user's answer and never yours. Do not read a folder off the
   capture's subject, and do not invent a catch-all such as `misc`.
 - **Take the next free number.** Read the highest `NN` already in that folder
   and add one, keeping two digits. Numbering has gaps, so the file count is not
@@ -349,7 +350,7 @@ rewrite and after the `Status:` flip, so what lands is already finished.
 Nothing may be left at the `candidates/` path.
 
 Only a promote moves a file. A file that arrived already under
-`.cortex/issues/`, such as a spec-cut ticket waiting on its blockers, stays
+`.cortex/tickets/`, such as a spec-cut ticket waiting on its blockers, stays
 where it is, and so does a capture leaving for `needs-info` or `wontfix`. Only
 their `Status:` changes.
 

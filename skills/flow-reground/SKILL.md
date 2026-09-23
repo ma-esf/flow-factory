@@ -1,6 +1,6 @@
 ---
 name: flow-reground
-description: Re-ground a tracker artifact (issue, candidate, or PRD) against the project's latest default branch, report what no longer holds, patch mechanical staleness on approval, flag substantive staleness for you to action. Use when picking up an aged issue, before implementing or triaging, or when the user says "re-ground this", "is this still valid?", "check this against the default branch", or invokes /flow-reground.
+description: Re-ground a tracker artifact (ticket, candidate, or PRD) against the project's latest default branch, report what no longer holds, patch mechanical staleness on approval, flag substantive staleness for you to action. Use when picking up an aged ticket, before implementing or triaging, or when the user says "re-ground this", "is this still valid?", "check this against the default branch", or invokes /flow-reground.
 ---
 
 # /flow-reground
@@ -17,7 +17,7 @@ never silently rewrites the artifact. It patches only *mechanical* staleness, an
 only on your approval. Everything substantive it **reports and recommends**, and
 you decide.
 
-Works on any file under `.cortex/`, issue, candidate, or PRD. It re-grounds
+Works on any file under `.cortex/`, ticket, candidate, or PRD. It re-grounds
 whatever the file actually contains; it does not branch on type.
 
 Conventions (paths, `Status:`, `Created:`, the `## Comments` history section) follow
@@ -27,7 +27,7 @@ Conventions (paths, `Status:`, `Created:`, the `## Comments` history section) fo
 
 Accept, in order:
 
-1. **An explicit path** under `.cortex/` (issue, candidate, or PRD).
+1. **An explicit path** under `.cortex/` (ticket, candidate, or PRD).
 2. **A fuzzy local reference**, a feature name, slug fragment, or `<feature>/<NN>`.
    Resolve it by searching `.cortex/`. Multiple matches: list them and ask.
 3. **Infer from context**. Given nothing, re-ground the artifact this session has
@@ -91,10 +91,10 @@ Check whatever is present:
 ## Step 1.5 - Orient: brief the picker-upper
 
 Before checking freshness, say what the artifact *is*. Whoever just picked up a
-colleague's week-old issue needs to know what they're about to ship, not only which
+colleague's week-old ticket needs to know what they're about to ship, not only which
 line numbers moved. Boil the artifact down to three one-line labels:
 
-- **What:** what the issue asks you to build.
+- **What:** what the artifact asks you to build.
 - **Approach:** the intended implementation, if the artifact states one.
 - **Done when:** the acceptance criteria, in brief.
 
@@ -103,7 +103,7 @@ capture may yield only **What:**).
 
 What this brief is:
 
-- **The issue as authored** - synthesised from the artifact alone, no code search
+- **The artifact as authored** - synthesised from the artifact alone, no code search
   here (that's Step 2's job).
 - **Not yet re-grounded** - Step 2 is what tells you which of these claims have gone
   stale.

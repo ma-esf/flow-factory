@@ -1,12 +1,12 @@
 ---
 name: flow-close-out
-description: "Close out a merged PR: confirm the merge landed and flip the tracker issue to done; remove the worktree and branch only when there's a reason to. Use when the user says a PR merged, says \"it's merged\", names a merged PR number, asks to close out or clean up after a merge, or invokes /flow-close-out."
+description: "Close out a merged PR: confirm the merge landed and flip the ticket to done; remove the worktree and branch only when there's a reason to. Use when the user says a PR merged, says \"it's merged\", names a merged PR number, asks to close out or clean up after a merge, or invokes /flow-close-out."
 ---
 
 # flow-close-out
 
 The post-merge sequence, in one place. Run the headings below in order.
-`/flow-ship-issue` Stage 7 calls this, and so can you, directly, for a branch that
+`/flow-ship-ticket` Stage 7 calls this, and so can you, directly, for a branch that
 never went through that pipeline. Called from Stage 7, that skill's talk rule and
 hand-back forms still apply.
 
@@ -28,7 +28,7 @@ run, Jira comes first: `/flow-worktree-close` and the receipt read as "run
 finished", so an offer made after them gets waved off, and the work reaches Jira
 never.
 
-A merge with no tracker issue and no worktree (a Dependabot bump, someone else's
+A merge with no ticket and no worktree (a Dependabot bump, someone else's
 PR) needs the two merge checks only. Say what you skipped and why.
 
 ## Confirm the merge is real
@@ -89,7 +89,7 @@ reads exactly like a merge commit. It also reports commits that landed on the
 default branch after you branched, and so fails while your own content is merged.
 
 On `CLOSED` with no `mergeCommit` the PR was rejected. Delete nothing and say
-so. Set the tracker issue to `needs-triage`, remove any `Session:` line, and
+so. Set the ticket to `needs-triage`, remove any `Session:` line, and
 append a dated comment under `## Comments` opening
 `Rejected: PR <url> closed unmerged.`, in that spelling: `/flow-triage` Step 0
 matches it. A rejection needs a decision, not a close-out, and `/flow-triage`
@@ -111,7 +111,7 @@ anything. The `done` flip reports the work as finished, so it comes first.
 
 ## Check the GitHub issue closed itself
 
-Only when a hosted issue exists, which the ticket's `## Comments` records. A
+Only when a GitHub issue exists, which the ticket's `## Comments` records. A
 project with `github.create_issue` false opens none, so skip this heading and
 say nothing about it. When one exists, `Closes #<n>` in the PR body should have
 closed it on merge:
@@ -122,13 +122,14 @@ gh issue view <n> --json state,stateReason
 
 `CLOSED` with `COMPLETED` also proves the keyword survived into the body a user
 pasted by hand, which is a possible failure only when `pr.create_mode` is
-`manual`; under `gh` the body reached GitHub as the skill wrote it. Still `OPEN`
-means the keyword did not arrive, so close the issue directly and say why.
+`manual`; under `gh` the body reached GitHub as the skill wrote it. Still
+`OPEN` means the keyword did not arrive, so close the GitHub issue directly and
+say why.
 
-## Flip the tracker issue to `done`
+## Flip the ticket to `done`
 
 The merge checks above are the proof the work landed, and merging was the user's
-own decision to complete it, so flip the issue to `done` without asking. Also
+own decision to complete it, so flip the ticket to `done` without asking. Also
 remove the `Session:` line if present.
 
 `~/.flow-factory/tracker-contract.md` says `done` means any branch or worktree the
@@ -138,7 +139,7 @@ happen.
 
 ## Offer `/flow-jira-subtask`
 
-Only when `jira.enabled` is true. Single-issue mode, on the issue file just closed
+Only when `jira.enabled` is true. Single-ticket mode, on the ticket just closed
 out. When it is false this project has no Jira: skip this heading, say nothing
 about Jira, and the sequence ends at the flip above.
 
@@ -157,5 +158,5 @@ its own merge gate and the rest of its cleanup.
 
 Put the checked value in every line, never the intended one.
 
-Called from `/flow-ship-issue`, the run ends at its Stage 8 table, not here. This
+Called from `/flow-ship-ticket`, the run ends at its Stage 8 table, not here. This
 heading is that stage's input, so hand back and let it render the table.

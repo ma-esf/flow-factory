@@ -1,6 +1,6 @@
 # Dispatch prerequisites
 
-`/flow-conductor` launches one Claude session per issue by driving iTerm2. Four
+`/flow-conductor` launches one Claude session per ticket by driving iTerm2. Four
 things must hold before the first dispatch. Three of them fail in ways the
 conductor cannot see: it reports a session as launched and nothing is running.
 

@@ -1,6 +1,6 @@
 # This project's work items
 
-`.cortex/` holds this project's work items. `issues/` holds work. `candidates/`
+`.cortex/` holds this project's work items. `tickets/` holds work. `candidates/`
 holds something someone saw and wrote down, which nobody has yet decided is
 work.
 

@@ -27,13 +27,13 @@ The route most work travels. You have an idea and want it built.
 
 Every unit ships the same way, and it is one command:
 
-**`/flow-ship-issue <path>`**
+**`/flow-ship-ticket <path>`**
 
 It conducts stages 0 to 8: re-ground and claim the ticket, create and enter the worktree, build, verify against the ticket's acceptance criteria, review and commit, prepare the pull request, push and hand the pull request over, close out after the merge, then end in a receipt where every row holds an observed value.
 
 It auto-advances through stages that come back clean and stops only for a failure, a material decision, a delegated skill's own approval, `git push`, or worktree deletion. Say "stop after each" to add gates.
 
-You never type the stages. `/flow-reground`, `/flow-worktree-create`, `/flow-tdd`, `/flow-comments-review`, `/code-review`, `/flow-new-issue`, `/flow-pr-summary`, `/flow-close-out` and `/flow-worktree-close` all sit inside it.
+You never type the stages. `/flow-reground`, `/flow-worktree-create`, `/flow-tdd`, `/flow-comments-review`, `/code-review`, `/flow-new-github-issue`, `/flow-pr-summary`, `/flow-close-out` and `/flow-worktree-close` all sit inside it.
 
 Who opens the pull request is `pr.create_mode` in the project's settings: under `manual` you open it in the GitHub UI from the URL the push prints; under `gh` the skill may run `gh pr create`.
 
@@ -43,7 +43,7 @@ It reads a `Status:` from a ticket file, which is why a single unplanned change 
 
 ### Context hygiene
 
-Keep steps 1–3 in **one unbroken context window** — don't compact or clear until after `/flow-to-tickets` — so the grilling, spec, and tickets all build on the same thinking. Each `/flow-ship-issue` run then starts fresh, working from the ticket file.
+Keep steps 1–3 in **one unbroken context window** — don't compact or clear until after `/flow-to-tickets` — so the grilling, spec, and tickets all build on the same thinking. Each `/flow-ship-ticket` run then starts fresh, working from the ticket file.
 
 The limit on this is the **[smart zone](https://www.aihero.dev/ai-coding-dictionary/smart-zone)**: the window (~120k tokens on state-of-the-art models) within which the model still reasons sharply. If a session approaches it before `/flow-to-tickets`, don't push on degraded — write a handoff file and continue in a fresh thread.
 
@@ -51,7 +51,7 @@ The limit on this is the **[smart zone](https://www.aihero.dev/ai-coding-diction
 
 A starting situation that generates work, then merges onto the main flow.
 
-- **Bugs and requests piling up** → **`/flow-backlog`** to see what is there, then **`/flow-triage`** on each item. Triage verifies the claim and promotes the item to a buildable ticket, asks for what is missing, or closes it with the reason kept. **`/flow-conductor`** dispatches both kinds: `/flow-triage` for an item at `needs-triage` and `/flow-ship-issue` for one at `ready-for-agent`.
+- **Bugs and requests piling up** → **`/flow-backlog`** to see what is there, then **`/flow-triage`** on each item. Triage verifies the claim and promotes the item to a buildable ticket, asks for what is missing, or closes it with the reason kept. **`/flow-conductor`** dispatches both kinds: `/flow-triage` for an item at `needs-triage` and `/flow-ship-ticket` for one at `ready-for-agent`.
 
   Triage does most of its work on items **you didn't plan** — bug reports, parked findings, anything that arrives raw. A ticket that `/flow-to-tickets` cut from a spec is already specified, so `/flow-triage` Step 0 only promotes it once its blockers are done. That promote re-grounds first and patches a stale mechanism, but anything substantive it proposes rather than applies.
 

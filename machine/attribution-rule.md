@@ -8,9 +8,9 @@ skill restates it.
 
 These are every place the factory writes text a hosted repository keeps:
 
-- the commit message, `flow-ship-issue` Stage 4 step 6
+- the commit message, `flow-ship-ticket` Stage 4 step 6
 - the pull request body, `flow-pr-summary`
-- the issue title and body, `flow-new-issue`
+- the GitHub issue title and body, `flow-new-github-issue`
 
 A skill writing at one of them reads `github.attribution` and applies the
 matching rule below. `settings-contract.md`, beside this file, says how to read
@@ -37,7 +37,7 @@ trailer, a line, a footer, a badge or a link that credits the agent or its
 maker, in any wording or markup.
 
 What this does not govern: a human co-author line, and a line linking the work
-to an issue or a ticket. Those stay under both values.
+to a GitHub issue or a ticket. Those stay under both values.
 
 ## Under `none`
 
@@ -60,6 +60,6 @@ credit of its own. At the three points that means:
 
 - the commit message keeps the trailer, after the subject line
 - the pull request body keeps its generated-with line
-- the issue gets nothing, because the harness adds attribution to a commit and
-  to a pull request body and not to an issue. `flow-new-issue` therefore writes
-  the same text under both values.
+- the GitHub issue gets nothing, because the harness adds attribution to a
+  commit and to a pull request body and not to a GitHub issue.
+  `flow-new-github-issue` therefore writes the same text under both values.
