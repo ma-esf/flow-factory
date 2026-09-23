@@ -80,7 +80,7 @@ factory_stamp() {
 
 # Check the factory checkout before placing anything, so a missing source is
 # found before the steps above it have written to the machine.
-for required in machine skills project/flow-factory.toml project/.flow/README.md; do
+for required in machine skills project/flow-factory.toml project/.cortex/README.md; do
     [ -e "$FACTORY_ROOT/$required" ] \
         || fail "$FACTORY_ROOT is not a factory checkout: no $required"
 done
@@ -212,8 +212,8 @@ git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1 \
 say "$PROJECT_ROOT"
 
 step "Step 6. Create the work-items folder"
-mkdir -p "$PROJECT_ROOT/.flow/issues" "$PROJECT_ROOT/.flow/candidates"
-say "ready .flow/issues and .flow/candidates"
+mkdir -p "$PROJECT_ROOT/.cortex/issues" "$PROJECT_ROOT/.cortex/candidates"
+say "ready .cortex/issues and .cortex/candidates"
 
 step "Step 7. Prepare flow-factory.toml"
 # Built in a temporary copy of the template, which carries the comments and the
@@ -466,7 +466,7 @@ step "Step 14. Place the pointer file"
 STAMP=$(factory_stamp)
 TODAY=$(date +%Y-%m-%d)
 sed -e "s|<factory version>|$STAMP|" -e "s|<YYYY-MM-DD>|$TODAY|" \
-    "$FACTORY_ROOT/project/.flow/README.md" > "$PROJECT_ROOT/.flow/README.md"
+    "$FACTORY_ROOT/project/.cortex/README.md" > "$PROJECT_ROOT/.cortex/README.md"
 say "  Flow Factory $STAMP, installed $TODAY"
 
 # ===========================================================================

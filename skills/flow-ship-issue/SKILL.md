@@ -215,7 +215,7 @@ This is rarer than the loop the order above removes, so pay it when it happens
 rather than reviewing twice by default.
 
 After the commit, identify ticket-required files absent from it, and name any
-file under `.flow/` among them. Whether a project tracks its tracker in git is
+file under `.cortex/` among them. Whether a project tracks its tracker in git is
 the project's choice and the factory does not settle it, so a tracker edit is
 reported either way rather than assumed to be outside the commit.
 
@@ -235,8 +235,8 @@ as a typo, format-only edit, or generated-file refresh. If uncertain, create the
 issue. Invoke `/flow-new-issue` without first asking whether an issue is wanted.
 Its creation approval still applies. Draft from the tracker problem statement,
 not the diff, and make the body readable by someone who has only the hosted
-repository. Write the reasoning out. Do not point at a path under `.flow/` or at
-a decision-record identifier and leave the reader to find it.
+repository. Write the reasoning out. Do not point at a path under `.cortex/` or
+at a decision-record identifier and leave the reader to find it.
 
 Then invoke `/flow-pr-summary`. Include `Closes #<n>` when a hosted issue exists.
 Treat the summary as editable user text: only flag facts that are wrong, not

@@ -5,7 +5,7 @@ description: Pick the next issues to dispatch from one tracker issue folder, lis
 
 # flow-conductor - what to dispatch next from one issue folder
 
-Invoked on a folder: `/flow-conductor .flow/issues/backend-testing`. Ask which
+Invoked on a folder: `/flow-conductor .cortex/issues/backend-testing`. Ask which
 folder only if the conversation does not make it obvious. After that the user types
 `conduct` (or "what's next", "update") to refresh. Every run does the same four steps.
 

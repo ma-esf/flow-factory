@@ -25,7 +25,7 @@ to the repository root, so resolve the root first:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)" || echo "not a git repository at all"
-ls -d machine skills install/install.sh project/flow-factory.toml project/.flow/README.md
+ls -d machine skills install/install.sh project/flow-factory.toml project/.cortex/README.md
 ```
 
 Without the `cd`, a session that happens to be standing in `skills/` gets five
@@ -112,8 +112,8 @@ written against.
 The docs number releases in a second scheme, as `MVP 1`. The two have never been
 mapped to each other. Ask the user which number this release carries in the prose
 before editing it, and do not invent the correspondence: a reader who finds
-`Flow Factory v0.1.0` in `.flow/README.md` and no `v0.1.0` anywhere in the docs
-that file points at has been told the release exists by a file that cannot
+`Flow Factory v0.1.0` in `.cortex/README.md` and no `v0.1.0` anywhere in the
+docs that file points at has been told the release exists by a file that cannot
 confirm it.
 
 ## Update the docs that name the release, then commit
@@ -171,7 +171,7 @@ uploads its commit, so every object is present on the remote and nothing appears
 to be wrong, but no branch reaches that commit, so a fresh clone stands on a
 default branch that predates it and describes as the *previous* release. Every
 install made from that clone stamps the wrong version into a customer's
-`.flow/README.md`, silently. This is the failure the first heading describes,
+`.cortex/README.md`, silently. This is the failure the first heading describes,
 produced by skipping one command.
 
 Pushing is its own approval, separately from the commit, because a pushed release
@@ -211,8 +211,9 @@ looks finished locally and is broken everywhere else.
 
 - **Never move or delete a tag that has been pushed.** Not to fix a message, not
   to add a forgotten commit. Installs made against it stamped `v0.2.0` into a
-  project's `.flow/README.md`, and moving the tag makes that record name a tree it
-  never held. The fix for a bad release is the next tag, never a rewritten one.
+  project's `.cortex/README.md`, and moving the tag makes that record name a
+  tree it never held. The fix for a bad release is the next tag, never a
+  rewritten one.
 - **A release is the branch push and the tag push, never the tag alone.** Until
   the tag is an ancestor of the remote's default branch, nothing has been released,
   whatever the local `describe` says.

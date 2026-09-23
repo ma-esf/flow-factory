@@ -13,7 +13,7 @@ and triaged instead, `/flow-park` then `/flow-triage`.
 
 ## Where it lands
 
-`.flow/issues/<feature-slug>/PRD.md`, and the filename is exactly `PRD.md`.
+`.cortex/issues/<feature-slug>/PRD.md`, and the filename is exactly `PRD.md`.
 Every ticket cut from this spec carries a `Slice <X.Y> of PRD.md` line that
 resolves by folder, so another filename breaks that trail for every ticket at
 once.

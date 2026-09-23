@@ -30,7 +30,7 @@ not, stop as `~/.flow-factory/settings-contract.md` says.
   the issue title and body as one of its three write points. That rule is not
   restated here.
 - **The body must be readable from a fresh clone.** Write the reasoning out
-  instead of pointing at a path under `.flow/` or at a decision-record
+  instead of pointing at a path under `.cortex/` or at a decision-record
   identifier: a project may commit its tracker or git-exclude it and the factory
   cannot know which, so an issue body must never depend on that path being
   reachable. The rule lives in this skill because this skill owns the issue body

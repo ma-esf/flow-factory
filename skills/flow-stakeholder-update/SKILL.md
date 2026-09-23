@@ -65,7 +65,7 @@ the fix, so a linked pair gives you both halves. Some PRs land with an empty
 body. For those, read `gh pr diff N --stat` and the commit titles, and say what
 changed from the diff.
 
-`.flow/issues/<feature>/` holds the ticket for items this project's own agents
+`.cortex/issues/<feature>/` holds the ticket for items this project's own agents
 shipped: its `## Acceptance` and `## How to verify` say what was checked, and
 `## Comments` carries the PR. That is often absent from the PR body and is what
 makes the Test line honest.

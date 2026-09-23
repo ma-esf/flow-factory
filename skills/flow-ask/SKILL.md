@@ -78,4 +78,4 @@ Off the main flow entirely.
 
 ## Precondition
 
-The flows assume the factory is installed: `flow-factory.toml` at the project root and the `.flow/` tracker beside it, both placed by the factory's installer. A skill that finds no `flow-factory.toml` stops and says so.
+The flows assume the factory is installed: `flow-factory.toml` at the project root and the `.cortex/` tracker beside it, both placed by the factory's installer. A skill that finds no `flow-factory.toml` stops and says so.

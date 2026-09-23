@@ -6,8 +6,8 @@ skill only ever reads one shape.
 
 ## Where files live
 
-`<tracker>` is `.flow/` at the root of the project, with two children, `issues/`
-and `candidates/`. The installer creates it.
+`<tracker>` is `.cortex/` at the root of the project, with two children,
+`issues/` and `candidates/`. The installer creates it.
 
 - `<tracker>/issues/<feature>/<NN>-<slug>.md` is one work item. Numbering is per
   folder and has gaps, so the highest number is not the count.
@@ -20,7 +20,7 @@ and `candidates/`. The installer creates it.
 decision record per file, numbered next in sequence; in an empty directory the
 first is `0001`. `/flow-grill-with-docs` is the skill that writes there.
 
-It is outside `<tracker>` on purpose and is not a third child of `.flow/`. A
+It is outside `<tracker>` on purpose and is not a third child of `.cortex/`. A
 tracker file is work in flight and stops being read once it is `done`. A
 decision record outlives the work that produced it and is read by people who
 never open the tracker, so it belongs with the project's documents. `docs/adr/`

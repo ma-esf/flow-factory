@@ -17,8 +17,8 @@ never silently rewrites the artifact. It patches only *mechanical* staleness, an
 only on your approval. Everything substantive it **reports and recommends**, and
 you decide.
 
-Works on any file under `.flow/`, issue, candidate, or PRD. It re-grounds whatever
-the file actually contains; it does not branch on type.
+Works on any file under `.cortex/`, issue, candidate, or PRD. It re-grounds
+whatever the file actually contains; it does not branch on type.
 
 Conventions (paths, `Status:`, `Created:`, the `## Comments` history section) follow
 `~/.flow-factory/tracker-contract.md`.
@@ -27,14 +27,14 @@ Conventions (paths, `Status:`, `Created:`, the `## Comments` history section) fo
 
 Accept, in order:
 
-1. **An explicit path** under `.flow/` (issue, candidate, or PRD).
+1. **An explicit path** under `.cortex/` (issue, candidate, or PRD).
 2. **A fuzzy local reference**, a feature name, slug fragment, or `<feature>/<NN>`.
-   Resolve it by searching `.flow/`. Multiple matches: list them and ask.
+   Resolve it by searching `.cortex/`. Multiple matches: list them and ask.
 3. **Infer from context**. Given nothing, re-ground the artifact this session has
    been discussing.
 
 Guard: a bare `#N` is a **GitHub** reference, not a local tracker file. If handed
-one, say so and ask which `.flow/` file is meant, don't guess from the number.
+one, say so and ask which `.cortex/` file is meant, don't guess from the number.
 
 ## Step 0 - Fetch and fix the baseline (must run first, and must SUCCEED)
 
