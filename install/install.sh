@@ -125,6 +125,16 @@ while IFS= read -r src; do
         say "  OVERWROTE $rel"
     fi
     cp -- "$src" "$dest"
+    # cp sets the mode from the source for a file it creates, but not for one
+    # it overwrites, so a machine that installed statusline.sh before it was
+    # executable would keep a copy it cannot run. Written as an if rather than
+    # a && list: the mode is corrected for the few files that carry it, and a
+    # test that fails on every other file must not be the last thing the loop
+    # body runs under set -e. No -- either; the BSD chmod macOS ships does not
+    # take it, and the paths here are absolute.
+    if [ -x "$src" ]; then
+        chmod +x "$dest"
+    fi
 done < <(find "$FACTORY_ROOT/machine" -type f ! -name '.gitkeep' | sort)
 
 step "Step 4. Copy each skill directory into $SKILLS_DIR"
@@ -145,6 +155,133 @@ for src in "$FACTORY_ROOT"/skills/*/; do
     fi
     cp -R -- "${src%/}" "$dest"
 done
+
+step "Step 5. Point Claude Code at the status line"
+# ---------------------------------------------------------------------------
+# The one file the factory writes that it does not own.
+#
+# Everything else lands in ~/.flow-factory, ~/.claude/skills/flow-* or the
+# project. This edits ~/.claude/settings.json, which is the user's and holds
+# far more than a status line. So the rules are narrow:
+#
+#   - a statusLine that is already there and is not ours is never replaced.
+#     Somebody chose it. The install says so and prints what to add instead.
+#   - the file is rewritten only after the new JSON parses, and the old one is
+#     kept beside it, so a failed run cannot cost anybody their settings.
+#   - settings that will not parse are left alone and named. The file is not
+#     ours to repair.
+#
+# The command is written as an absolute path rather than ~/.flow-factory/...,
+# because whether the tilde is expanded depends on how the command is run, and
+# a path that silently resolves to nothing leaves a blank status line with no
+# error anywhere to explain it.
+#
+# A failure here never stops the install. The status line is a convenience and
+# every skill works without it.
+# ---------------------------------------------------------------------------
+STATUSLINE_SCRIPT="$MACHINE_DIR/statusline.sh"
+CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+
+if [ ! -x "$STATUSLINE_SCRIPT" ]; then
+    say "  SKIPPED: $STATUSLINE_SCRIPT is missing or not executable"
+elif ! command -v python3 >/dev/null 2>&1; then
+    say "  SKIPPED: no python3, so settings.json cannot be edited safely."
+    say "  Add this to $CLAUDE_SETTINGS yourself:"
+    say "    \"statusLine\": { \"type\": \"command\", \"command\": \"$STATUSLINE_SCRIPT\" }"
+else
+    STATUSLINE_RESULT=$(
+        SETTINGS="$CLAUDE_SETTINGS" COMMAND="$STATUSLINE_SCRIPT" python3 - <<'SETTINGS_EDIT'
+import json, os, shutil, sys
+
+settings = os.environ["SETTINGS"]
+command = os.environ["COMMAND"]
+ours = {"type": "command", "command": command}
+
+if os.path.exists(settings):
+    try:
+        with open(settings) as fh:
+            data = json.load(fh)
+    except Exception as exc:
+        print("invalid\t%s" % exc)
+        sys.exit(0)
+    if not isinstance(data, dict):
+        print("invalid\tthe file holds %s, not an object" % type(data).__name__)
+        sys.exit(0)
+    existed = True
+else:
+    data = {}
+    existed = False
+
+existing = data.get("statusLine")
+if existing == ours:
+    print("unchanged\t")
+    sys.exit(0)
+
+if isinstance(existing, dict) and existing.get("command") == command:
+    # Ours already, with keys the user added on it: padding, a refresh
+    # interval. Those are theirs to keep, so nothing here is rewritten.
+    print("unchanged\t")
+    sys.exit(0)
+elif existing is not None:
+    print("foreign\t%s" % json.dumps(existing))
+    sys.exit(0)
+
+data["statusLine"] = ours
+action = "added" if existed else "created"
+
+# The temporary file sits beside the settings, not in /tmp: a rename across
+# filesystems is not atomic, and the whole point of writing a copy first is
+# that the settings file is either the old one or the new one, never half of
+# each.
+backup = settings + ".before-flow-factory"
+tmp = settings + ".flow-factory-tmp"
+os.makedirs(os.path.dirname(settings), exist_ok=True)
+with open(tmp, "w") as fh:
+    json.dump(data, fh, indent=2)
+    fh.write("\n")
+try:
+    with open(tmp) as fh:
+        json.load(fh)
+except Exception as exc:
+    os.unlink(tmp)
+    print("failed\tthe rewritten settings did not parse: %s" % exc)
+    sys.exit(0)
+if existed:
+    shutil.copy2(settings, backup)
+os.replace(tmp, settings)
+print("%s\t%s" % (action, backup if existed else ""))
+SETTINGS_EDIT
+    )
+    STATUSLINE_STATE=${STATUSLINE_RESULT%%$'\t'*}
+    STATUSLINE_DETAIL=${STATUSLINE_RESULT#*$'\t'}
+    case $STATUSLINE_STATE in
+        created)
+            say "  created $CLAUDE_SETTINGS, which this machine did not have yet"
+            ;;
+        added)
+            say "  added statusLine to $CLAUDE_SETTINGS"
+            say "  the file as it was: $STATUSLINE_DETAIL"
+            ;;
+        unchanged)
+            say "  unchanged; $CLAUDE_SETTINGS already points at the status line"
+            ;;
+        foreign)
+            say "  KEPT the status line this machine already configured:"
+            say "    $STATUSLINE_DETAIL"
+            say "  It was not replaced. To use the factory's instead, set its"
+            say "  command to: $STATUSLINE_SCRIPT"
+            ;;
+        invalid)
+            say "  SKIPPED: $CLAUDE_SETTINGS does not parse as JSON, so it was"
+            say "  left untouched. Fix it and install again."
+            say "  ($STATUSLINE_DETAIL)"
+            ;;
+        *)
+            say "  SKIPPED: $STATUSLINE_DETAIL"
+            ;;
+    esac
+    say "  A session already open keeps its status line until it restarts."
+fi
 
 # ===========================================================================
 # The dispatch probes, from machine/dispatch-prerequisites.md
@@ -202,7 +339,7 @@ fi
 # The project half, once per project
 # ===========================================================================
 
-step "Step 5. Find the project root"
+step "Step 6. Find the project root"
 [ -d "$PROJECT_ROOT" ] || fail "no such directory: $PROJECT_ROOT"
 PROJECT_ROOT=$(cd -- "$PROJECT_ROOT" && pwd)
 git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1 \
@@ -211,13 +348,13 @@ git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1 \
     || fail "the project root is the factory checkout. Pass the project as an argument."
 say "$PROJECT_ROOT"
 
-step "Step 6. Create the work-items folder"
+step "Step 7. Create the work-items folder"
 mkdir -p "$PROJECT_ROOT/.flow/issues" "$PROJECT_ROOT/.flow/candidates"
 say "ready .flow/issues and .flow/candidates"
 
-step "Step 7. Prepare flow-factory.toml"
+step "Step 8. Prepare flow-factory.toml"
 # Built in a temporary copy of the template, which carries the comments and the
-# unset: tag for every key, and moved into place after step 13. The project's own
+# unset: tag for every key, and moved into place at step 14. The project's own
 # answers are written over the template's values, one line each.
 SETTINGS_TMP=$(mktemp)
 trap 'rm -f -- "$SETTINGS_TMP"' EXIT
@@ -300,7 +437,7 @@ ask_key() {
     set_key "$key" "$value"
 }
 
-step "Step 8. Answer git.default_branch"
+step "Step 9. Answer git.default_branch"
 # The one step that looks detectable and is not. The repository can be read,
 # but a repository showing one branch is the repository answering, not the
 # project. Detect the value, then have the user confirm it; a guess that
@@ -330,7 +467,7 @@ done
 set_key "git.default_branch" "\"$BRANCH\""
 say "  git.default_branch = \"$BRANCH\""
 
-step "Step 9. Answer test.command and reports.stakeholder_dir"
+step "Step 10. Answer test.command and reports.stakeholder_dir"
 # Not asked through ask_key. Under the settings contract these keys' unset
 # behaviour is stop, not "does not apply", so an empty answer does not belong
 # in the list of keys where empty says the project has no such thing.
@@ -346,7 +483,7 @@ if [ -z "$REPLY_REPORTS" ]; then
     say "  left empty. /flow-stakeholder-update will stop and name this key."
 fi
 
-step "Step 10. Describe the app, one service at a time"
+step "Step 11. Describe the app, one service at a time"
 # Three index-matched lists, gathered together so no answer can leave them
 # different lengths. Each answer is one element, never a comma-separated list:
 # a start command can carry a comma, which the list splitter would break.
@@ -388,7 +525,7 @@ else
     say "  $APP_COUNT service(s) recorded"
 fi
 
-step "Step 11. Answer the document, tracker and Jira keys"
+step "Step 12. Answer the document, tracker and Jira keys"
 say "  Empty is an answer here. It says the project has no such thing."
 ask_key "docs.context"         string "the file holding this project's domain vocabulary"
 ask_key "docs.glossaries"      list   "glossaries in order, comma separated; the first is written to"
@@ -399,7 +536,7 @@ ask_key "source.backend_dir"   string "the backend source directory, if the proj
 ask_key "tracker.epic_field"   string "the header field naming an epic, for example Epic"
 ask_key "jira.enabled"         bool   "true or false"
 
-step "Step 12. Answer the GitHub keys"
+step "Step 13. Answer the GitHub keys"
 while :; do
     ask "  github.merge_strategy (squash, merge or rebase): " REPLY_MERGE
     case $REPLY_MERGE in
@@ -415,7 +552,7 @@ while :; do
     esac
 done
 
-step "Step 13. Confirm the keys whose defaults stand"
+step "Step 14. Confirm the keys whose defaults stand"
 # A replacement is a plain value, not TOML. It goes through the same builder
 # as every other answer, so a reply of gh becomes "gh" and feat/, fix/ becomes
 # a two-element list, and neither can leave a line a skill cannot read.
@@ -462,7 +599,7 @@ if [ ${#EMPTY_ANSWERS[@]} -gt 0 ]; then
     for k in "${EMPTY_ANSWERS[@]}"; do say "    - $k"; done
 fi
 
-step "Step 14. Place the pointer file"
+step "Step 15. Place the pointer file"
 STAMP=$(factory_stamp)
 TODAY=$(date +%Y-%m-%d)
 sed -e "s|<factory version>|$STAMP|" -e "s|<YYYY-MM-DD>|$TODAY|" \
