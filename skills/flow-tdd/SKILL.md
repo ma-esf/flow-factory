@@ -39,3 +39,13 @@ When the shape of that interface is itself in question (how deep the module is, 
 - **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
 - **One slice at a time.** One seam, one test, one minimal implementation per cycle.
 - **Refactoring is not part of the loop.** It belongs to the review stage (see the `code-review` skill), not the red -> green implementation cycle.
+
+## Red and green in other stacks
+
+Two kinds of behaviour change what red and green look like without changing the loop.
+
+When the behaviour under test is a transformation over data, the seam is the output table for a given input table. The fixture is a small input table, the expected value is the rows that should come out, and red is a failing assertion over those rows, usually against a local engine standing in for the warehouse. A test that queries an intermediate table the model does not promise is the side-channel anti-pattern above, with SQL in place of a database call.
+
+When the behaviour under test is non-deterministic, as a model call is, one exact string is not an expected value. Assert a property of the output, a threshold, or a score over a labelled set. Red is then a score below the threshold and green is clearing it, not matching one sample. To set the threshold, run the eval k times against the current system and state k: the baseline is the mean score, the noise is the spread across those runs, and the threshold is the baseline minus the noise. Lowered until the test passes, it is the tautological test in a new coat. The eval runs by its own command, never the test command. Temperature zero narrows the variance without making a call repeatable, and a seed, where a provider offers one, is best effort and makes no call repeatable either. What makes a unit test deterministic is a fake model that returns a fixed reply: test what the module does with that reply, and that each input it must pass reaches the model, such as every passage appearing in the prompt the fake received, without asserting the exact prompt. Keep the real model for the scored set.
+
+Everything else in this file holds unchanged: the seam is still agreed first and the expected value still comes from an independent source. [tests.md](tests.md) shows both shapes.

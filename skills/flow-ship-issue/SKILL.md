@@ -167,8 +167,9 @@ a stop or a handoff, and the run is not verified.
    than reviewing from memory. Give it an explicit effort:
    - `low` for an ordinary diff.
    - `high` for test-only changes, correctness-critical calculation, parsing of
-     documents from outside the project, or a change crossing two parts of the
-     stack.
+     documents from outside the project, a change crossing two parts of the
+     stack, a SQL transformation feeding a report, a migration, a prompt
+     change, or a change to an eval set.
    Never drop a returned finding because today's data masks it. A statement that
    the input which would trigger the defect never occurs describes the present,
    and a defect that only fires on a future input is still a defect. Test it
@@ -182,9 +183,13 @@ a stop or a handoff, and the run is not verified.
    fix writes and rewords comments, and it changes which code the diff touches,
    so a comment pass before it judges text that is about to move.
 5. Confirm the diff covers what it changed. When it changes a non-test source
-   file, confirm it also adds or changes a test. A fix for a reported defect
-   needs the test that reproduces it. If the diff has neither, name the untested
-   change and ask before committing.
+   file, confirm it also adds or changes a test. A test is whatever the guide at
+   `test.guide_path` calls one: in a data project that may be a dbt unit test,
+   or a schema test only if it fails without the change, and in an AI project a
+   case added to an eval set. When that key is unset, a test is a file
+   `test.command` runs. A fix for a reported defect needs the test that
+   reproduces it. If the diff has neither, name the untested change and ask
+   before committing.
    The gate is about source files. A diff that changes only documentation,
    configuration or generated files, or a ticket whose provenance line says
    docs only, has no test to add: say so in the stage line and continue.

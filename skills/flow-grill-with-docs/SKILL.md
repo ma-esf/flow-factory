@@ -16,7 +16,9 @@ Two habits, on top of the questions `/flow-grilling` already asks:
   this project's glossaries already define, say so and make the user pick. "You said
   account. Do you mean the Customer or the User?"
 - **Check the claim against the code.** When the user says how something works,
-  look. Surface a contradiction at once.
+  look. When the claim is about data ("that column is never null"), look in the
+  data, with a query. When it is about model behaviour ("it always returns
+  JSON"), run it, more than once. Surface a contradiction at once.
 
 ## What to write, and where
 

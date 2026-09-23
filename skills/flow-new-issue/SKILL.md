@@ -72,7 +72,10 @@ not the goal: if the draft is over 100, cut before showing it.
    is genuinely no case to show. Prefer a case actually observed over an invented one,
    because a real instance proves the problem is real, not hypothetical. Keep the real
    shape and replace any client name or figure with a synthetic one of the same shape
-   (see the redaction rule): a real bug never needs real client data to show it.
+   (see the redaction rule): a real bug never needs real client data to show it. When
+   the behavior is non-deterministic, as a model output is, give the output observed
+   and the property or range that is correct, and say how often the wrong one appeared,
+   because one sample is not the behavior.
 3. A `**Done looks like**` bullet list. One outcome per bullet, not a task. Fold a
    constraint into the bullet it belongs to instead of giving it its own.
 4. `Prerequisite:` one line, only when something must land first.

@@ -46,7 +46,7 @@ Two things the template does not carry:
 - **The epic line.** When `tracker.epic_field` is set in this project's settings, write one header line, that field name followed by the value the user gives, at the position "Header lines" in `~/.flow-factory/tracker-contract.md` gives it. Unset, the line is not written and the user is not asked for it. `~/.flow-factory/settings-contract.md` holds the rule for reading the key; if the user has not already named the value, fold the request into step 1's one question.
 - **What you were working on.** Open `## What was observed` by naming the task this interrupted, in one clause, then give the observation. A reader who picks this up cold needs to know it was seen in passing, not sought.
 
-Pull every concrete detail from the conversation: file paths, the mechanism, the caveat you already voiced. That harvesting is the whole value, a capture with no specifics is just a stub with extra steps.
+Pull every concrete detail from the conversation: file paths, the mechanism, the caveat you already voiced, and where the work is data or a model, the table, the query, the run or trace id, the input, the prompt or model version. That harvesting is the whole value, a capture with no specifics is just a stub with extra steps.
 
 ### 5. Confirm in one line, then hand back to A
 
