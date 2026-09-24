@@ -7,7 +7,10 @@ skill only ever reads one shape.
 ## Where files live
 
 `<tracker>` is `.cortex/` at the root of the project, with two children,
-`tickets/` and `candidates/`. The installer creates it.
+`tickets/` and `candidates/`. The installer creates it and adds `/.cortex` to
+`info/exclude` in the common git directory, never to `.gitignore`, so git
+leaves it out of commits and every worktree shares one copy. A project that
+commits `.cortex/` on any branch is left as it is.
 
 - `<tracker>/tickets/<feature>/<NN>-<slug>.md` is one work item. Numbering is
   per folder and has gaps, so the highest number is not the count.

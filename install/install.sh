@@ -16,6 +16,10 @@
 
 set -euo pipefail
 
+# An inherited CDPATH makes cd print the directory, which a $(cd ... && pwd)
+# then captures along with the path.
+unset CDPATH
+
 FACTORY_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 PROJECT_ROOT=${1:-$PWD}
 
@@ -211,9 +215,60 @@ git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1 \
     || fail "the project root is the factory checkout. Pass the project as an argument."
 say "$PROJECT_ROOT"
 
-step "Step 6. Create the work-items folder"
+step "Step 6. Create and git-exclude the work-items folder"
 mkdir -p "$PROJECT_ROOT/.cortex/tickets" "$PROJECT_ROOT/.cortex/candidates"
 say "ready .cortex/tickets and .cortex/candidates"
+
+# Git-exclude the tracker, so `git add` picks up neither it nor the link
+# /flow-worktree-create makes in each worktree. info/exclude, never the tracked
+# .gitignore, and in the common git directory, so one line covers every
+# worktree. No trailing slash: git does not treat a symlink as a directory, so
+# `/.cortex/` misses every worktree's link. The pattern is anchored at the top
+# level, so a project root below it carries its prefix. A tracker the project
+# already commits, on any branch, is left alone: the line would hide only new
+# tickets.
+PREFIX=$(git -C "$PROJECT_ROOT" rev-parse --show-prefix)
+PATTERN="/$(printf '%s' "$PREFIX" | sed 's/[][*?\\]/\\&/g').cortex"
+
+# The first branch whose tree holds .cortex as a directory. A committed symlink
+# is a blob, left by a `git add` in a worktree, and is not a tracker. One
+# cat-file answers every ref; its output lines pair with the refs by position,
+# because a path may hold spaces and the ref names cannot.
+committed_on() {
+    local refs
+    refs=$(git -C "$PROJECT_ROOT" for-each-ref --format='%(refname)' refs/heads refs/remotes)
+    [ -n "$refs" ] || return 0
+    printf '%s\n' "$refs" \
+        | P="${PREFIX}.cortex" awk '{ print $0 ":" ENVIRON["P"] }' \
+        | git -C "$PROJECT_ROOT" cat-file --batch-check='%(objecttype)' \
+        | paste -d ' ' - <(printf '%s\n' "$refs") \
+        | awk '$1 == "tree" && !n++ { print $2 }'
+}
+
+# `.cortex/`, not `.cortex`, so a symlink blob in the index does not count.
+if [ -n "$(git -C "$PROJECT_ROOT" ls-files .cortex/)" ]; then
+    say "not excluded: .cortex is tracked in this checkout, so it is not shared across worktrees"
+elif COMMITTED_ON=$(committed_on) && [ -n "$COMMITTED_ON" ]; then
+    say "not excluded: .cortex is committed on $COMMITTED_ON"
+else
+    # cd and pwd, not --path-format=absolute, which git before 2.31 echoes back.
+    GIT_COMMON=$(cd -- "$PROJECT_ROOT" && cd -- "$(git rev-parse --git-common-dir)" && pwd) \
+        || fail "cannot find the git directory of $PROJECT_ROOT"
+    EXCLUDE="$GIT_COMMON/info/exclude"
+    if [ -f "$EXCLUDE" ] && grep -qxF "$PATTERN" "$EXCLUDE"; then
+        say "unchanged $PATTERN in $EXCLUDE"
+    else
+        mkdir -p "$GIT_COMMON/info"
+        {
+            # A last line with no newline would take the pattern onto its end.
+            if [ -s "$EXCLUDE" ] && [ -n "$(tail -c1 "$EXCLUDE")" ]; then printf '\n'; fi
+            printf '%s\n' "$PATTERN"
+        } >> "$EXCLUDE" || fail "cannot write $EXCLUDE"
+        say "excluded $PATTERN in $EXCLUDE"
+    fi
+fi
+[ -z "$PREFIX" ] \
+    || say "$PROJECT_ROOT is not the repository's top level, so worktrees do not share this tracker"
 
 step "Step 7. Prepare flow-factory.toml"
 # Built in a temporary copy of the template, which carries the comments and the
