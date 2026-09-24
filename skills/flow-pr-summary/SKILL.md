@@ -116,15 +116,25 @@ Then write it to `/tmp/pr-body-<name>.md`, where `<name>` is the branch with eve
 
 Close with a numbered choice the user can pick or type, never a yes/no question:
 
-1. Copy the PR summary to the clipboard, ready to paste as the PR body
-2. Edit the PR summary
-
-Copying replaces what the user was holding, so it stays their call. On 1, run `pbcopy < /tmp/pr-body-<name>.md`, confirm with `pbpaste | wc -c`, and report the count. On 2, rewrite, print, and offer the same choice again.
+1. Open the pull request against `<base>`, titled "<title>", with this body
+2. Copy the PR summary to the clipboard, ready to paste as the PR body
+3. Edit the PR summary
 
 Who opens the pull request is `pr.create_mode` in this project's settings. Under
 `manual` the user opens it and this skill never runs a command that creates one.
-Under `gh` it may run `gh pr create` after an explicit approval. Either way the
-summary is text for the pull request body, and this skill does not push.
+Offer the open choice only when the mode is `gh`, step 1 found no pull request,
+`git ls-remote --exit-code --heads origin <branch>` finds the branch on the
+remote, and no calling skill opens the pull request itself, as
+`/flow-ship-ticket` does in its Stage 6. Otherwise leave it out and number the
+other two from 1. The title is the commit subject when the branch has one
+commit; otherwise propose one, which the user can change by typing.
+
+On open, run `gh pr create --base <base> --head <branch> --title "<title>"
+--body-file /tmp/pr-body-<name>.md` and report the URL it prints. Copying
+replaces what the user was holding, so it stays their call: on copy, run
+`pbcopy < /tmp/pr-body-<name>.md`, confirm with `pbpaste | wc -c`, and report
+the count. On edit, rewrite, print, and offer the same choice again. This skill
+never pushes.
 
 ## Style notes
 
