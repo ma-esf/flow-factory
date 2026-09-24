@@ -27,23 +27,27 @@ not, stop as `~/.flow-factory/settings-contract.md` says.
 
 - Auto-advance every clean stage. The user can say "stop after each" to add gates.
 - Stop only for a failure, a material decision, a delegated skill's required
-  approval, the commit message approval in Stage 4, `git push`, or worktree
+  approval, the commit message approval in Stage 5, `git push`, or worktree
   deletion.
 - Use ASD-STE100 Simplified Technical English. When `docs.context` is set, also
   use the ubiquitous language in that file.
-- On each stage result, print one line:
+- When a stage starts, print its header as markdown, not in a code block: one
+  ship per stage number, then the number and the heading's name in bold, and
+  on the line below what the stage is about to do.
 
-  ```text
-  🚢 <n>/8 | <STAGE> | <PASS|WAIT|STOP|DONE> - <result or next action>
+  ```markdown
+  🚢🚢🚢 **3/7 Build**
+  Skipping the default branch in the branch loop, tested through its output.
   ```
 
+- A clean stage prints nothing when it ends; the next header shows it passed.
+  When the run needs the user, print one line that ends with exactly what they
+  must do: `**Your turn:**` for a gate this skill always has, such as an
+  approval, and `**Stopped:**` for a failure or anything that does not fit.
 - Keep detail inside failures and decisions. Use `AskUserQuestion` for a clean
-  choice. Otherwise state only the blocker, needed response, and next automatic
-  step. Give commands only for work the agent cannot perform.
-- Print the Stage 8 receipt at final completion only. At a handoff or a stop the
-  stage line above carries the state, so do not repeat it as a receipt.
+  choice. Give commands only for work the agent cannot perform.
 
-## Stage 0 - Re-ground and claim
+## Stage 1 - Reground
 
 Resolve one tracker ticket from the argument or session.
 
@@ -77,7 +81,7 @@ Invoke `/flow-reground`. Continue after a clean result or an approved mechanical
 patch. On substantive staleness, stop and propose changing `Status:` to
 `needs-triage`; do not apply that change without approval.
 
-## Stage 1 - Isolate
+## Stage 2 - Isolate
 
 Invoke `/flow-worktree-create`. With `Branch base:` off the default branch,
 or no `## Depends on`, name no base; it resolves the default branch from this
@@ -89,7 +93,7 @@ gh pr view <url> --json headRefName,state
 ```
 
 Pass `headRefName` as the base when `state` is `OPEN`. `MERGED` means it has
-landed already: use the default branch and say so in the stage line. `CLOSED`
+landed already: use the default branch and say so in the header. `CLOSED`
 stops the run: the base was rejected.
 
 Then call `EnterWorktree` with the new path. Verify
@@ -97,25 +101,26 @@ Then call `EnterWorktree` with the new path. Verify
 review or build from the original checkout. On a stacked base, run the ticket's
 `Check before starting:` command here; a wrong output stops the run.
 
-## Stage 2 - Build
+## Stage 3 - Build
 
 Read `test.command` from this project's settings. Unset, it stops the run: name
 the key and stop. A guessed test command reports a pass for a run that never
-happened, and Stage 3 rests on the same key.
+happened, and Stage 4 rests on the same key.
 
 When `test.guide_path` is set, read that file before the handoff. It decides test
 type, placement, markers, and test data, which `/flow-tdd` is generic about and
 cannot know for this project. When `source.backend_dir` is set, the guide governs
 work under that directory.
 
-Print the implementation approach and test seams in one short clause, then
-invoke `/flow-tdd` immediately. Run targeted tests and typechecks while building
-and the full suite once at the end, all through `test.command`.
+The header's second line is the implementation approach and test seams, in one
+short clause. Then invoke `/flow-tdd` immediately. Run targeted tests and
+typechecks while building and the full suite once at the end, all through
+`test.command`.
 
 Stop only for an ambiguous requirement, unexpected architecture seam, scope
 expansion, or failure. Otherwise continue directly to verification.
 
-## Stage 3 - Verify
+## Stage 4 - Verification
 
 This stage does the checking itself. It calls no other skill.
 
@@ -124,10 +129,10 @@ the checkbox lines under it. That is the whole input. Never add a criterion the
 ticket does not carry: an invented criterion is the failure that looks most like
 thoroughness, because it reads as care while it moves the bar the ticket set.
 
-**Count before checking.** Count the checkboxes and print the count. Every one
-gets exactly one verdict, so the number of verdicts equals that count. Reconcile
-the two before the stage line. A criterion that quietly leaves the list is the
-way this stage passes work nobody checked.
+**Count before checking.** Count the checkboxes and put the count in the header.
+Every one gets exactly one verdict, so the number of verdicts equals that count.
+Reconcile the two before the stage ends. A criterion that quietly leaves the
+list is the way this stage passes work nobody checked.
 
 **How to check each one.** Read `## How to verify` by heading match.
 
@@ -157,10 +162,10 @@ suite, the command is `test.command`.
 produced it. Do not edit the code or the ticket to make a criterion pass: a
 criterion the run rewrote is a criterion nobody met.
 
-The stage advances to Stage 4 only when every criterion passed. Anything else is
+The stage advances to Stage 5 only when every criterion passed. Anything else is
 a stop or a handoff, and the run is not verified.
 
-## Stage 4 - Review and commit
+## Stage 5 - Commit
 
 1. Invoke `/code-review`. It is Claude Code's built-in review skill, not one
    the factory ships; if it is unavailable, stop the stage and name it rather
@@ -192,7 +197,7 @@ a stop or a handoff, and the run is not verified.
    before committing.
    The gate is about source files. A diff that changes only documentation,
    configuration or generated files, or a ticket whose provenance line says
-   docs only, has no test to add: say so in the stage line and continue.
+   docs only, has no test to add: say so beside the commit message and continue.
    When `source.backend_dir` is set, this gate applies to changes under that
    directory. Unset, the project is one tree and the gate applies to every
    non-test file the diff changes. When `test.dir` is set, a new test file lands
@@ -204,7 +209,8 @@ a stop or a handoff, and the run is not verified.
    the GitHub issue when one exists, and repeating it in the commit only ages
    another copy.
    When you present the message for approval, open with it in a code block; put
-   any status or file list after it, never as a lead-in before it.
+   the Stage 4 tally, such as `5/5 criteria passed`, and any status or file list
+   after it, never as a lead-in before it.
 
 A read-only review's internal stop returns its findings to this conductor. It is
 a user handoff only when a finding needs the decision in step 3.
@@ -219,10 +225,10 @@ file under `.cortex/` among them. Whether a project tracks its tracker in git is
 the project's choice and the factory does not settle it, so a tracker edit is
 reported either way rather than assumed to be outside the commit.
 
-## Stage 5 - Prepare the pull request
+## Stage 6 - PR
 
-When the work produced nothing to commit, this stage and Stage 6 have no work.
-Say which, and go to Stage 7.
+When the work produced nothing to commit, this stage has no work. Say so and go
+to Stage 7.
 
 Whether a GitHub issue is opened is `github.create_issue` in this project's
 settings. When it is false, the tracker ticket and the pull request carry the
@@ -241,17 +247,15 @@ or at a decision-record identifier and leave the reader to find it.
 Then invoke `/flow-pr-summary`. Include `Closes #<n>` when a GitHub issue exists.
 Treat the summary as editable user text: only flag facts that are wrong, not
 sections the user shortens or removes. Let it draft and write the body file, but
-leave the clipboard copy to Stage 6, so it lands after the push and a copied pull
-request URL cannot clobber it.
-
-## Stage 6 - Push and pull request handoff
+leave the clipboard copy until after the push, so a copied pull request URL
+cannot clobber it.
 
 Ask once before `git push`. When `app.services` is set, that question also
-offers `/flow-verify-delivery` first: Stage 3 checked the criteria, not the
+offers `/flow-verify-delivery` first: Stage 4 checked the criteria, not the
 running app. Push after approval and show the returned pull request URL. Do not
 copy the body to the clipboard on your own: copying replaces whatever the user
-is holding, so it stays their call. Stop with the stage line, the URL, and the
-numbered options as the whole output.
+is holding, so it stays their call. Stop with a `**Your turn:**` line, the URL
+and the numbered options as the whole output.
 
 Who opens the pull request is `pr.create_mode` in this project's settings. Under
 `manual` the user opens it and this skill never runs a command that creates one.
@@ -265,7 +269,7 @@ Run `pbcopy < <body file>` (confirm with `pbpaste | wc -c`) only when the user
 selects it, never before.
 
 The tracker flip happens as soon as a pull request exists, without asking, the
-same way Stage 0 claims without asking: set `Status: in-review`, remove the
+same way Stage 1 claims without asking: set `Status: in-review`, remove the
 `Session:` line, and append the pull request URL, plus the GitHub issue URL when
 one exists, under `## Comments`. Under `gh` that is right after `gh pr create`
 returns. Under `manual` it is on resume, once the check below shows the pull
@@ -280,37 +284,28 @@ gh pr view <branch> --json url,state
 If the pull request exists and the ticket still reads `in-progress`, make that
 flip now. If none exists, report that and wait.
 
-## Stage 7 - Close out after merge
+## Stage 7 - Close out
 
 Resume from the tracker status and the recorded pull request URL. Invoke
 `/flow-close-out`; it owns merge verification, rejected-pull-request handling,
 and whether `/flow-worktree-close` runs at all. It also owns the tracker update,
 and the Jira text when `jira.enabled` is true. Do not duplicate those rules here.
 
-## Stage 8 - Closing the turn
+Once the tracker reads `Status: done` and, where there was a change to merge,
+the pull request reports `MERGED` with a merge commit, print the last line of
+the run:
 
-Print this once the tracker reads `Status: done` and, where there was a change to
-merge, the pull request reports `MERGED` with a merge commit. Work that produced
-no merge at all reaches this receipt on `Status: done` alone. The worktree and
-branch staying on disk does not hold the receipt back; they are removed only when
-`/flow-close-out` had a specific reason to run `/flow-worktree-close`. Until the
-end state lands, the stage line is the whole output.
-
-Use observed values only. Report this ticket's slice only. Never repeat a URL or
-path the prose above already gave; the receipt carries state, not addresses.
-
-```text
-🚢 DONE
-Merge: <merged state and merge commit, or "no change to merge">
-Outside the change: <ticket-required files not committed, or none>
+```markdown
+**Shipped:** PR #<n> is merged (<merge commit>) and the ticket is marked done. Left out of the commit: <ticket-required files, or none>.
 ```
 
-```text
-✅ Done - the ticket is shipped and closed out.
-```
+With nothing to merge, say so in place of the merge. Always fill "Left out of
+the commit", with "none" when nothing was: a blank cannot tell a check that
+found nothing from a check that never ran. Use observed values for this ticket
+only, and no URL or path the run already gave.
 
 Then at most three lines, one line each, no sub-points. A line earns its place
 only if it changes the user's picture: the ticket was wrong about something, or
 the build found something that changes what happens next. The suite counts, the
-verification result, and the decisions the user just made are already in the
-tracker file and are not repeated here.
+verification tally, and the decisions the user just made were shown earlier in
+the run and are not repeated here.
