@@ -74,6 +74,10 @@ In the project, once per project:
 - `flow-factory.toml` at the root, holding the answers. Installing into the
   same project again overwrites it, and the answers it held are gone.
 - `.cortex/tickets/` and `.cortex/candidates/`, where work items live.
+- A `/.cortex` line in the repository's `info/exclude` (`.git/info/exclude` in
+  a plain clone), so git ignores the tracker and every worktree shares one
+  copy. `.gitignore` is not touched. A project that commits `.cortex/` on any
+  branch gets no line.
 - `.cortex/README.md`, recording which version of the factory was installed and
   when.
 
