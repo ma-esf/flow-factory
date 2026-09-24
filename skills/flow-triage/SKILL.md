@@ -236,10 +236,9 @@ part of the system it touches: plain language, no project shorthand, short
 sentences, one fact per sentence. The first time the brief names a skill, a
 stage, a file or a term, say in a few words what it is or does. Call each
 concept by one name, its real one, and hold it through the whole brief. A
-file, command or tool term keeps its own name with the gloss beside it: a
-paraphrase in its place can name the neighbouring thing, as "ignore list"
-once read as `.gitignore` for `.git/info/exclude`. Separate the items with
-blank lines.
+file, command or tool term keeps its own name with the gloss beside it,
+because a paraphrase in its place can name a neighbouring thing. Separate the
+items with blank lines.
 
 **First turn, the item.**
 
