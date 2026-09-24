@@ -225,21 +225,28 @@ line, so the builder inherits the doubt instead of inheriting a guess:
   rests on. Not in `## Comments`: the builder reads the body first, and a doubt
   filed in the audit trail is a doubt the builder never meets.
 
-## Step 3: recommend, then wait
+## Step 3: explain, then recommend
 
-Present a decision brief and wait for direction. You recommend a status; the user
-picks it. Never flip a status on your own judgment at this step.
+Present a brief in two turns: the item, then the decision. You recommend a
+status; the user picks it. Never flip a status on your own judgment at this
+step.
 
-Write the brief for a reader with no memory of the file: plain language, no
-project shorthand, short sentences, one fact per sentence. Call each concept by
-one name and hold it through the whole brief. Separate the items with blank
-lines.
+Write the brief for a reader who has not read the file and does not know the
+part of the system it touches: plain language, no project shorthand, short
+sentences, one fact per sentence. The first time the brief names a skill, a
+stage, a file or a term, say in a few words what it is or does. Call each
+concept by one name and hold it through the whole brief. Separate the items
+with blank lines.
 
+**First turn, the item.**
+
+- **Item:** what kind of file this is and what it claims, in one sentence: "A
+  saved note says the two build skills disagree on who approves the tests."
 - **Where:** the place and moment the user meets it: which screen, during what
   action; for a data item, which table or report; for an AI item, which prompt
-  or which answer. For a change with no user-facing surface, the component it
-  belongs to: which stage or service, in plain words. File paths belong in
-  Scope, not here.
+  or which answer. For a change with no user-facing surface, start from what
+  the whole process does, then name the stage, then the moment. File paths
+  belong in Scope, not here.
 - **What:** the behaviour change itself, one plain sentence. Not its location:
   "stop showing a false reason", not "fixes on the confirm page".
 - **Why:** what it costs today, and who hits it.
@@ -253,10 +260,26 @@ lines.
 - **Assumptions:** one sub-bullet per ledger row, each with its mark. Verified
   rows are what the reader audits; unverified or refuted rows are what they rule
   on.
-- **Status:** the recommended status, with the single strongest reason.
-- **Decide:** the decisions the user must make, numbered, each with a
-  recommendation and what the alternative buys. A fact that would flip the status
-  is one of these.
+
+End the turn by asking whether anything is unclear before the decisions, and
+stop. Answer each question; when an answer changes a section, show it again.
+Go on once the user says it is clear. Sent in the same message as the item,
+the decisions get answered before the item is understood.
+
+**Second turn, the decision.**
+
+State the recommended status in one line, with the single strongest reason.
+Then ask the decisions the user must make with `AskUserQuestion`, one decision
+per call, and wait for each answer before the next. Listed together, each
+decision gets less of the reader's attention.
+
+- The question opens "Decision <n> of <N>:" and is written to the same rules
+  as the brief.
+- The recommended option comes first, its label ending "(Recommended)". Each
+  option's description says what choosing it buys and what it costs.
+- A fact that would flip the status is one of these decisions.
+- When an answer changes a later decision, reword or drop that decision
+  before asking it.
 
 ## Step 4: grill, when the request needs shape
 
