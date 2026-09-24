@@ -39,9 +39,13 @@ If the output contains `BASE_MISSING`, stop the same way: there is no remote nam
 # between runs. Left empty, `"$BASE"...HEAD` silently reads as `HEAD...HEAD` and every
 # count below comes back zero, so the report says "in sync" about a branch that is not.
 BASE="origin/<the git.default_branch value>"
+DEFAULT="${BASE#origin/}"
 
 # Current branch
-git branch --show-current
+cur=$(git branch --show-current); echo "${cur:-DETACHED}"
+
+# Its upstream (origin/foo, origin/foo[ahead 1], origin/foo[gone]), or NO_UPSTREAM.
+[ -n "$cur" ] && git for-each-ref --format='%(upstream:short)%(upstream:track)' "refs/heads/$cur" | grep . || echo "NO_UPSTREAM"
 
 # Worktree path
 git rev-parse --show-toplevel
@@ -79,19 +83,19 @@ git status --short
 # Genuinely-new committed work (use ONLY when squash_commit is none).
 git diff --stat "$BASE"...HEAD
 
-# Ancestor check: true only for fast-forward merges, NOT squashes (a squash rewrites history).
-git merge-base --is-ancestor HEAD "$BASE" && echo "MERGED into $BASE" || echo "NOT merged"
+# Ancestor check: true after a fast-forward or a merge commit, never after a squash (a squash rewrites history).
+# The default branch is the base, so it passes whenever it is not ahead: it gets its own marker.
+if [ -z "$cur" ]; then echo "DETACHED"
+elif [ "$cur" = "$DEFAULT" ]; then echo "DEFAULT_BRANCH"
+elif git merge-base --is-ancestor HEAD "$BASE"; then echo "MERGED into $BASE"
+else echo "NOT merged"; fi
 
 # For every local branch, merged into the base or not. This is all of them, not only the
 # ones a worktree has checked out; pair it with `git worktree list` above before calling
-# one a worktree that can be removed.
-git for-each-ref --format='%(refname:short)' refs/heads/ | while read b; do
-  if git merge-base --is-ancestor "$b" "$BASE" 2>/dev/null; then
-    echo "MERGED  $b"
-  else
-    echo "ACTIVE  $b"
-  fi
-done
+# one a worktree that can be removed. The default branch is never listed as merged,
+# because it is the base.
+git for-each-ref --merged="$BASE" --format='MERGED  %(refname:lstrip=2)' refs/heads/ | grep -vxF "MERGED  $DEFAULT"
+git for-each-ref --no-merged="$BASE" --format='ACTIVE  %(refname:lstrip=2)' refs/heads/
 ```
 
 ## Step 2 - Produce the report
@@ -107,7 +111,7 @@ One paragraph, plain English. Synthesise from the conversation history: what pro
 `<absolute path>`, and note if it is a secondary worktree (not the main clone) or the main repo.
 
 ### 3. Branch
-`<branch name>` and its upstream if it has one (e.g. `feature/foo -> origin/feature/foo`). If the branch is already fully merged into `$BASE` (per the `--is-ancestor` check), append: `(already merged to <the base>, safe to delete)`.
+`<branch name> -> <upstream>`, the upstream copied as Step 1 printed it (e.g. `feature/foo -> origin/feature/foo`, or `origin/feature/foo[gone]` once the remote branch is deleted). On `NO_UPSTREAM`, say the branch has no upstream; never print one Step 1 did not. On `DETACHED`, say only that HEAD is on no branch. Append `(already merged to <the base>, safe to delete)` only when the ancestor check printed `MERGED into`.
 
 ### 4. Commits ahead of the base
 Read `ahead_by_sha` and `squash_commit` from Step 1.
