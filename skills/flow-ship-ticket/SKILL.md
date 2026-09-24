@@ -296,12 +296,13 @@ the pull request reports `MERGED` with a merge commit, print the last line of
 the run:
 
 ```markdown
-**Shipped:** PR #<n> is merged (<merge commit>) and the ticket is marked done.
+**Shipped:** PR #<n> is merged (<merge commit>) and the ticket is marked done. Left out of the commit: <ticket-required files, or none>.
 ```
 
-With nothing to merge, say so in place of the merge. Name the ticket-required
-files the commit left out, when there are any. Use observed values for this
-ticket only, and no URL or path the run already gave.
+With nothing to merge, say so in place of the merge. Always fill "Left out of
+the commit", with "none" when nothing was: a blank cannot tell a check that
+found nothing from a check that never ran. Use observed values for this ticket
+only, and no URL or path the run already gave.
 
 Then at most three lines, one line each, no sub-points. A line earns its place
 only if it changes the user's picture: the ticket was wrong about something, or
