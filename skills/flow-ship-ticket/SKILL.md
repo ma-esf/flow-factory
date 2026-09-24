@@ -33,7 +33,10 @@ not, stop as `~/.flow-factory/settings-contract.md` says.
   use the ubiquitous language in that file.
 - When a stage starts, print its header as markdown, not in a code block: one
   ship per stage number, then the number and the heading's name in bold, and
-  on the line below what the stage is about to do.
+  on the line below what the stage is about to do. Every stage prints its
+  header, before its first tool call and in a message of its own. A stage with
+  no work says why on the second line; headers grouped in one message get lost
+  among the tool calls.
 
   ```markdown
   🚢🚢🚢 **3/7 Build**
