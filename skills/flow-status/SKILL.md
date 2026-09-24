@@ -50,7 +50,7 @@ git rev-parse --show-toplevel
 git worktree list
 
 # Ahead/behind COUNTS. left = behind (on the base, not here); right = ahead-by-SHA (here, not on the base).
-set -- $(git rev-list --left-right --count "$BASE"...HEAD); behind=$1; ahead=$2
+read -r behind ahead <<< "$(git rev-list --left-right --count "$BASE"...HEAD)"
 echo "ahead_by_sha=$ahead behind=$behind"
 
 # Commit subjects: ahead-by-SHA list, then behind list.
@@ -65,9 +65,9 @@ git log --oneline HEAD.."$BASE"
 mb=$(git merge-base "$BASE" HEAD)
 squash=""
 if [ "$ahead" -gt 0 ] && [ "$behind" -gt 0 ] && [ "$behind" -lt 200 ]; then
-  bpid=$(git diff $mb...HEAD | git patch-id --stable | awk '{print $1}')
+  bpid=$(git diff $mb...HEAD | git patch-id --stable | cut -d' ' -f1)
   for c in $(git rev-list $mb.."$BASE"); do
-    if [ "$(git show $c | git patch-id --stable | awk '{print $1}')" = "$bpid" ]; then squash=$c; break; fi
+    if [ "$(git show $c | git patch-id --stable | cut -d' ' -f1)" = "$bpid" ]; then squash=$c; break; fi
   done
 fi
 echo "merge_base=$mb squash_commit=${squash:-none}"
