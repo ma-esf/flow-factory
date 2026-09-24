@@ -246,10 +246,12 @@ request URL cannot clobber it.
 
 ## Stage 6 - Push and pull request handoff
 
-Ask once before `git push`. Push after approval and show the returned pull
-request URL. Do not copy the body to the clipboard on your own: copying replaces
-whatever the user is holding, so it stays their call. Stop with the stage line,
-the URL, and the numbered options as the whole output.
+Ask once before `git push`. When `app.services` is set, that question also
+offers `/flow-verify-delivery` first: Stage 3 checked the criteria, not the
+running app. Push after approval and show the returned pull request URL. Do not
+copy the body to the clipboard on your own: copying replaces whatever the user
+is holding, so it stays their call. Stop with the stage line, the URL, and the
+numbered options as the whole output.
 
 Who opens the pull request is `pr.create_mode` in this project's settings. Under
 `manual` the user opens it and this skill never runs a command that creates one.
