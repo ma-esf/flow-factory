@@ -360,10 +360,11 @@ Both exits above produce a ticket, and the contract says a work item lives at
 out of `.cortex/candidates/` and into a feature folder. Move it last, after the
 rewrite and after the `Status:` flip, so what lands is already finished.
 
-- **Ask which feature folder.** List the folders under `.cortex/tickets/` and
-  ask the user to pick one or name a new one. A capture belongs to no feature,
-  so this is the user's answer and never yours. Do not read a folder off the
-  capture's subject, and do not invent a catch-all such as `misc`.
+- **Ask which feature folder, with names to pick from.** List the folders
+  under `.cortex/tickets/` and suggest two or three new names, then ask the
+  user to pick one or name another. A capture belongs to no feature, so the
+  pick is the user's and never yours, even when they hand it back: suggest, and
+  let them choose. Never offer a catch-all such as `misc`.
 - **Take the next free number.** Read the highest `NN` already in that folder
   and add one, keeping two digits. Numbering has gaps, so the file count is not
   the answer. A folder you are creating starts at `01`.
