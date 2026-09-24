@@ -240,6 +240,8 @@ with blank lines.
 
 **First turn, the item.**
 
+- **Item:** what kind of file this is and what it claims, in one sentence: "A
+  saved note says the two build skills disagree on who approves the tests."
 - **Where:** the place and moment the user meets it: which screen, during what
   action; for a data item, which table or report; for an AI item, which prompt
   or which answer. For a change with no user-facing surface, start from what
@@ -266,10 +268,18 @@ the decisions get answered before the item is understood.
 
 **Second turn, the decision.**
 
-- **Status:** the recommended status, with the single strongest reason.
-- **Decide:** the decisions the user must make, numbered, each with a
-  recommendation and what the alternative buys. A fact that would flip the status
-  is one of these.
+State the recommended status in one line, with the single strongest reason.
+Then ask the decisions the user must make with `AskUserQuestion`, one decision
+per call, and wait for each answer before the next. Listed together, each
+decision gets less of the reader's attention.
+
+- The question opens "Decision <n> of <N>:" and is written to the same rules
+  as the brief.
+- The recommended option comes first, its label ending "(Recommended)". Each
+  option's description says what choosing it buys and what it costs.
+- A fact that would flip the status is one of these decisions.
+- When an answer changes a later decision, reword or drop that decision
+  before asking it.
 
 ## Step 4: grill, when the request needs shape
 
