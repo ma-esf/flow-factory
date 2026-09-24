@@ -76,7 +76,10 @@ default, no memory at all.
    WT="$MAIN/.claude/worktrees/$NAME"
 
    git -C "$MAIN" fetch origin -p
-   git -C "$MAIN" worktree add "$WT" -b "$BRANCH" "$BASE"
+   # --no-track: from a remote-tracking BASE, git makes BASE the upstream, and
+   # a bare `git push` then aims at it. Measured: under `push.default=upstream`
+   # it lands the branch on the default branch and exits 0.
+   git -C "$MAIN" worktree add --no-track "$WT" -b "$BRANCH" "$BASE"
 
    # Local permission layer: the harness copies this when IT makes a worktree;
    # a raw `git worktree add` does not, so carry it over (a copy, not a symlink,
