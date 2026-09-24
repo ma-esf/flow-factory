@@ -209,7 +209,8 @@ a stop or a handoff, and the run is not verified.
    the GitHub issue when one exists, and repeating it in the commit only ages
    another copy.
    When you present the message for approval, open with it in a code block; put
-   any status or file list after it, never as a lead-in before it.
+   the Stage 4 tally, such as `5/5 criteria passed`, and any status or file list
+   after it, never as a lead-in before it.
 
 A read-only review's internal stop returns its findings to this conductor. It is
 a user handoff only when a finding needs the decision in step 3.
@@ -305,5 +306,5 @@ ticket only, and no URL or path the run already gave.
 Then at most three lines, one line each, no sub-points. A line earns its place
 only if it changes the user's picture: the ticket was wrong about something, or
 the build found something that changes what happens next. The suite counts, the
-verification result, and the decisions the user just made are already in the
-tracker file and are not repeated here.
+verification tally, and the decisions the user just made were shown earlier in
+the run and are not repeated here.
