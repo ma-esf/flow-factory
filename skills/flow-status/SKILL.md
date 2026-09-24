@@ -21,11 +21,15 @@ BASE="origin/<the git.default_branch value>"
 # Updates all remotes/<name>/* refs and prunes branches deleted on the server.
 # Does not modify any local branch or working tree.
 git fetch --all --prune && echo "FETCH_OK" || echo "FETCH_FAILED"
+# --all succeeds with no remote at all, so FETCH_OK alone does not prove $BASE exists.
+git rev-parse --verify -q "$BASE" >/dev/null && echo "BASE_OK" || echo "BASE_MISSING"
 # Always show when we last actually reached the remote (freshness, even on success):
-stat -f '%Sm  %N' "$(git rev-parse --git-common-dir)/FETCH_HEAD" 2>/dev/null
+date -r "$(git rev-parse --git-common-dir)/FETCH_HEAD" 2>/dev/null
 ```
 
 If the output contains `FETCH_FAILED` (an authentication failure, a network error, a proxy or firewall refusing the connection), **STOP. Do not run Step 1 and do not produce the report.** Every comparison would otherwise silently use a stale cached `$BASE` and mislead: it reports the tip as it was at the last successful fetch, which can be hours or days behind, and nothing in the report says so. Instead report only: the fetch error, the last successful fetch time (the `FETCH_HEAD` mtime above), and tell the user to resolve the fetch failure and re-run `/flow-status`. Continue to Step 1 only after the fetch succeeds.
+
+If the output contains `BASE_MISSING`, stop the same way: there is no remote named `origin`, or it does not carry the default branch, so every comparison below would error and the report would be built from the errors. Report which ref is missing and that the factory compares against `origin`.
 
 ## Step 1 - Collect git state (run after the fetch completes)
 

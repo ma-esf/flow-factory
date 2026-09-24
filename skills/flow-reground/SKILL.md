@@ -55,6 +55,8 @@ not, stop as `~/.flow-factory/settings-contract.md` says.
 ```bash
 # Refresh remote refs. Does not modify any local branch or working tree.
 git fetch --all --prune && echo "FETCH_OK" || echo "FETCH_FAILED"
+# --all succeeds with no remote at all, so FETCH_OK alone does not prove $BASE exists.
+git rev-parse --verify -q "$BASE" >/dev/null && echo "BASE_OK" || echo "BASE_MISSING"
 
 # Baseline SHA for the provenance note, and how far the checkout sits from the base.
 git rev-parse --short "$BASE"
@@ -65,6 +67,10 @@ If `FETCH_FAILED`, **STOP**. Report the error and do not run the check: a freshn
 verdict you can't trust is the failure that looks like success. The usual causes are
 authentication, the network and a proxy. Ask the user to resolve the fetch failure
 and re-run.
+
+`BASE_MISSING` stops the check the same way: there is no remote named `origin`, or
+it does not carry the default branch, so there is no baseline to ground against.
+Say which ref is missing.
 
 Validate anchors against `$BASE`, not the working tree. If the checkout is behind,
 note it; the implementer will branch off the fresh default branch, so that is the
