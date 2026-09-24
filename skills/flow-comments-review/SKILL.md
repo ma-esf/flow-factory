@@ -75,11 +75,11 @@ When the diff and the untracked list are both empty, say so and stop.
 Every added line with its real file and line number:
 
 ```bash
-git diff -U0 $RANGE | awk '
-  /^\+\+\+ b\// { f = substr($0, 7); next }
-  /^@@/ { match($0, /\+[0-9]+/); n = substr($0, RSTART + 1, RLENGTH - 1) + 0; next }
-  /^\+/ && !/^\+\+\+/ { print f ":" n ": " substr($0, 2); n++ }
-'
+git diff -U0 $RANGE | awk 'BEGIN { while ((getline l) > 0) {
+  if (l ~ /^\+\+\+ b\//) { f = substr(l, 7); continue }
+  if (l ~ /^@@/) { match(l, /\+[0-9]+/); n = substr(l, RSTART + 1, RLENGTH - 1) + 0; continue }
+  if (l ~ /^\+/ && l !~ /^\+\+\+/) { print f ":" n ": " substr(l, 2); n++ }
+} }'
 ```
 
 **Set A** is the comments in that output: comments this branch wrote. Group adjacent

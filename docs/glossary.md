@@ -36,7 +36,7 @@ term used in only one file.
 
 ## Factory terms
 
-- **Flow Factory** - the packaged product.
+- **Flow Factory** (FF) - the packaged product.
 - **MVP** - one numbered release of the factory, useful to an engineer on its
   own. MVP 1 is the first.
 - **Project agnostic** - carries no assumption about the project it runs in.

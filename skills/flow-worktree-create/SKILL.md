@@ -71,7 +71,7 @@ default, no memory at all.
                                          #    this project's settings, unless the
                                          #    user or the calling skill named a
                                          #    base, then origin/<that branch>
-   MAIN="$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')"
+   MAIN="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"
    NAME="${BRANCH//\//-}"
    WT="$MAIN/.claude/worktrees/$NAME"
 
