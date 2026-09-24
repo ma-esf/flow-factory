@@ -235,8 +235,10 @@ Write the brief for a reader who has not read the file and does not know the
 part of the system it touches: plain language, no project shorthand, short
 sentences, one fact per sentence. The first time the brief names a skill, a
 stage, a file or a term, say in a few words what it is or does. Call each
-concept by one name and hold it through the whole brief. Separate the items
-with blank lines.
+concept by one name, its real one, and hold it through the whole brief. A
+file, command or tool term keeps its own name with the gloss beside it,
+because a paraphrase in its place can name a neighbouring thing. Separate the
+items with blank lines.
 
 **First turn, the item.**
 
