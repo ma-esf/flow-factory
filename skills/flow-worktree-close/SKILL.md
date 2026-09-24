@@ -89,7 +89,7 @@ the way `~/.flow-factory/settings-contract.md` says. Read it once, before step 1
    ownership means using git instead. That shortcut applies only to a worktree
    this session created by name: the tool removes what it made and nothing else.
    A worktree made by `/flow-worktree-create` and entered by path, which is what
-   `/flow-ship-ticket` Stage 1 does and so the normal case for the ship
+   `/flow-ship-ticket` Stage 2 does and so the normal case for the ship
    pipeline, always takes the route below.
 
    Otherwise get the session out first, cheapest move first:

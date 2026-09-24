@@ -24,9 +24,9 @@ from whether `/flow-jira-subtask` is on disk.
 The sequence ends at the `done` flip, and the worktree and branch stay. When
 `jira.enabled` is true it ends one step later, at the Jira offer. Offer
 `/flow-worktree-close` only on a specific reason (see the last heading). When both
-run, Jira comes first: `/flow-worktree-close` and the receipt read as "run
-finished", so an offer made after them gets waved off, and the work reaches Jira
-never.
+run, Jira comes first: `/flow-worktree-close` and the `**Shipped:**` line read
+as "run finished", so an offer made after them gets waved off, and the work
+reaches Jira never.
 
 A merge with no ticket and no worktree (a Dependabot bump, someone else's
 PR) needs the two merge checks only. Say what you skipped and why.
@@ -158,5 +158,5 @@ its own merge gate and the rest of its cleanup.
 
 Put the checked value in every line, never the intended one.
 
-Called from `/flow-ship-ticket`, the run ends at its Stage 8 table, not here. This
-heading is that stage's input, so hand back and let it render the table.
+Called from `/flow-ship-ticket`, the run ends at its `**Shipped:**` line, not
+here. This heading is that line's input, so hand back and let it print the line.

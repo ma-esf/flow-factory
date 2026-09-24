@@ -8,7 +8,7 @@ skill restates it.
 
 These are every place the factory writes text a hosted repository keeps:
 
-- the commit message, `flow-ship-ticket` Stage 4 step 6
+- the commit message, `flow-ship-ticket` Stage 5 step 6
 - the pull request body, `flow-pr-summary`
 - the GitHub issue title and body, `flow-new-github-issue`
 

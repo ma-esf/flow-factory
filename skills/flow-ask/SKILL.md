@@ -29,7 +29,7 @@ Every unit ships the same way, and it is one command:
 
 **`/flow-ship-ticket <path>`**
 
-It conducts stages 0 to 8: re-ground and claim the ticket, create and enter the worktree, build, verify against the ticket's acceptance criteria, review and commit, prepare the pull request, push and hand the pull request over, close out after the merge, then end in a receipt where every row holds an observed value.
+It conducts stages 1 to 7: claim and re-ground the ticket, create and enter the worktree, build, verify against the ticket's acceptance criteria, review and commit, prepare, push and hand over the pull request, and close out after the merge. Each stage starts with a numbered header, and the run ends on a `Shipped:` line that holds only observed values.
 
 It auto-advances through stages that come back clean and stops only for a failure, a material decision, a delegated skill's own approval, `git push`, or worktree deletion. Say "stop after each" to add gates.
 

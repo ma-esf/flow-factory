@@ -145,7 +145,7 @@ the gate, so it gets a real triage. Otherwise, either way:
   satisfied" in `~/.flow-factory/tracker-contract.md` -> **promote it**, after a
   re-ground. Run `/flow-reground`, because a file that waited on blockers was
   specified against a codebase that has since changed, and its mechanism is stale
-  by default. Then split what you found the way `/flow-ship-ticket` Stage 0
+  by default. Then split what you found the way `/flow-ship-ticket` Stage 1
   does:
   - **Mechanical** staleness, where the named mechanism, paths, symbols, versions
     or commands no longer match the codebase. Patch it, and say in the triage
