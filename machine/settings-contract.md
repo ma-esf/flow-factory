@@ -72,23 +72,16 @@ guess about a repository nobody described. The factory must report a failure
 rather than produce a plausible fallback, and assuming `main` in a repository
 on `master` is that failure exactly.
 
-## Four rows rewritten
+## Three rows rewritten
 
-Four lines from four skills, as the port map classified them, and the sentence
-each becomes under this rule. Two are substitutions and two are conditionals,
-because a rule that only substitutes passes on most keys and is still wrong.
+Three lines from three skills, as the port map classified them, and the
+sentence each becomes under this rule. Two are substitutions and one is a
+conditional, because a rule that only substitutes passes on most keys and is
+still wrong.
 
 **`flow-worktree-create:45`, `BASE="origin/main"`** -> Set `BASE` to `origin/`
 followed by `git.default_branch`. The same key, used bare, serves the line that
 says a branch is based on the latest default branch.
-
-**`flow-close-out:30`, "this repo squash-merges, so ancestry checks lie"** ->
-When `github.merge_strategy` is `squash`, `git merge-base --is-ancestor` reports
-landed work as unmerged, so gate on an empty diff against the default branch
-instead. Under `merge` the ancestry check is sound and the empty diff answers
-nothing, the branch head being its own merge base. The row is a worked example of
-the rule, not what shipped: neither question is right alone, so `/flow-close-out`
-asks both in order and reads no key here.
 
 **`flow-park:51`, `Epic: <roadmap epic id>`** -> When `tracker.epic_field` is
 set, write one header line, that field name followed by the value the user
