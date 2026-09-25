@@ -31,55 +31,29 @@ all of them:
 
 One skill needs more than that. `/flow-conductor` launches a session per ticket
 by driving iTerm2, so it needs iTerm2 installed and macOS Automation permission
-granted to the terminal the agent runs in. The installer probes for both,
-reports what failed and finishes anyway; only `/flow-conductor` is blocked.
+granted to the terminal the agent runs in.
 `machine/dispatch-prerequisites.md` holds the probes and what each failure
 looks like.
 
 ## Install
 
-Clone this repository. Then run the installer from the checkout, naming the
-project to install into:
+Clone this repository. Then run the installer from the checkout, once per
+machine:
 
 ```bash
-./install/install.sh <project-root>
+./install
 ```
 
-The argument is the project, never the factory. Run it bare from this checkout
-and it stops and tells you to pass the project.
-
-The installer asks a short list of questions about the project and writes the
-answers to `flow-factory.toml`: the default branch, the command that runs its
-tests, where it keeps its docs and decision records, how pull requests get
-opened and merged, and whether Jira is in play. A few more arrive with a
-default, which you keep or replace.
-
-Two of the answers behave differently from the rest. It detects your default
-branch and asks you to confirm it, because a repository showing one branch is
-the repository answering, not you. The test command has no default, so leaving
-it empty means every skill that runs tests stops and names it. For several of
-the remaining questions an empty answer is a real answer: it says the project
-has no such thing.
-
-The install leaves files in two places.
-
-On the machine, once:
+It asks nothing. Before it writes, it names the only two places it writes:
 
 - `~/.claude/skills/flow-*`, one directory per skill.
-- `~/.flow-factory/`, the tracker and settings contracts and the file templates
-  the skills write against.
+- `~/.flow-factory/`, the tracker and settings contracts, the file templates
+  the skills write against, and `install-record.txt`, the list of every file
+  it placed.
 
-In the project, once per project:
+A `flow-*` skill directory it did not place is left alone and named.
 
-- `flow-factory.toml` at the root, holding the answers. Installing into the
-  same project again overwrites it, and the answers it held are gone.
-- `.cortex/tickets/` and `.cortex/candidates/`, where work items live.
-- A `/.cortex` line in the repository's `info/exclude` (`.git/info/exclude` in
-  a plain clone), so git ignores the tracker and every worktree shares one
-  copy. `.gitignore` is not touched. A project that commits `.cortex/` on any
-  branch gets no line.
-- `.cortex/README.md`, recording which version of the factory was installed and
-  when.
+Fitting a project, its settings and its tracker, arrives with `/flow-init`.
 
 Nothing else is installed. No service, no database, no state shared between
 projects.
@@ -103,5 +77,6 @@ there is to work on.
 | `skills/` | the skill sources | on the machine, once |
 | `machine/` | the tracker rules and the file templates skills write against | on the machine, once |
 | `project/` | the settings file and the pointer file | in each project, once |
-| `install/` | the installer | not installed; it does the placing |
+| `install` | the installer | not installed; it does the placing |
+| `tests/` | the installer's regression test | not installed |
 | `docs/` | the reference docs | not installed; read them here |
