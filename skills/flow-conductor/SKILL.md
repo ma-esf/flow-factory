@@ -164,12 +164,18 @@ osascript -e 'tell application id "com.googlecode.iterm2"
 repeat with w in windows
 repeat with t in tabs of w
 repeat with s in sessions of t
-if (name of s) contains "<prefix>" then
+set nm to name of s
+considering case
+set o to offset of " " in nm
+set hit to nm starts with "<prefix>"
+if not hit and o > 0 and o < (length of nm) then set hit to (text (o + 1) thru -1 of nm) starts with "<prefix>"
+end considering
+if hit then
 tell s
 set n to split vertically with default profile
 end tell
 tell n to write text "cd <project root> && claude -n <name> \"<slash command> <path>\""
-return "split beside " & (name of s)
+return "split beside " & nm
 end if
 end repeat
 end repeat
@@ -206,7 +212,7 @@ past four or so a pane stops being readable. Say so before splitting past that, 
 anyway if the pick stands: a third tab is not yours to choose as the fix.
 
 **Other sessions may be running here.** Only ever split beside, or write into, a pane
-whose name carries one of this skill's own two prefixes. A pane you did not launch may
+whose name starts with one of this skill's own two prefixes. A pane you did not launch may
 belong to someone else's work, and `write text` into it types into their session.
 
 **Tab titles cannot be set from here.** A tab's `title` is read-only, `set` fails with
@@ -217,8 +223,11 @@ seconds. The two routes that would work are the iTerm2 Python API
 setting a fixed title by hand. Do not promise tab names. The `-n` prefix is what separates
 the two tabs.
 
-Three traps, all measured:
+Four traps, all measured:
 
+- Match the prefix at the start of the name, or after Claude Code's status glyph, with
+  case on. A bare `contains` ignores case, so on 2026-09-24 `ship-` matched the pane of
+  another session titled `✳ Ship-ticket title listing (claude)` and split beside it.
 - Address a session by its `-n` name in one pass, as above. Never by tab or window index,
   and never by a window id held from earlier in the conversation: indices shift while the
   user rearranges panes, and a window id dies the moment a tab is dragged out of it.
