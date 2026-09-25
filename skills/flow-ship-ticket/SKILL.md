@@ -34,9 +34,11 @@ not, stop as `~/.flow-factory/settings-contract.md` says.
 - When a stage starts, print its header as markdown, not in a code block: one
   ship per stage number, then the number and the heading's name in bold, and
   on the line below what the stage is about to do. Every stage prints its
-  header, before its first tool call and in a message of its own. A stage with
-  no work says why on the second line; headers grouped in one message get lost
-  among the tool calls.
+  header before its first tool call, as the first line of its message. Nothing
+  comes before it: what the stage just finished still has to show, such as a
+  delegated skill's report or the Stage 4 verdicts, goes below the second
+  line. A header after other text is lost; a reader saw only the headers that
+  opened their message. A stage with no work says why on the second line.
 
   ```markdown
   🚢🚢🚢 **3/7 Build**
