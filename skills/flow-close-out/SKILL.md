@@ -1,6 +1,6 @@
 ---
 name: flow-close-out
-description: "Close out a merged PR: confirm the merge landed and flip the ticket to done; remove the worktree and branch only when there's a reason to. Use when the user says a PR merged, says \"it's merged\", names a merged PR number, asks to close out or clean up after a merge, or invokes /flow-close-out."
+description: "Close out a merged PR: confirm the merge landed, flip the ticket to done, then remove the worktree and branch. Use when the user says a PR merged, says \"it's merged\", names a merged PR number, asks to close out or clean up after a merge, or invokes /flow-close-out."
 ---
 
 # flow-close-out
@@ -21,12 +21,10 @@ project, so the same machine holds a Jira project and a non-Jira one at the same
 time, and a gate settled at install would answer for the wrong one. Never infer it
 from whether `/flow-jira-subtask` is on disk.
 
-The sequence ends at the `done` flip, and the worktree and branch stay. When
-`jira.enabled` is true it ends one step later, at the Jira offer. Offer
-`/flow-worktree-close` only on a specific reason (see the last heading). When both
-run, Jira comes first: `/flow-worktree-close` and the `**Shipped:**` line read
-as "run finished", so an offer made after them gets waved off, and the work
-reaches Jira never.
+The sequence ends with `/flow-worktree-close`, after the `done` flip. When
+`jira.enabled` is true the Jira offer comes between them:
+`/flow-worktree-close` and the `**Shipped:**` line read as "run finished", so an
+offer made after them gets waved off, and the work reaches Jira never.
 
 A merge with no ticket and no worktree (a Dependabot bump, someone else's
 PR) needs the two merge checks only. Say what you skipped and why.
@@ -105,9 +103,9 @@ git fetch origin <default branch> -q
 git show origin/<default branch>:<a path the branch changed>
 ```
 
-A spot check is enough here: the close-out deletes nothing by default, and if
-`/flow-worktree-close` is run later it reruns the exhaustive gate before it touches
-anything. The `done` flip reports the work as finished, so it comes first.
+A spot check is enough here: `/flow-worktree-close` reruns the exhaustive gate
+before it deletes anything. The `done` flip reports the work as finished, so it
+comes first.
 
 ## Check the GitHub issue closed itself
 
@@ -133,26 +131,21 @@ own decision to complete it, so flip the ticket to `done` without asking. Also
 remove the `Session:` line if present.
 
 `~/.flow-factory/tracker-contract.md` says `done` means any branch or worktree the
-work created is dealt with, and the recorded decision below to leave them on disk
-is how they are dealt with, so the flip never waits on a cleanup that may never
-happen.
+work created is dealt with. `/flow-worktree-close` below deals with them, and a
+cleanup it stops on is reported, so the flip does not wait for it.
 
 ## Offer `/flow-jira-subtask`
 
 Only when `jira.enabled` is true. Single-ticket mode, on the ticket just closed
-out. When it is false this project has no Jira: skip this heading, say nothing
-about Jira, and the sequence ends at the flip above.
+out. When it is false this project has no Jira: skip this heading and say
+nothing about Jira.
 
-## Stop here by default; `/flow-worktree-close` only on a specific reason
+## Remove the worktree and branch
 
-The close-out ends at the last heading that ran. Leave the worktree and branch on
-disk: a merged branch costs nothing there, and the work often continues in the
-worktree. Do not prompt `/flow-worktree-close`.
-
-Offer it only for a specific reason: the user asks to clean up, worktree or disk
-clutter is a stated problem, or a follow-up needs the worktree gone. When it
-does run, `/flow-worktree-close` is a hard stop, never an auto-advance, and it owns
-its own merge gate and the rest of its cleanup.
+Invoke `/flow-worktree-close` on the worktree the pull request shipped from,
+without asking. It owns its own merge gate and every stop on the way, such as an
+untracked file to ask about. Skip it only when there is no local worktree for
+the branch, or when the user said to keep it, and say which.
 
 ## Report what you observed
 

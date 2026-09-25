@@ -11,9 +11,8 @@ them; do not reimplement them.
 
 The run is complete when the tracker ticket reads `Status: done` and, where the
 work produced a change to merge, that change is merged. A pull request URL is a
-handoff, not completion. Removing the worktree and branch is not part of
-completion: `/flow-close-out` leaves them in place unless there is a specific
-reason to run `/flow-worktree-close`.
+handoff, not completion. `/flow-close-out` then removes the worktree and
+branch.
 
 The file shapes, the status values and the heading spellings this skill reads
 come from `~/.flow-factory/tracker-contract.md`. Project settings are read as
@@ -27,8 +26,7 @@ not, stop as `~/.flow-factory/settings-contract.md` says.
 
 - Auto-advance every clean stage. The user can say "stop after each" to add gates.
 - Stop only for a failure, a material decision, a delegated skill's required
-  approval, the commit message approval in Stage 5, `git push`, or worktree
-  deletion.
+  approval, the commit message approval in Stage 5, or `git push`.
 - Use ASD-STE100 Simplified Technical English. When `docs.context` is set, also
   use the ubiquitous language in that file.
 - When a stage starts, print its header as markdown, not in a code block: one
@@ -293,7 +291,7 @@ flip now. If none exists, report that and wait.
 
 Resume from the tracker status and the recorded pull request URL. Invoke
 `/flow-close-out`; it owns merge verification, rejected-pull-request handling,
-and whether `/flow-worktree-close` runs at all. It also owns the tracker update,
+and the worktree removal. It also owns the tracker update,
 and the Jira text when `jira.enabled` is true. Do not duplicate those rules here.
 
 Once the tracker reads `Status: done` and, where there was a change to merge,
@@ -301,10 +299,11 @@ the pull request reports `MERGED` with a merge commit, print the last line of
 the run:
 
 ```markdown
-**Shipped:** PR #<n> is merged (<merge commit>) and the ticket is marked done. Left out of the commit: <ticket-required files, or none>.
+**Shipped:** PR #<n> is merged (<merge commit>), the ticket is marked done, and the worktree is removed. Left out of the commit: <ticket-required files, or none>.
 ```
 
-With nothing to merge, say so in place of the merge. Always fill "Left out of
+With nothing to merge, say so in place of the merge; with the worktree kept,
+say why in place of its removal. Always fill "Left out of
 the commit", with "none" when nothing was: a blank cannot tell a check that
 found nothing from a check that never ran. Use observed values for this ticket
 only, and no URL or path the run already gave.

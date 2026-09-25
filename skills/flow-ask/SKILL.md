@@ -31,7 +31,7 @@ Every unit ships the same way, and it is one command:
 
 It conducts stages 1 to 7: claim and re-ground the ticket, create and enter the worktree, build, verify against the ticket's acceptance criteria, review and commit, prepare, push and hand over the pull request, and close out after the merge. Each stage starts with a numbered header, and the run ends on a `Shipped:` line that holds only observed values.
 
-It auto-advances through stages that come back clean and stops only for a failure, a material decision, a delegated skill's own approval, `git push`, or worktree deletion. Say "stop after each" to add gates.
+It auto-advances through stages that come back clean and stops only for a failure, a material decision, a delegated skill's own approval, or `git push`. Say "stop after each" to add gates.
 
 You never type the stages. `/flow-reground`, `/flow-worktree-create`, `/flow-tdd`, `/flow-comments-review`, `/code-review`, `/flow-new-github-issue`, `/flow-pr-summary`, `/flow-close-out` and `/flow-worktree-close` all sit inside it.
 
