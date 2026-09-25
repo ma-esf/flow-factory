@@ -52,8 +52,8 @@ Several skills are useful in more than one stage. Each is listed once.
   read it line by line
 - `/flow-new-github-issue` - open a GitHub issue, drafted first and created
   only on your explicit go
-- `/flow-close-out` - confirm the merge landed and flip the tracker item to
-  done
+- `/flow-close-out` - confirm the merge landed, flip the tracker item to done,
+  and remove the worktree
 - `/flow-worktree-close` - remove the worktree and delete the branch once the
   merge is verified
 - `/flow-jira-subtask` - turn shipped tickets into paste-ready Jira sub-tasks
