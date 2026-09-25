@@ -1,0 +1,341 @@
+#!/usr/bin/env bash
+#
+# Flow Factory install: places the factory on this machine, once per machine.
+#
+#   ./install
+#
+# Run it from a checkout of the factory. It copies the skills into
+# ~/.claude/skills/ and the contracts into ~/.flow-factory/, and asks nothing.
+# Fitting a project is /flow-init's job.
+
+set -euo pipefail
+
+# An inherited CDPATH makes cd print the directory, which a $(cd ... && pwd)
+# then captures along with the path.
+unset CDPATH
+
+FACTORY_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+
+# An unmatched glob must expand to nothing, not to itself. A literal `*` that
+# survives reaches rm and cp as a filename.
+shopt -s nullglob
+
+# One spelling of HOME, so the paths in the record match from run to run.
+HOME=$(cd -- "$HOME" && pwd -P) \
+    || { printf 'FAILED: cannot enter HOME\n' >&2; exit 1; }
+
+MACHINE_DIR="$HOME/.flow-factory"
+SKILLS_DIR="$HOME/.claude/skills"
+
+# The record of this install, which update, uninstall and the removal of
+# withdrawn skills read. One `<field> <value>` per line, the value running to
+# the end of the line, so grep, sed and awk read it and no skill needs jq:
+#
+#   version <factory_stamp>
+#   checkout <absolute path of this checkout>
+#   mode copy
+#   file <absolute path of a placed file>        one per file
+#   project <absolute path of a project root>    one per initialised project
+RECORD="$MACHINE_DIR/install-record.txt"
+
+say()  { printf '%s\n' "$*"; }
+step() { printf '\n== %s\n' "$*"; }
+fail() { printf '\nFAILED: %s\n' "$*" >&2; exit 1; }
+
+# ---------------------------------------------------------------------------
+# The version stamp
+#
+# The factory ships in numbered releases, and a release is a tag. So the stamp
+# asks git what release this tree is, rather than naming the commit and leaving
+# the reader to work it out: `v0.1.0` on the tagged commit, `v0.1.0-3-g47cd209`
+# three commits past it. Both answers say which release you have, and the
+# second says how far past it you are, which a bare hash never did.
+#
+# --always keeps an untagged tree working: before the first tag, and in a
+# shallow clone that fetched no tags, describe falls back to the short hash.
+#
+# A dirty tree is stamped, not refused: the record's job is to say what was
+# actually placed, and a run from a dirty tree places files no commit holds.
+# Refusing would also stop the installer installing its own uncommitted
+# changes, the state every change to the factory passes through. The count
+# covers skills/ and machine/, the only files placed, and comes from status
+# rather than describe --dirty, because status counts untracked files too, and
+# a new skill nobody has added yet is the likeliest way this tree differs from
+# its tag.
+# ---------------------------------------------------------------------------
+factory_stamp() {
+    local release dirty
+    release=$(git -C "$FACTORY_ROOT" describe --tags --always) \
+        || fail "git cannot say which version $FACTORY_ROOT is; its message is above"
+    dirty=$(git -C "$FACTORY_ROOT" status --porcelain -- skills machine | wc -l | tr -d ' ')
+    if [ "$dirty" -eq 0 ]; then
+        printf '%s' "$release"
+    else
+        printf '%s plus uncommitted changes to %s files' "$release" "$dirty"
+    fi
+}
+
+# The stops for a factory that cannot be placed correctly. Every one runs
+# before the first write, so a stopped run leaves the machine as it was.
+#
+# Claude Code is absent when ~/.claude is absent, not when skills/ is. A user
+# who has never added a skill has the first and not the second.
+[ -d "$HOME/.claude" ] \
+    || fail "no ~/.claude. Claude Code was not found on this machine."
+command -v git >/dev/null 2>&1 \
+    || fail "git is not on PATH. The factory needs git to say which version it placed."
+# A linked ~/.flow-factory points somewhere this installer does not own, so
+# nothing, not even the record, is written through it.
+[ ! -L "$MACHINE_DIR" ] \
+    || fail "~/.flow-factory is a link. Nothing is written through it; move it aside and run again."
+for required in machine skills; do
+    [ -d "$FACTORY_ROOT/$required" ] \
+        || fail "$FACTORY_ROOT is not a factory checkout: no $required/"
+done
+STAMP=$(factory_stamp) || exit 1
+
+# What the factory ships: every file under skills/ and machine/ that git
+# tracks, or holds untracked and does not ignore, less the .gitkeep
+# placeholders and any tracked file deleted from this tree. The same paths and
+# ignore rules as the stamp's count, so nothing is placed that the stamp would
+# not count.
+# -z, because without it git quotes a name holding a quote or a backslash, and
+# the quoted name matches no file.
+SOURCES=$(git -C "$FACTORY_ROOT" \
+        ls-files -z --cached --others --exclude-standard -- skills machine \
+    | while IFS= read -r -d '' rel; do
+        [ "${rel##*/}" != .gitkeep ] || continue
+        if [ -f "$FACTORY_ROOT/$rel" ]; then printf '%s\n' "$rel"; fi
+    done | sort -u)
+SHIPPED=$(printf '%s\n' "$SOURCES" | sed -n 's|^skills/\([^/]*\)/.*|\1|p' | sort -u)
+ships() { grep -qxF -- "$1" <<< "$SHIPPED"; }
+
+# Name every path written outside this checkout before writing any of them.
+say "This install writes only these paths outside the checkout:"
+say "  ~/.claude/skills/flow-*"
+say "  ~/.flow-factory/"
+
+WORK=$(mktemp -d)
+trap 'rm -rf -- "$WORK" "$RECORD.tmp"' EXIT
+
+# Claude Code sees new skills without a restart, except when the skills
+# directory itself is new.
+SKILLS_EXISTED=yes
+if [ ! -d "$SKILLS_DIR" ]; then
+    SKILLS_EXISTED=no
+    mkdir -p "$SKILLS_DIR"
+    say ""
+    say "  created ~/.claude/skills, which this machine did not have yet"
+fi
+mkdir -p "$MACHINE_DIR"
+
+# ===========================================================================
+# The plan: what this run places and what it leaves alone
+#
+# Decided in full before anything is placed, so the record can be written
+# first. A run cut short then leaves files the record lists, which the next
+# run replaces, never files it treats as someone else's.
+# ===========================================================================
+
+recorded() {
+    [ -f "$RECORD" ] || return 1
+    P="file $SKILLS_DIR/$1/" awk 'index($0, ENVIRON["P"]) == 1 { found = 1; exit }
+        END { exit !found }' "$RECORD"
+}
+
+# A machine file is compared and overwritten, never skipped because it exists:
+# a copy left in place can carry an instruction the factory has since
+# withdrawn. The exception is a file behind a symlink, itself or a directory
+# above it, which may point into someone's checkout, so it is left alone. The
+# walk goes down from ~/.flow-factory, which is known not to be a link.
+behind_link() {
+    local rest=$1 p=$MACHINE_DIR
+    while [ -n "$rest" ]; do
+        p="$p/${rest%%/*}"
+        [ ! -L "$p" ] || return 0
+        case $rest in */*) rest=${rest#*/} ;; *) rest="" ;; esac
+    done
+    return 1
+}
+: > "$WORK/machine-place"; : > "$WORK/machine-alone"; : > "$WORK/machine-dests"
+while IFS= read -r rel; do
+    rel=${rel#machine/}
+    printf '%s\n' "$MACHINE_DIR/$rel" >> "$WORK/machine-dests"
+    if behind_link "$rel"; then
+        printf '%s\n' "$rel" >> "$WORK/machine-alone"
+    else
+        printf '%s\n' "$rel" >> "$WORK/machine-place"
+    fi
+done < <(printf '%s\n' "$SOURCES" | grep '^machine/')
+
+# A skill directory already on disk is replaced only when the record from an
+# earlier run lists it. Anything else there, shipped name or not, is someone's
+# own work, and is left alone and named.
+: > "$WORK/skills-place"; : > "$WORK/skills-alone"
+while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    if { [ -e "$SKILLS_DIR/$name" ] || [ -L "$SKILLS_DIR/$name" ]; } && ! recorded "$name"; then
+        printf '%s\n' "$name" >> "$WORK/skills-alone"
+    else
+        printf '%s\n' "$name" >> "$WORK/skills-place"
+    fi
+done <<< "$SHIPPED"
+for dest in "$SKILLS_DIR"/flow-*; do
+    name=${dest##*/}
+    ships "$name" || recorded "$name" || printf '%s\n' "$name" >> "$WORK/skills-alone"
+done
+
+# The files of the skills this run places, each skills/<name>/<path>. Matched
+# on the name as a string, never as a pattern.
+printf '%s\n' "$SOURCES" | awk '
+    NR == FNR { place[$0] = 1; next }
+    /^skills\// { name = $0; sub(/^skills\//, "", name); sub(/\/.*/, "", name)
+                  if (name in place) print }
+' "$WORK/skills-place" - > "$WORK/skill-sources"
+
+# The earlier record's lines this run does not rewrite: every project, and
+# every file still on disk outside what this run places. A skill the factory
+# has withdrawn stays listed, so its removal can still find it.
+carried_lines() {
+    [ -f "$RECORD" ] || return 0
+    local line path name
+    while IFS= read -r line; do
+        case $line in
+            "project "*) printf '%s\n' "$line" ;;
+            "file "*)
+                path=${line#file }
+                case $path in
+                    "$SKILLS_DIR"/*)
+                        name=${path#"$SKILLS_DIR"/}; name=${name%%/*}
+                        ! grep -qxF -- "$name" "$WORK/skills-place" || continue ;;
+                    *)
+                        ! grep -qxF -- "$path" "$WORK/machine-dests" || continue ;;
+                esac
+                if [ -e "$path" ] || [ -L "$path" ]; then printf '%s\n' "$line"; fi
+                ;;
+        esac
+    done < "$RECORD"
+}
+
+step "Record what this run places"
+{
+    say "version $STAMP"
+    say "checkout $FACTORY_ROOT"
+    say "mode copy"
+    D="$MACHINE_DIR" awk '{ print "file " ENVIRON["D"] "/" $0 }' "$WORK/machine-place"
+    D="$SKILLS_DIR" awk '{ print "file " ENVIRON["D"] "/" substr($0, 8) }' "$WORK/skill-sources"
+    carried_lines
+} > "$RECORD.tmp"
+# Built beside the record, so the move is a rename and never a partial copy.
+mv -- "$RECORD.tmp" "$RECORD"
+say "  recorded  $(grep -c '^file ' "$RECORD" | tr -d ' ') files in ~/.flow-factory/install-record.txt, version $STAMP"
+
+# ===========================================================================
+# The placing
+# ===========================================================================
+
+step "Place the machine files in ~/.flow-factory/"
+while IFS= read -r rel; do
+    src="$FACTORY_ROOT/machine/$rel"
+    dest="$MACHINE_DIR/$rel"
+    mkdir -p "$(dirname -- "$dest")"
+    if [ ! -e "$dest" ]; then
+        say "  placed    $rel"
+    elif cmp -s "$src" "$dest"; then
+        say "  unchanged $rel"
+    else
+        say "  OVERWROTE $rel"
+    fi
+    cp -- "$src" "$dest"
+done < "$WORK/machine-place"
+while IFS= read -r rel; do
+    say "  left alone $rel, a link this installer does not write through"
+done < "$WORK/machine-alone"
+
+step "Copy each skill directory into ~/.claude/skills/"
+# Copy, never symlink. find and grep -r take a symlinked directory as an
+# argument and do not descend into it, so any later check over the skills
+# directory would read nothing and report a pass.
+#
+# The destination is removed first so a file dropped from a skill does not
+# survive the install.
+while IFS= read -r name; do
+    dest="$SKILLS_DIR/$name"
+    if [ -e "$dest" ] || [ -L "$dest" ]; then
+        say "  replaced  $name"
+        rm -rf -- "$dest"
+    else
+        say "  installed $name"
+    fi
+done < "$WORK/skills-place"
+while IFS= read -r rel; do
+    rel=${rel#skills/}
+    mkdir -p "$(dirname -- "$SKILLS_DIR/$rel")"
+    cp -- "$FACTORY_ROOT/skills/$rel" "$SKILLS_DIR/$rel"
+done < "$WORK/skill-sources"
+while IFS= read -r name; do
+    say "  left alone $name, which this installer did not place"
+done < "$WORK/skills-alone"
+
+# ===========================================================================
+# The final check: every reference a placed skill makes resolves
+#
+# The installer is the only moment a machine is known to be clean, so the
+# check runs here rather than in a skill. It reads only the skills this run
+# placed: a user's own flow-* skill is not the factory's to fail. A flow-<name>
+# reference resolves only when the factory ships <name>, so a stale directory
+# of an unshipped name cannot satisfy it.
+#
+# find -L, because an install that ever links instead of copying would make a
+# plain find read nothing and report a pass.
+# ===========================================================================
+
+step "Final check. Every reference in a placed skill resolves"
+
+while IFS= read -r name; do
+    find -L "$SKILLS_DIR/$name" -type f -print0
+done < "$WORK/skills-place" > "$WORK/installed-files"
+: > "$WORK/misses"
+
+# A ~/.flow-factory/<path> reference. Trailing sentence punctuation is dropped.
+while IFS= read -r ref; do
+    [ -e "$HOME/.flow-factory/${ref#\~/.flow-factory/}" ] \
+        || printf 'machine file not installed: %s\n' "$ref" >> "$WORK/misses"
+done < <(xargs -0 grep -hoE '~/\.flow-factory/[A-Za-z0-9._/-]+' < "$WORK/installed-files" \
+    | sed 's/[.,)]$//' | sort -u)
+
+# A flow-<name> reference, with or without the leading slash: skills and docs
+# write both. It resolves only when the factory ships <name> and its directory
+# is on disk. A dot only makes it a filename when something follows the dot, as
+# in flow-worktree-share.txt; a command ending a sentence carries a dot too, and
+# treating that as a filename skipped it. A dot before the name makes it a path,
+# as in ~/.flow-factory, which the leading class excludes. sed prepends a space
+# so a name starting a line has a character before it, which keeps the pattern
+# free of a `(^|...)` group; ugrep silently matches nothing for that group.
+while IFS= read -r name; do
+    ships "$name" && [ -d "$SKILLS_DIR/$name" ] \
+        || printf 'skill referenced but not installed: %s\n' "$name" >> "$WORK/misses"
+done < <(xargs -0 sed 's/^/ /' < "$WORK/installed-files" \
+    | grep -oE '[^A-Za-z0-9._-]flow-[a-z0-9-]+([.][A-Za-z0-9]+)?' \
+    | grep -v '\.' | sed 's|^.||' | sort -u)
+
+if [ -s "$WORK/misses" ]; then
+    say ""
+    cat "$WORK/misses"
+    fail "$(wc -l < "$WORK/misses" | tr -d ' ') reference(s) do not resolve on this machine"
+fi
+if [ -s "$WORK/skills-place" ]; then
+    say "  every reference resolves"
+else
+    say "  no skill was placed by this run, so there was nothing to check"
+fi
+
+say ""
+say "Install complete."
+if [ "$SKILLS_EXISTED" = no ]; then
+    say "Next: restart Claude Code first, then open Claude Code in your project and type /flow-init"
+else
+    say "Next: open Claude Code in your project and type /flow-init"
+fi
+# No permission rules are added. That tool proposes them from real use.
+say "Once you have used the skills a while, /fewer-permission-prompts proposes permission rules from that use."
