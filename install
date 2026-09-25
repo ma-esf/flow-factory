@@ -3,10 +3,14 @@
 # Flow Factory install: places the factory on this machine, once per machine.
 #
 #   ./install
+#   ./install --init <project root> <answers file>
 #
 # Run it from a checkout of the factory. It copies the skills into
 # ~/.claude/skills/ and the contracts into ~/.flow-factory/, and asks nothing.
-# Fitting a project is /flow-init's job.
+#
+# --init fits one project on a machine that has the factory: it writes the
+# project's flow-factory.toml from an answers file, creates its tracker and
+# keeps both out of git. /flow-init proposes the answers; this does the writes.
 
 set -euo pipefail
 
@@ -42,6 +46,13 @@ say()  { printf '%s\n' "$*"; }
 step() { printf '\n== %s\n' "$*"; }
 fail() { printf '\nFAILED: %s\n' "$*" >&2; exit 1; }
 
+USAGE="usage: ./install, or ./install --init <project root> <answers file>"
+MODE=machine
+if [ $# -gt 0 ]; then
+    [ "$1" = --init ] && [ $# -eq 3 ] || fail "$USAGE"
+    MODE=init; PROJECT_ARG=$2; ANSWERS_ARG=$3
+fi
+
 # ---------------------------------------------------------------------------
 # The version stamp
 #
@@ -58,16 +69,16 @@ fail() { printf '\nFAILED: %s\n' "$*" >&2; exit 1; }
 # actually placed, and a run from a dirty tree places files no commit holds.
 # Refusing would also stop the installer installing its own uncommitted
 # changes, the state every change to the factory passes through. The count
-# covers skills/ and machine/, the only files placed, and comes from status
-# rather than describe --dirty, because status counts untracked files too, and
-# a new skill nobody has added yet is the likeliest way this tree differs from
-# its tag.
+# covers the directories named as arguments, the ones the run places from, and
+# comes from status rather than describe --dirty, because status counts
+# untracked files too, and a new skill nobody has added yet is the likeliest
+# way this tree differs from its tag.
 # ---------------------------------------------------------------------------
 factory_stamp() {
     local release dirty
     release=$(git -C "$FACTORY_ROOT" describe --tags --always) \
         || fail "git cannot say which version $FACTORY_ROOT is; its message is above"
-    dirty=$(git -C "$FACTORY_ROOT" status --porcelain -- skills machine | wc -l | tr -d ' ')
+    dirty=$(git -C "$FACTORY_ROOT" status --porcelain -- "$@" | wc -l | tr -d ' ')
     if [ "$dirty" -eq 0 ]; then
         printf '%s' "$release"
     else
@@ -92,7 +103,292 @@ for required in machine skills; do
     [ -d "$FACTORY_ROOT/$required" ] \
         || fail "$FACTORY_ROOT is not a factory checkout: no $required/"
 done
-STAMP=$(factory_stamp) || exit 1
+# Project mode places from project/, machine mode from skills/ and machine/.
+if [ "$MODE" = init ]; then
+    STAMP=$(factory_stamp project) || exit 1
+else
+    STAMP=$(factory_stamp skills machine) || exit 1
+fi
+
+# ===========================================================================
+# Project mode: ./install --init <project root> <answers file>
+#
+# Branches off here, before the machine steps, so it never places a skill or
+# rewrites a machine file. As in machine mode, every stop runs before the first
+# write, so a stopped run leaves the project and the record as they were. A
+# write that fails partway is not a stop: each write is skipped once done, so a
+# rerun completes the rest.
+# ===========================================================================
+
+TEMPLATE="$FACTORY_ROOT/project/flow-factory.toml"
+README_TEMPLATE="$FACTORY_ROOT/project/.cortex/README.md"
+
+# A TOML string in double quotes, holding only the escapes TOML defines.
+# Inside brackets a backslash is literal, so [^"\\] is any character but a
+# quote or a backslash.
+TOML_STRING='"([^"\\]|\\([btnfr"\\]|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8}))*"'
+STRING_RE="^$TOML_STRING\$"
+LIST_RE='^\[[[:space:]]*('"$TOML_STRING"'([[:space:]]*,[[:space:]]*'"$TOML_STRING"')*[[:space:]]*,?)?[[:space:]]*\]$'
+ANSWER_RE='^[[:space:]]*([A-Za-z0-9_.-]+)[[:space:]]*=[[:space:]]*(.*[^[:space:]])[[:space:]]*$'
+SKIP_RE='^[[:space:]]*(#.*)?$'
+# Digits with at most one {NN}, the suffix /flow-run-app fills in.
+PORT_RE='^[0-9]*(\{NN\})?[0-9]*$'
+
+# The value of key $1 in settings file $2, as written.
+key_value() {
+    K="$1" awk 'index($0, ENVIRON["K"] " = ") == 1 {
+        print substr($0, length(ENVIRON["K"]) + 4); exit }' "$2"
+}
+
+# The elements of a TOML list of strings, one per line, quotes kept.
+list_items() { grep -oE "$TOML_STRING" <<< "$1" || true; }
+list_length() { list_items "$(key_value "$1" "$2")" | grep -c . || true; }
+
+# Write one key's value, already in TOML form, into settings file $3.
+set_key() {
+    K="$1" V="$2" awk 'index($0, ENVIRON["K"] " = ") == 1 && !done {
+            print ENVIRON["K"] " = " ENVIRON["V"]; done = 1; next }
+        { print }' "$3" > "$3.new"
+    mv -- "$3.new" "$3"
+}
+
+# The first branch or tag whose tree holds path $2 of repository $1 as
+# anything. One cat-file answers every ref; its output lines pair with the refs
+# by position, because a path may hold spaces and the ref names cannot. A
+# missing path prints the input, never a type, in the first field.
+committed_on() {
+    local refs
+    refs=$(git -C "$1" for-each-ref --format='%(refname)' refs/heads refs/remotes refs/tags)
+    [ -n "$refs" ] || return 0
+    printf '%s\n' "$refs" \
+        | P="$2" awk '{ print $0 ":" ENVIRON["P"] }' \
+        | git -C "$1" cat-file --batch-check='%(objecttype)' \
+        | paste -d ' ' - <(printf '%s\n' "$refs") \
+        | awk '$1 ~ /^(blob|tree|commit)$/ && !n++ { print $2 }'
+}
+
+# Queue the exclude pattern for path $3 of root $1, whose prefix below the top
+# level is $2, unless the project tracks the path here or commits it on any
+# branch or tag. An exclude line does not untrack a file. And git treats an
+# excluded path as expendable, so a checkout of a ref that commits it, even as
+# a symlink, overwrites or deletes it without a word: the settings, or every
+# ticket.
+queue_exclude() {
+    local on
+    if [ -n "$(git -C "$1" ls-files -- "$3")" ]; then
+        say "  not excluded: $3 is tracked, and an exclude line would not untrack it" >> "$WORK/kept"
+    elif on=$(committed_on "$1" "$2$3") && [ -n "$on" ]; then
+        say "  not excluded: $3 is committed on $on" >> "$WORK/kept"
+    else
+        say "/$(printf '%s' "$2$3" | sed 's/[][*?\\]/\\&/g')" >> "$WORK/patterns"
+    fi
+}
+
+# Whether file $1 ends without a newline, which an appended line would join.
+ends_open() { [ -s "$1" ] && [ -n "$(tail -c1 "$1")" ]; }
+
+init_project() {
+    local root prefix top git_common exclude line n key value tmpl item port
+    local services commands ports branch pattern verb d
+
+    [ -f "$RECORD" ] \
+        || fail "the factory is not installed on this machine: no ~/.flow-factory/install-record.txt. Run ./install first."
+    [ -f "$TEMPLATE" ] && [ -f "$README_TEMPLATE" ] \
+        || fail "$FACTORY_ROOT is not a factory checkout: no project/flow-factory.toml or project/.cortex/README.md"
+    [ -d "$PROJECT_ARG" ] || fail "no such directory: $PROJECT_ARG"
+    root=$(cd -- "$PROJECT_ARG" && pwd -P)
+    [ "$(git -C "$root" rev-parse --is-inside-work-tree 2>/dev/null)" = true ] \
+        || fail "$root is not a git repository, or is one with no work tree"
+    git -C "$root" rev-parse --verify -q HEAD >/dev/null \
+        || fail "$root has no commit. Every skill that runs git needs one; commit first."
+    # cd and pwd, not --path-format=absolute, which git before 2.31 echoes back.
+    git_common=$(cd -- "$root" && cd -- "$(git rev-parse --git-common-dir)" && pwd -P) \
+        || fail "cannot find the git directory of $root"
+    # A linked worktree is not a project root: `git worktree remove` deletes
+    # what is written there, tickets included, without asking.
+    [ "$(cd -- "$root" && cd -- "$(git rev-parse --git-dir)" && pwd -P)" = "$git_common" ] \
+        || fail "$root is in a linked worktree. Run --init on the main checkout, $(git -C "$root" worktree list --porcelain | sed -n '1s/^worktree //p')"
+    [ -f "$ANSWERS_ARG" ] && [ -r "$ANSWERS_ARG" ] || fail "cannot read the answers file $ANSWERS_ARG"
+    SETTINGS="$root/flow-factory.toml"
+    [ ! -e "$SETTINGS" ] || [ -f "$SETTINGS" ] || fail "$SETTINGS exists and is not a file"
+    [ ! -e "$root/.cortex" ] || [ -d "$root/.cortex" ] || fail "$root/.cortex exists and is not a directory"
+
+    # PENDING names a temporary file this run made in the project, and only
+    # while it exists, so a stop never deletes a file of the project's own.
+    WORK=$(mktemp -d)
+    PENDING=""
+    trap 'rm -rf -- "$WORK" "$RECORD.tmp"; [ -z "$PENDING" ] || rm -f -- "$PENDING"' EXIT
+
+    # The answers, written over a copy of the template, which carries the
+    # comments and the unset: tag of every key. A key the answers leave out
+    # keeps the template's line.
+    cp -- "$TEMPLATE" "$WORK/settings"
+    : > "$WORK/answered"
+    n=0
+    while IFS= read -r line || [ -n "$line" ]; do
+        n=$((n + 1))
+        [[ ! $line =~ $SKIP_RE ]] || continue
+        [[ $line =~ $ANSWER_RE ]] \
+            || fail "line $n of the answers file is not 'key = value': $line"
+        key=${BASH_REMATCH[1]}; value=${BASH_REMATCH[2]}
+        tmpl=$(key_value "$key" "$TEMPLATE")
+        [ -n "$tmpl" ] || fail "unknown key '$key' in the answers file. Its keys are the template's, project/flow-factory.toml"
+        ! grep -qxF -- "$key" "$WORK/answered" || fail "key '$key' appears twice in the answers file"
+        # The template's value says the key's kind.
+        case $tmpl in
+            \"*) [[ $value =~ $STRING_RE ]] \
+                    || fail "malformed value for '$key': expected a string in double quotes, got $value" ;;
+            \[*) [[ $value =~ $LIST_RE ]] \
+                    || fail "malformed value for '$key': expected a list of strings in square brackets, got $value" ;;
+            *)   [[ $value =~ ^(true|false)$ ]] \
+                    || fail "malformed value for '$key': expected true or false, got $value" ;;
+        esac
+        case $key in
+            pr.create_mode)
+                case $value in '"manual"'|'"gh"') ;;
+                    *) fail "'pr.create_mode' must be \"manual\" or \"gh\", got $value" ;; esac ;;
+            github.attribution)
+                case $value in '"none"'|'"tool"') ;;
+                    *) fail "'github.attribution' must be \"none\" or \"tool\", got $value" ;; esac ;;
+            app.ports)
+                # In range for the smallest suffix, 20, and the largest, 99. At
+                # most five digits first, so the comparison never meets a
+                # number too long for it.
+                while IFS= read -r item; do
+                    item=${item#\"}; item=${item%\"}
+                    port=${item//\{NN\}/99}
+                    [ -n "$item" ] && [[ $item =~ $PORT_RE ]] && [ "${#port}" -le 5 ] \
+                        && [ "$port" -le 65535 ] && [ "${item//\{NN\}/20}" -ge 1 ] \
+                        || fail "bad port \"$item\" in 'app.ports': digits, with {NN} for the suffix, from 1 to 65535, for example 80{NN}"
+                done < <(list_items "$value") ;;
+        esac
+        set_key "$key" "$value" "$WORK/settings"
+        printf '%s\n' "$key" >> "$WORK/answered"
+    done < "$ANSWERS_ARG"
+
+    # One entry per service in each of the three lists, so the lists pair up
+    # by position.
+    services=$(list_length app.services "$WORK/settings")
+    commands=$(list_length app.start_commands "$WORK/settings")
+    ports=$(list_length app.ports "$WORK/settings")
+    [ "$services" -eq "$commands" ] && [ "$services" -eq "$ports" ] \
+        || fail "'app.services', 'app.start_commands' and 'app.ports' must be the same length, one entry per service; they have $services, $commands and $ports"
+
+    branch=$(key_value git.default_branch "$WORK/settings")
+    branch=${branch#\"}; branch=${branch%\"}
+    git -C "$root" show-ref --verify -q "refs/heads/$branch" \
+        || git -C "$root" show-ref --verify -q "refs/remotes/origin/$branch" \
+        || fail "'git.default_branch' is \"$branch\", which names neither a local branch nor origin/$branch"
+
+    # The exclude lines. info/exclude, never the tracked .gitignore, and in the
+    # common git directory, so one line covers every worktree. No trailing
+    # slash on .cortex: git does not treat a symlink as a directory, so
+    # `/.cortex/` misses every worktree's link. Both lines are anchored at the
+    # top level, so a project root below it carries its prefix.
+    prefix=$(git -C "$root" rev-parse --show-prefix)
+    top=$(git -C "$root" rev-parse --show-toplevel)
+    exclude="$git_common/info/exclude"
+    : > "$WORK/patterns"; : > "$WORK/kept"
+    queue_exclude "$root" "$prefix" .cortex
+    queue_exclude "$root" "$prefix" flow-factory.toml
+    # The worktrees sit under the top level whatever the root, as
+    # /flow-worktree-create makes them. Only this checkout's index counts: a
+    # worktree another branch committed is the accident this line prevents.
+    if [ -n "$(git -C "$top" ls-files -- .claude/worktrees/)" ]; then
+        say "  not excluded: .claude/worktrees/ is tracked, and an exclude line would not untrack it" >> "$WORK/kept"
+    else
+        say "/.claude/worktrees/" >> "$WORK/patterns"
+    fi
+
+    # Name every path written before writing any of them.
+    say "This init writes only these paths:"
+    say "  $SETTINGS"
+    say "  $root/.cortex/"
+    say "  $exclude"
+    say "  ~/.flow-factory/install-record.txt"
+
+    step "Write flow-factory.toml"
+    if [ -f "$SETTINGS" ] && cmp -s "$WORK/settings" "$SETTINGS"; then
+        say "  unchanged flow-factory.toml"
+    else
+        verb=wrote
+        [ ! -e "$SETTINGS" ] || verb=OVERWROTE
+        # Copied beside the target, so the move is a rename and never a
+        # partial copy.
+        PENDING="$SETTINGS.tmp.$$"
+        cp -- "$WORK/settings" "$PENDING"
+        mv -- "$PENDING" "$SETTINGS"
+        PENDING=""
+        say "  $verb flow-factory.toml, $(grep -c . "$WORK/answered" || true) keys from the answers file"
+    fi
+
+    step "Create the tracker in .cortex/"
+    for d in tickets candidates; do
+        if [ -d "$root/.cortex/$d" ]; then
+            say "  unchanged .cortex/$d/"
+        else
+            mkdir -p "$root/.cortex/$d"
+            say "  created   .cortex/$d/"
+        fi
+    done
+    # Stamped once. The date is the install's, so a rerun keeps it. Built
+    # beside the target and moved, so a failed build leaves no README for a
+    # rerun to mistake for a finished one.
+    if [ -e "$root/.cortex/README.md" ]; then
+        say "  unchanged .cortex/README.md"
+    else
+        PENDING="$root/.cortex/README.md.tmp.$$"
+        V="$STAMP" D="$(date +%Y-%m-%d)" awk '
+            function fill(s, from, to,   i) {
+                while ((i = index(s, from)) > 0)
+                    s = substr(s, 1, i - 1) to substr(s, i + length(from))
+                return s
+            }
+            { print fill(fill($0, "<factory version>", ENVIRON["V"]), "<YYYY-MM-DD>", ENVIRON["D"]) }
+        ' "$README_TEMPLATE" > "$PENDING"
+        mv -- "$PENDING" "$root/.cortex/README.md"
+        PENDING=""
+        say "  wrote     .cortex/README.md, Flow Factory $STAMP"
+    fi
+
+    step "Keep the factory's files out of git"
+    mkdir -p "$git_common/info"
+    while IFS= read -r pattern; do
+        if [ -f "$exclude" ] && grep -qxF -- "$pattern" "$exclude"; then
+            say "  unchanged $pattern in $exclude"
+        else
+            {
+                if ends_open "$exclude"; then printf '\n'; fi
+                printf '%s\n' "$pattern"
+            } >> "$exclude" || fail "cannot write $exclude"
+            say "  excluded  $pattern in $exclude"
+        fi
+    done < "$WORK/patterns"
+    cat "$WORK/kept"
+    [ -z "$prefix" ] \
+        || say "  $root is not the repository's top level, so worktrees do not share this tracker"
+
+    step "Record the project"
+    if grep -qxF -- "project $root" "$RECORD"; then
+        say "  unchanged ~/.flow-factory/install-record.txt, which lists $root"
+    else
+        {
+            cat -- "$RECORD"
+            if ends_open "$RECORD"; then printf '\n'; fi
+            say "project $root"
+        } > "$RECORD.tmp"
+        mv -- "$RECORD.tmp" "$RECORD"
+        say "  recorded  $root in ~/.flow-factory/install-record.txt"
+    fi
+
+    say ""
+    say "Project fitted."
+}
+
+if [ "$MODE" = init ]; then
+    init_project
+    exit 0
+fi
 
 # What the factory ships: every file under skills/ and machine/ that git
 # tracks, or holds untracked and does not ignore, less the .gitkeep
