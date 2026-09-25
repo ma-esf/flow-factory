@@ -11,9 +11,9 @@
 # when this file is missing are written once in
 # `~/.flow-factory/settings-contract.md`. They are not repeated here.
 #
-# Twenty-one keys: sixteen as the port map reconciled them, plus
+# Twenty keys: fifteen of the sixteen the port map reconciled, plus
 # reports.stakeholder_dir (flow-stakeholder-update), the three app.* keys
-# (flow-run-app) and github.create_issue. Twenty-two names: github.labels and
+# (flow-run-app) and github.create_issue. Twenty-one names: github.labels and
 # github.assignees share one row there.
 
 
@@ -55,15 +55,6 @@ github.create_issue = false
 # an unanswered project must not discover that in a customer's repository.
 # unset: default `none`
 github.attribution = "none"
-
-# How this repository merges pull requests: `squash`, `merge` or `rebase`.
-# Under `squash` and `rebase`, `git merge-base --is-ancestor` reports landed
-# work as unmerged; under `merge` it is sound. This is a correctness switch,
-# not a preference.
-# unset: default `squash`. The value records how this repository merges. No
-# skill gates on it: `/flow-close-out` and `/flow-worktree-close` both ask
-# ancestry and then the content diff, because neither answers all three alone.
-github.merge_strategy = "squash"
 
 # Labels and assignees put on a new GitHub issue or PR. Empty means the skill
 # adds none and does not ask.
