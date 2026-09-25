@@ -13,8 +13,9 @@ Run a `/flow-grilling` session, and write down what it settles.
 Two habits, on top of the questions `/flow-grilling` already asks:
 
 - **Challenge the words.** When a term is vague, overloaded, or conflicts with what
-  this project's glossaries already define, say so and make the user pick. "You said
-  account. Do you mean the Customer or the User?"
+  this project's glossaries already define, say so and make the user pick, as a
+  question in the next round. "You said account. Do you mean the Customer or the
+  User?"
 - **Check the claim against the code.** When the user says how something works,
   look. When the claim is about data ("that column is never null"), look in the
   data, with a query. When it is about model behaviour ("it always returns
