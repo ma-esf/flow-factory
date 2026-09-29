@@ -4,6 +4,7 @@
 #
 #   ./install
 #   ./install --init <project root> <answers file>
+#   ./install --check <project root> <answers file>
 #
 # Run it from a checkout of the factory. It copies the skills into
 # ~/.claude/skills/ and the contracts into ~/.flow-factory/, and asks nothing.
@@ -12,6 +13,8 @@
 # --init fits one project on a machine that has the factory: it writes the
 # project's flow-factory.toml from an answers file, creates its tracker and
 # keeps both out of git. README.md, "Fit a project", shows an answers file.
+# --check reads the same answers, leaves the project and the record untouched,
+# and prints the project's gaps, which --init also prints once it has written.
 
 set -euo pipefail
 
@@ -47,11 +50,12 @@ say()  { printf '%s\n' "$*"; }
 step() { printf '\n== %s\n' "$*"; }
 fail() { printf '\nFAILED: %s\n' "$*" >&2; exit 1; }
 
-USAGE="usage: ./install, or ./install --init <project root> <answers file>"
+USAGE="usage: ./install, or ./install --init|--check <project root> <answers file>"
 MODE=machine
 if [ $# -gt 0 ]; then
-    [ "$1" = --init ] && [ $# -eq 3 ] || fail "$USAGE"
-    MODE=init; PROJECT_ARG=$2; ANSWERS_ARG=$3
+    case $1 in --init) MODE=init ;; --check) MODE=check ;; *) fail "$USAGE" ;; esac
+    [ $# -eq 3 ] || fail "$USAGE"
+    PROJECT_ARG=$2; ANSWERS_ARG=$3
 fi
 
 # ---------------------------------------------------------------------------
@@ -152,20 +156,23 @@ if [ "$MODE" = machine ] && [ -z "${FLOW_FACTORY_PULLED:-}" ]; then
 fi
 
 # Project mode places from project/, machine mode from skills/ and machine/.
+# --check needs no stamp, and the stamp's git status can rewrite the factory
+# checkout's index.
 if [ "$MODE" = init ]; then
     STAMP=$(factory_stamp project) || exit 1
-else
+elif [ "$MODE" = machine ]; then
     STAMP=$(factory_stamp skills machine) || exit 1
 fi
 
 # ===========================================================================
-# Project mode: ./install --init <project root> <answers file>
+# Project mode: ./install --init|--check <project root> <answers file>
 #
 # Branches off here, before the machine steps, so it never places a skill or
 # rewrites a machine file. As in machine mode, every stop runs before the first
 # write, so a stopped run leaves the project and the record as they were. A
 # write that fails partway is not a stop: each write is skipped once done, so a
-# rerun completes the rest.
+# rerun completes the rest. --check runs the same stops and ends before the
+# first write.
 # ===========================================================================
 
 TEMPLATE="$FACTORY_ROOT/project/flow-factory.toml"
@@ -235,6 +242,173 @@ queue_exclude() {
 # Whether file $1 ends without a newline, which an appended line would join.
 ends_open() { [ -s "$1" ] && [ -n "$(tail -c1 "$1")" ]; }
 
+# Whether top level $1 tracks anything under .claude/worktrees/, where
+# /flow-worktree-create makes the worktrees. Only this checkout's index
+# counts: a worktree another branch committed is the accident the exclude
+# line prevents.
+worktrees_tracked() { [ -n "$(git -C "$1" ls-files -- .claude/worktrees/)" ]; }
+
+# The skills each gap breaks, and how.
+ORIGIN_LOSES="/flow-close-out, /flow-comments-review, /flow-pr-summary, /flow-worktree-close and /flow-worktree-create error, /flow-status and /flow-reground stop"
+NETWORK_LOSES="/flow-close-out, /flow-comments-review, /flow-new-github-issue, /flow-pr-summary, /flow-ship-ticket, /flow-stakeholder-update, /flow-worktree-close and /flow-worktree-create error, /flow-status and /flow-reground stop"
+GH_LOSES="/flow-close-out, /flow-comments-review, /flow-new-github-issue, /flow-pr-summary, /flow-ship-ticket and /flow-stakeholder-update"
+
+# Run "$@", and kill it after 10 seconds, saying so on stderr, so a network
+# that drops packets fails a check instead of hanging it. The reason is said
+# before the kill, which wakes the caller. The sleep holds no output, or a
+# caller's $(...) would wait for it, and dies with the watcher.
+bounded() {
+    local pid watcher rc=0
+    "$@" &
+    pid=$!
+    (
+        s=""
+        trap 'kill "$s" 2>/dev/null; exit' TERM
+        sleep 10 >/dev/null 2>&1 &
+        s=$!
+        wait "$s"
+        say "no answer in 10 seconds" >&2
+        kill "$pid" 2>/dev/null
+    ) &
+    watcher=$!
+    wait "$pid" || rc=$?
+    kill "$watcher" 2>/dev/null || true
+    wait "$watcher" 2>/dev/null || true
+    return "$rc"
+}
+
+# origin's URL $1 as gh names a repository, HOST/OWNER/REPO. gh parses
+# neither an ssh host alias nor a user other than git@, and with no argument
+# picks upstream before origin. Any user or token in the URL is dropped, and
+# an ssh host is resolved from the config of ssh command $2, which ssh -G
+# reads without connecting. Fails on a path, which no gh host serves.
+gh_repo() {
+    local u=${1%/} host via_ssh="" resolved=""
+    u=${u%.git}
+    case $u in
+        file://*) return 1 ;;
+        ssh://*) host=${u#*://}; host=${host%%/*}; via_ssh=yes ;;
+        *://*) host=${u#*://}; host=${host%%/*} ;;
+        *:*) host=${u%%:*}; via_ssh=yes
+             case $host in */*) return 1 ;; esac ;;
+        *) return 1 ;;
+    esac
+    host=${host##*@}; host=${host%%:*}
+    if [ -n "$via_ssh" ]; then
+        resolved=$(bounded sh -c "$2"' -o BatchMode=yes -G "$1"' ssh "$host" 2>/dev/null \
+            | awk '$1 == "hostname" { print $2; exit }')
+    fi
+    host=${resolved:-$host}
+    # As gh does, any *.github.com host, such as ssh-over-443's ssh.github.com,
+    # is github.com.
+    case $host in *.github.com) host=github.com ;; esac
+    printf '%s/%s\n' "$host" "$(printf '%s\n' "$u" | awk -F'[/:]' '{ print $(NF-1) "/" $NF }')"
+}
+
+# The gaps of project root $1 for default branch $2, one line each: what is
+# missing, the skills that lose, and the fix where there is one. Reads only,
+# and never stops on a gap.
+project_gaps() {
+    local root=$1 branch=$2 top rc ssh="" why url repo skip="" perm what have label
+    local labels
+    top=$(git -C "$root" rev-parse --show-toplevel)
+    labels=$(list_items "$(key_value github.labels "$WORK/settings")")
+    # No origin is every origin gap at once, so it costs what an unreachable
+    # one does.
+    if ! url=$(git -C "$root" remote get-url origin 2>/dev/null); then
+        say "no origin: $NETWORK_LOSES. Fix: git remote add origin <url>"
+        skip="there is no origin"
+    else
+        # Prompts off, so a missing repository fails instead of asking for a
+        # password. GIT_TERMINAL_PROMPT=0 does not stop an askpass program,
+        # which an editor's terminal sets, nor Git Credential Manager's
+        # sign-in window. ssh gets no prompt, a connect timeout of its own,
+        # and no rewrite of known_hosts. The project's own ssh command is
+        # kept, since GIT_SSH_COMMAND overrides core.sshCommand, and so is
+        # GIT_SSH, a program that may take no ssh options: ssh stays empty.
+        ssh=${GIT_SSH_COMMAND:-$(git -C "$root" config core.sshCommand || true)}
+        [ -n "$ssh" ] || [ -n "${GIT_SSH:-}" ] || ssh=ssh
+        # stderr goes to a file, not a pipe: a killed git leaves its ssh
+        # running, which would hold a pipe open until ssh gives up.
+        rc=0
+        (
+            export GIT_TERMINAL_PROMPT=0 GIT_ASKPASS= GCM_INTERACTIVE=never
+            [ -z "$ssh" ] \
+                || export GIT_SSH_COMMAND="$ssh -o BatchMode=yes -o ConnectTimeout=5 -o UpdateHostKeys=no"
+            bounded git -C "$root" ls-remote --exit-code origin "refs/heads/$branch" \
+                >/dev/null 2>"$WORK/git-error"
+        ) || rc=$?
+        # The reason is the last line before git's own closing lines, which
+        # come after ssh's failure and any warnings ssh printed first. An ssh
+        # that failed without a word leaves git's first line, or the code.
+        why=$(sed '/^fatal: Could not read from remote repository\.$/,$d' "$WORK/git-error" \
+            | grep . | tail -n 1 || true)
+        why=${why:-$(head -n 1 "$WORK/git-error")}
+        why=${why:-git ls-remote exited $rc}
+        case $rc in
+            0) ;;
+            2) say "origin has no branch $branch: $ORIGIN_LOSES. Fix: git push origin $branch" ;;
+            *) say "origin cannot be reached, $why: $NETWORK_LOSES" ;;
+        esac
+    fi
+
+    # Untracked, it is left to the exclude line --init writes.
+    ! worktrees_tracked "$top" \
+        || say ".claude/worktrees/ is tracked: /flow-worktree-create is wrong, git add -A in the main checkout stages each worktree. Fix: git -C \"$top\" rm -r --cached .claude/worktrees/"
+
+    # Whether gh is there and logged in is the machine's gap, not this
+    # project's, so it is skipped here and named. The login is checked for
+    # origin's host only, since a broken one elsewhere is not this project's.
+    # gh auth status fails offline too, so the reason names the command, not
+    # a login.
+    [ -n "$skip" ] || command -v gh >/dev/null 2>&1 || skip="gh is not installed"
+    # Under GIT_SSH, ssh is empty, and plain ssh reads the config.
+    if [ -z "$skip" ] && ! repo=$(gh_repo "$url" "${ssh:-ssh}"); then
+        say "gh cannot reach origin, which is a path: every gh step fails, in $GH_LOSES"
+        [ -z "$labels" ] || say "not checked: the labels, because gh cannot reach origin"
+        return 0
+    fi
+    [ -n "$skip" ] || bounded gh auth status --hostname "${repo%%/*}" >/dev/null 2>&1 \
+        || skip="gh auth status fails for ${repo%%/*}"
+    what="gh reaching origin"
+    [ -z "$labels" ] || what="$what, and the labels"
+    if [ -n "$skip" ]; then
+        say "not checked: $what, because $skip"
+        return 0
+    fi
+    if ! perm=$(bounded gh repo view "$repo" --json viewerPermission -q .viewerPermission 2>"$WORK/gh-error"); then
+        say "gh cannot reach origin, $(head -n1 "$WORK/gh-error"): every gh step fails, in $GH_LOSES"
+        [ -z "$labels" ] || say "not checked: the labels, because gh cannot reach origin"
+        return 0
+    fi
+    case $perm in
+        ADMIN|MAINTAIN|WRITE) ;;
+        *) say "you cannot push to origin, gh reports ${perm:-no permission}: /flow-ship-ticket errors, and /flow-worktree-close cannot delete the remote branch. Fix: ask a repository admin for write access" ;;
+    esac
+
+    # Each name JSON-encoded, which is the TOML string the answers hold,
+    # quotes and backslashes included, unless they spell a character as \u.
+    # Matched ignoring case, as GitHub matches label names. gh lists 30
+    # labels unless given a limit.
+    [ -n "$labels" ] || return 0
+    if ! have=$(bounded gh label list --repo "$repo" --limit 1000 --json name -q '.[].name | tojson' 2>"$WORK/gh-error"); then
+        say "not checked: the labels, because gh label list failed, $(head -n1 "$WORK/gh-error")"
+        return 0
+    fi
+    while IFS= read -r label; do
+        grep -qixF -- "$label" <<< "$have" \
+            || say "label $label does not exist on origin: /flow-new-github-issue errors. Fix: gh label create $label --repo $repo"
+    done <<< "$labels"
+}
+
+# The gaps, or one line saying there are none, so a clean check does not read
+# as one that never ran.
+check_project() {
+    local gaps
+    gaps=$(project_gaps "$@")
+    say "${gaps:-no gaps}"
+}
+
 init_project() {
     local root prefix top git_common exclude line n key value tmpl item port
     local services commands ports branch pattern verb d
@@ -255,17 +429,17 @@ init_project() {
     # A linked worktree is not a project root: `git worktree remove` deletes
     # what is written there, tickets included, without asking.
     [ "$(cd -- "$root" && cd -- "$(git rev-parse --git-dir)" && pwd -P)" = "$git_common" ] \
-        || fail "$root is in a linked worktree. Run --init on the main checkout, $(git -C "$root" worktree list --porcelain | sed -n '1s/^worktree //p')"
+        || fail "$root is in a linked worktree. Run --$MODE on the main checkout, $(git -C "$root" worktree list --porcelain | sed -n '1s/^worktree //p')"
     [ -f "$ANSWERS_ARG" ] && [ -r "$ANSWERS_ARG" ] || fail "cannot read the answers file $ANSWERS_ARG"
     SETTINGS="$root/flow-factory.toml"
     [ ! -e "$SETTINGS" ] || [ -f "$SETTINGS" ] || fail "$SETTINGS exists and is not a file"
     [ ! -e "$root/.cortex" ] || [ -d "$root/.cortex" ] || fail "$root/.cortex exists and is not a directory"
 
-    # PENDING names a temporary file this run made in the project, and only
-    # while it exists, so a stop never deletes a file of the project's own.
+    # PENDING names a temporary file this run made, and only while it exists,
+    # so a stop never deletes a file that is not its own.
     WORK=$(mktemp -d)
     PENDING=""
-    trap 'rm -rf -- "$WORK" "$RECORD.tmp"; [ -z "$PENDING" ] || rm -f -- "$PENDING"' EXIT
+    trap 'rm -rf -- "$WORK"; [ -z "$PENDING" ] || rm -f -- "$PENDING"' EXIT
 
     # The answers, written over a copy of the template, which carries the
     # comments and the unset: tag of every key. A key the answers leave out
@@ -328,6 +502,12 @@ init_project() {
         || git -C "$root" show-ref --verify -q "refs/remotes/origin/$branch" \
         || fail "'git.default_branch' is \"$branch\", which names neither a local branch nor origin/$branch"
 
+    # Nothing above writes outside $WORK, so --check ends here.
+    if [ "$MODE" = check ]; then
+        check_project "$root" "$branch"
+        return 0
+    fi
+
     # The exclude lines. info/exclude, never the tracked .gitignore, and in the
     # common git directory, so one line covers every worktree. No trailing
     # slash on .cortex: git does not treat a symlink as a directory, so
@@ -339,10 +519,8 @@ init_project() {
     : > "$WORK/patterns"; : > "$WORK/kept"
     queue_exclude "$root" "$prefix" .cortex
     queue_exclude "$root" "$prefix" flow-factory.toml
-    # The worktrees sit under the top level whatever the root, as
-    # /flow-worktree-create makes them. Only this checkout's index counts: a
-    # worktree another branch committed is the accident this line prevents.
-    if [ -n "$(git -C "$top" ls-files -- .claude/worktrees/)" ]; then
+    # The worktrees sit under the top level whatever the root.
+    if worktrees_tracked "$top"; then
         say "  not excluded: .claude/worktrees/ is tracked, and an exclude line would not untrack it" >> "$WORK/kept"
     else
         say "/.claude/worktrees/" >> "$WORK/patterns"
@@ -420,20 +598,25 @@ init_project() {
     if grep -qxF -- "project $root" "$RECORD"; then
         say "  unchanged ~/.flow-factory/install-record.txt, which lists $root"
     else
+        PENDING="$RECORD.tmp"
         {
             cat -- "$RECORD"
             if ends_open "$RECORD"; then printf '\n'; fi
             say "project $root"
-        } > "$RECORD.tmp"
-        mv -- "$RECORD.tmp" "$RECORD"
+        } > "$PENDING"
+        mv -- "$PENDING" "$RECORD"
+        PENDING=""
         say "  recorded  $root in ~/.flow-factory/install-record.txt"
     fi
+
+    step "Check the project"
+    check_project "$root" "$branch" | sed 's/^/  /'
 
     say ""
     say "Project fitted."
 }
 
-if [ "$MODE" = init ]; then
+if [ "$MODE" != machine ]; then
     init_project
     exit 0
 fi

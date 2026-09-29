@@ -30,6 +30,12 @@ for i in "${!NETWORK[@]}"; do
     export "GIT_CONFIG_KEY_$i=url.$SCRATCH/no-network/.insteadOf" "GIT_CONFIG_VALUE_$i=${NETWORK[$i]}"
 done
 PULL_FAILED="the pull failed"
+# gh as every case meets it unless the case puts its own first on PATH:
+# installed and logged out, so no case reaches GitHub through it.
+mkdir -p "$SCRATCH/gh-logged-out"
+printf '#!/bin/sh\nexit 1\n' > "$SCRATCH/gh-logged-out/gh"
+chmod +x "$SCRATCH/gh-logged-out/gh"
+export PATH="$SCRATCH/gh-logged-out:$PATH"
 GIT_ID=(-c user.name=test -c user.email=test@example.invalid)
 
 CASE=""
@@ -79,6 +85,11 @@ $(cat "$OUT")"
 # Run ./install --init under HOME $1 on project root $2 with answers file $3.
 run_init() {
     run_install "$1" "$CHECKOUT" --init "$2" "$3"
+}
+
+# The same, for ./install --check.
+run_check() {
+    run_install "$1" "$CHECKOUT" --check "$2" "$3"
 }
 
 expect_status() {
@@ -875,15 +886,24 @@ case_init_leaves_a_tracker_symlink_committed_on_another_branch_unexcluded() {
 # it, and expect a stop that leaves HOME and the project exactly as they were.
 expect_init_stop() {
     local h=$1 p=$2 a=$3 root=${4:-$2}
-    rm -rf -- "$h.before" "$p.before"
-    cp -Rp "$h" "$h.before"
-    cp -Rp "$p" "$p.before"
+    snapshot "$h" "$p"
     run_init "$h" "$root" "$a"
     [ "$STATUS" -ne 0 ] || fail "exit 0, expected a stop. Output:
 $(cat "$OUT")"
-    diff -r "$h.before" "$h" >/dev/null || fail "HOME changed. Output:
+    expect_unchanged "$h" "$p"
+}
+
+# Copy HOME $1 and project $2 aside, for expect_unchanged to compare against.
+snapshot() {
+    rm -rf -- "$1.before" "$2.before"
+    cp -Rp "$1" "$1.before"
+    cp -Rp "$2" "$2.before"
+}
+
+expect_unchanged() {
+    diff -r "$1.before" "$1" >/dev/null || fail "HOME changed. Output:
 $(cat "$OUT")"
-    diff -r --no-dereference "$p.before" "$p" >/dev/null || fail "the project changed. Output:
+    diff -r --no-dereference "$2.before" "$2" >/dev/null || fail "the project changed. Output:
 $(cat "$OUT")"
 }
 
@@ -1087,6 +1107,358 @@ case_init_stops_missing_default_branch() {
     p=$(new_project)
     expect_init_stop "$h" "$p" "$(answers 'git.default_branch = "develop"' 'test.command = "npm test"')"
     expect_line "'git.default_branch' is \"develop\", which names neither a local branch nor origin/develop"
+}
+
+# ---------------------------------------------------------------------------
+# Check mode: ./install --check <project root> <answers file>
+
+ORIGIN_LOSES="/flow-close-out, /flow-comments-review, /flow-pr-summary, /flow-worktree-close and /flow-worktree-create error, /flow-status and /flow-reground stop"
+NETWORK_LOSES="/flow-close-out, /flow-comments-review, /flow-new-github-issue, /flow-pr-summary, /flow-ship-ticket, /flow-stakeholder-update, /flow-worktree-close and /flow-worktree-create error, /flow-status and /flow-reground stop"
+
+# The ticket's worked example: one commit on main, and an origin that answers
+# without a main. Its answers are WORKED_ANSWERS.
+worked_example_project() {
+    local p
+    p=$(new_project)
+    git -C "$p" branch -m main
+    git init -q --bare -b trunk "$SCRATCH/$CASE/origin.git"
+    git -C "$p" remote add origin "$SCRATCH/$CASE/origin.git"
+    printf '%s' "$p"
+}
+WORKED_ANSWERS=('git.default_branch = "main"' 'test.command = "npm test"')
+
+case_check_worked_example_writes_nothing() {
+    local h p
+    h=$(installed_home)
+    p=$(worked_example_project)
+    snapshot "$h" "$p"
+    run_check "$h" "$p" "$(answers "${WORKED_ANSWERS[@]}")"
+    expect_status 0
+    expect_line "origin has no branch main: $ORIGIN_LOSES. Fix: git push origin main"
+    expect_unchanged "$h" "$p"
+}
+
+# Expect origin line $1 and refuse the other two; `none` refuses all three.
+expect_origin_line() {
+    local line
+    for line in "has no branch" "no origin:" "origin cannot be reached"; do
+        if [ "$line" = "$1" ]; then expect_line "$line"; else refuse_line "$line"; fi
+    done
+}
+
+case_check_tells_the_origin_cases_apart() {
+    local h a p
+    h=$(installed_home)
+    a=$(answers "${WORKED_EXAMPLE[@]}")
+
+    p=$(new_project none)
+    run_check "$h" "$p" "$a"
+    expect_status 0
+    expect_line "no origin: $NETWORK_LOSES. Fix: git remote add origin <url>"
+    expect_origin_line "no origin:"
+
+    p=$(new_project with)
+    git clone -q --bare "$p" "$SCRATCH/$CASE/with.git"
+    git -C "$p" remote add origin "$SCRATCH/$CASE/with.git"
+    run_check "$h" "$p" "$a"
+    expect_status 0
+    expect_origin_line none
+
+    p=$(new_project missing)
+    git -C "$p" remote add origin "$SCRATCH/$CASE/nowhere.git"
+    run_check "$h" "$p" "$a"
+    expect_status 0
+    expect_line "origin cannot be reached, fatal: '$SCRATCH/$CASE/nowhere.git' does not appear to be a git repository: "
+    expect_origin_line "origin cannot be reached"
+}
+
+# A logged-in gh in this case's bin/, printed for a PATH. `repo view` answers
+# permission $1, fails when $1 is empty, and hangs when it is HANG. `label
+# list` prints labels $2..., JSON-encoded as the installer asks for them.
+# Each call's arguments go to bin/calls.
+stub_gh() {
+    local bin="$SCRATCH/$CASE/bin"
+    mkdir -p "$bin"
+    printf '%s\n' "$1" > "$bin/permission"
+    shift
+    : > "$bin/labels"
+    [ $# -eq 0 ] || printf '"%s"\n' "$@" > "$bin/labels"
+    cat > "$bin/gh" <<'EOF'
+#!/bin/sh
+d=$(dirname "$0")
+echo "$*" >> "$d/calls"
+case "$1 $2" in
+    "auth status") exit 0 ;;
+    "repo view")
+        read -r p < "$d/permission"
+        [ -n "$p" ] || { echo "GraphQL: Could not resolve to a Repository" >&2; exit 1; }
+        [ "$p" != HANG ] || exec sleep 30
+        echo "$p" ;;
+    "label list") cat "$d/labels" ;;
+    *) exit 1 ;;
+esac
+EOF
+    chmod +x "$bin/gh"
+    printf '%s' "$bin:$PATH"
+}
+
+# A project whose origin, github.com:owner/repo.git, carries its default
+# branch, trunk. Its core.sshCommand is a stand-in for ssh: it resolves every
+# host to github.com, and serves origin from a local bare repository, so
+# nothing leaves the machine.
+project_with_origin() {
+    local p d="$SCRATCH/$CASE/$1-ssh"
+    p=$(new_project "$1")
+    mkdir -p "$d/repos/owner"
+    git clone -q --bare "$p" "$d/repos/owner/repo.git"
+    cat > "$d/ssh" <<'EOF'
+#!/bin/sh
+# The last argument is git's remote command, such as git-upload-pack 'x'.
+for last; do :; done
+case " $* " in *" -G "*) echo "hostname github.com"; exit 0 ;; esac
+cd "$(dirname "$0")/repos" && exec sh -c "git ${last#git-}"
+EOF
+    chmod +x "$d/ssh"
+    git -C "$p" config core.sshCommand "$d/ssh"
+    git -C "$p" remote add origin github.com:owner/repo.git
+    printf '%s' "$p"
+}
+
+case_check_gh_outcomes() {
+    local h a p bin
+    h=$(installed_home)
+    a=$(answers "${WORKED_EXAMPLE[@]}")
+    p=$(project_with_origin project)
+
+    PATH=$(stub_gh READ) run_check "$h" "$p" "$a"
+    expect_status 0
+    expect_line "you cannot push to origin, gh reports READ: /flow-ship-ticket errors, and /flow-worktree-close cannot delete the remote branch. Fix: ask a repository admin for write access"
+
+    PATH=$(stub_gh WRITE) run_check "$h" "$p" "$a"
+    expect_status 0
+    [ "$(cat "$OUT")" = "no gaps" ] || fail "every check passed, and the output is not 'no gaps':
+$(cat "$OUT")"
+
+    PATH=$(stub_gh "") run_check "$h" "$p" "$a"
+    expect_status 0
+    expect_line "gh cannot reach origin, GraphQL: Could not resolve to a Repository: every gh step fails, in /flow-close-out, /flow-comments-review, /flow-new-github-issue, /flow-pr-summary, /flow-ship-ticket and /flow-stakeholder-update"
+    refuse_line "cannot push"
+
+    # The logged-out gh every case gets.
+    run_check "$h" "$p" "$a"
+    expect_status 0
+    expect_line "not checked: gh reaching origin, because gh auth status fails for github.com"
+
+    # No gh at all: this bash, and the system's commands, which hold none.
+    bin="$SCRATCH/$CASE/no-gh"
+    mkdir -p "$bin"
+    ln -s "$BASH" "$bin/bash"
+    ! PATH="$bin:/usr/bin:/bin" command -v gh >/dev/null || fail "this machine has gh in /usr/bin or /bin"
+    PATH="$bin:/usr/bin:/bin" run_check "$h" "$p" "$a"
+    expect_status 0
+    expect_line "not checked: gh reaching origin, because gh is not installed"
+}
+
+case_check_names_each_missing_label() {
+    local h p
+    h=$(installed_home)
+    p=$(project_with_origin project)
+    PATH=$(stub_gh WRITE bug) run_check "$h" "$p" \
+        "$(answers "${WORKED_EXAMPLE[@]}" 'github.labels = ["Bug", "nope"]')"
+    expect_status 0
+    [ "$(grep -c nope "$OUT")" -eq 1 ] || fail "not exactly one line naming nope. Output:
+$(cat "$OUT")"
+    expect_line 'label "nope" does not exist on origin: /flow-new-github-issue errors. Fix: gh label create "nope" --repo github.com/owner/repo'
+    refuse_line '"bug"'
+
+    # Unchecked labels are named once, with the reason gh was skipped.
+    run_check "$h" "$p" "$(answers "${WORKED_EXAMPLE[@]}" 'github.labels = ["nope"]')"
+    expect_status 0
+    expect_line "not checked: gh reaching origin, and the labels, because gh auth status fails for github.com"
+}
+
+# ssh reads a config in which the aliases resolve and every connection is
+# `ProxyCommand false`, and https goes through a closed local proxy, so
+# origin itself is never reached.
+case_check_names_origin_to_gh_as_host_owner_repo() {
+    local h p a url want calls="$SCRATCH/$CASE/bin/calls" cfg="$SCRATCH/$CASE/ssh_config"
+    h=$(installed_home)
+    a=$(answers "${WORKED_EXAMPLE[@]}" 'github.labels = ["nope"]')
+    printf 'Host github-work\n    HostName github.com\nHost github-443\n    HostName ssh.github.com\nHost *\n    ProxyCommand false\n' > "$cfg"
+    for url in github-work:owner/repo.git github-443:owner/repo.git me@github.com:owner/repo \
+            deploy@ghe.example:team/app.git; do
+        case $url in *team/app*) want=ghe.example/team/app ;; *) want=github.com/owner/repo ;; esac
+        p=$(new_project "p$RUNS")
+        git -C "$p" remote add origin "$url"
+        GIT_SSH_COMMAND="ssh -F $cfg" PATH=$(stub_gh WRITE) run_check "$h" "$p" "$a"
+        expect_status 0
+        grep -qxF "repo view $want --json viewerPermission -q .viewerPermission" "$calls" \
+            || fail "gh was not asked for $want, from $url:
+$(cat "$calls")"
+        grep -qxF "auth status --hostname ${want%%/*}" "$calls" \
+            || fail "gh auth status was not asked about ${want%%/*}, from $url:
+$(cat "$calls")"
+        rm -f -- "$calls"
+    done
+
+    # A path names no repository on any gh host, so gh is not asked.
+    p=$(new_project path)
+    git clone -q --bare "$p" "$p.git"
+    git -C "$p" remote add origin "$p.git"
+    PATH=$(stub_gh WRITE) run_check "$h" "$p" "$a"
+    expect_status 0
+    expect_line "gh cannot reach origin, which is a path: every gh step fails, in "
+    expect_line "not checked: the labels, because gh cannot reach origin"
+    [ ! -f "$calls" ] || fail "gh was called for a path:
+$(cat "$calls")"
+
+    # The harness's rewrites would hide the https URL, so the proxy alone
+    # keeps this run local, and no_proxy must not route around it.
+    p=$(new_project https)
+    git -C "$p" remote add origin https://x-access-token:SECRET@github.example.com/owner/repo.git
+    GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.proxy GIT_CONFIG_VALUE_0=http://127.0.0.1:9 \
+        no_proxy= NO_PROXY= PATH=$(stub_gh WRITE) run_check "$h" "$p" "$a"
+    expect_status 0
+    grep -qF "label list --repo github.example.com/owner/repo " "$calls" \
+        || fail "gh was not asked for github.example.com/owner/repo:
+$(cat "$calls")"
+    expect_line "Fix: gh label create \"nope\" --repo github.example.com/owner/repo"
+    refuse_line SECRET
+}
+
+# A network that drops packets answers nothing. Each call gives up after 10
+# seconds, so two hangs end in about 20, well before their 30-second sleeps.
+case_check_gives_up_on_a_silent_network() {
+    local h p start
+    h=$(installed_home)
+    p=$(new_project)
+    git -C "$p" remote add origin flow-test.invalid:owner/repo.git
+    # ssh -G answers, as it reads only the config, and a connection hangs.
+    git -C "$p" config core.sshCommand \
+        "sh -c 'case \" \$* \" in *\" -G \"*) echo hostname github.com ;; *) exec sleep 30 ;; esac' ssh"
+    start=$SECONDS
+    PATH=$(stub_gh HANG) run_check "$h" "$p" "$(answers "${WORKED_EXAMPLE[@]}")"
+    expect_status 0
+    [ $((SECONDS - start)) -lt 28 ] || fail "the check took $((SECONDS - start)) seconds"
+    expect_line "origin cannot be reached, no answer in 10 seconds: "
+    expect_line "gh cannot reach origin, no answer in 10 seconds: "
+}
+
+# ssh warns before it fails, as it does when it adds a host key, or, from
+# OpenSSH 10, on a key exchange that is not post-quantum. The reason shown is
+# the failure. The ssh here also records how it was run.
+case_check_reason_skips_a_warning() {
+    local h p d="$SCRATCH/$CASE"
+    h=$(installed_home)
+    p=$(new_project)
+    git -C "$p" remote add origin flow-test.invalid:owner/repo.git
+    cat > "$d/ssh" <<EOF
+#!/bin/sh
+case " \$* " in *" -G "*) exit 255 ;; esac
+echo "\$* GCM_INTERACTIVE=\$GCM_INTERACTIVE" > "$d/ssh-run"
+echo "Warning: Permanently added flow-test.invalid to the list of known hosts." >&2
+echo "** WARNING: connection is not using a post-quantum key exchange algorithm." >&2
+echo "git@flow-test.invalid: Permission denied (publickey)." >&2
+exit 255
+EOF
+    chmod +x "$d/ssh"
+    git -C "$p" config core.sshCommand "$d/ssh"
+    run_check "$h" "$p" "$(answers "${WORKED_EXAMPLE[@]}")"
+    expect_status 0
+    expect_line "origin cannot be reached, git@flow-test.invalid: Permission denied (publickey).: "
+    # No prompt, a 5-second connect timeout, no update to known_hosts, and no
+    # sign-in window from Git Credential Manager.
+    grep -qF -- "-o BatchMode=yes -o ConnectTimeout=5 -o UpdateHostKeys=no " "$d/ssh-run" \
+        && grep -qF "GCM_INTERACTIVE=never" "$d/ssh-run" \
+        || fail "ssh ran as: $(cat "$d/ssh-run")"
+}
+
+# GIT_SSH names a program, which may take no ssh options, so the check leaves
+# it to git rather than override it with GIT_SSH_COMMAND.
+# The alias still reaches gh resolved, through the ssh on PATH, which here
+# resolves every host to github.com. myssh fails without a word, and the
+# line still gives a reason.
+case_check_keeps_git_ssh() {
+    local h p bin="$SCRATCH/$CASE/ssh" calls="$SCRATCH/$CASE/bin/calls"
+    h=$(installed_home)
+    mkdir -p "$bin"
+    printf '#!/bin/sh\necho "$*" > "%s/called"\nexit 255\n' "$bin" > "$bin/myssh"
+    printf '#!/bin/sh\necho hostname github.com\n' > "$bin/ssh"
+    chmod +x "$bin/myssh" "$bin/ssh"
+    p=$(new_project)
+    git -C "$p" remote add origin github-work:owner/repo.git
+    GIT_SSH="$bin/myssh" PATH="$bin:$(stub_gh WRITE)" run_check "$h" "$p" "$(answers "${WORKED_EXAMPLE[@]}")"
+    expect_status 0
+    [ -f "$bin/called" ] || fail "GIT_SSH was not run. Output:
+$(cat "$OUT")"
+    expect_line "origin cannot be reached, fatal: Could not read from remote repository.: "
+    grep -qF "repo view github.com/owner/repo " "$calls" || fail "gh was not asked for github.com/owner/repo:
+$(cat "$calls")"
+}
+
+case_check_names_tracked_worktrees_only() {
+    local h a p
+    h=$(installed_home)
+    a=$(answers "${WORKED_EXAMPLE[@]}")
+    p=$(new_project tracked)
+    mkdir -p "$p/.claude/worktrees/old"
+    printf 'x\n' > "$p/.claude/worktrees/old/file"
+    git -C "$p" add .claude/worktrees/old/file
+    git -C "$p" "${GIT_ID[@]}" commit -qm worktree
+    run_check "$h" "$p" "$a"
+    expect_status 0
+    expect_line ".claude/worktrees/ is tracked: /flow-worktree-create is wrong, git add -A in the main checkout stages each worktree. Fix: git -C \"$p\" rm -r --cached .claude/worktrees/"
+    # From a root below the top level, the fix still names the top level.
+    mkdir "$p/app"
+    run_check "$h" "$p/app" "$a"
+    expect_status 0
+    expect_line "Fix: git -C \"$p\" rm -r --cached .claude/worktrees/"
+
+    p=$(new_project untracked)
+    mkdir -p "$p/.claude/worktrees/old"
+    printf 'x\n' > "$p/.claude/worktrees/old/file"
+    run_check "$h" "$p" "$a"
+    expect_status 0
+    refuse_line ".claude/worktrees/"
+}
+
+# A gap never stops the check; a project it cannot read does.
+case_check_stops_on_not_a_repository() {
+    local h p
+    h=$(installed_home)
+    p="$SCRATCH/$CASE/project"
+    mkdir -p "$p"
+    snapshot "$h" "$p"
+    run_check "$h" "$p" "$(answers "${WORKED_EXAMPLE[@]}")"
+    [ "$STATUS" -ne 0 ] || fail "exit 0, expected a stop. Output:
+$(cat "$OUT")"
+    expect_unchanged "$h" "$p"
+    expect_line "is not a git repository"
+}
+
+# --check shares --init's stops, and its stop names the mode that was run.
+case_check_stops_on_a_linked_worktree() {
+    local h p wt
+    h=$(installed_home)
+    p=$(new_project)
+    wt="$p/.claude/worktrees/wt"
+    git -C "$p" worktree add -q "$wt" -b wt
+    run_check "$h" "$wt" "$(answers "${WORKED_EXAMPLE[@]}")"
+    [ "$STATUS" -ne 0 ] || fail "exit 0, expected a stop. Output:
+$(cat "$OUT")"
+    expect_line "is in a linked worktree. Run --check on the main checkout, $p"
+}
+
+# A colleague running --init by hand sees the gaps too, once it has written.
+case_init_prints_the_check_lines() {
+    local h p
+    h=$(installed_home)
+    p=$(worked_example_project)
+    run_init "$h" "$p" "$(answers "${WORKED_ANSWERS[@]}")"
+    expect_status 0
+    sed -n '/^== Record the project/,$p' "$OUT" | grep -qxF "  origin has no branch main: $ORIGIN_LOSES. Fix: git push origin main" \
+        || fail "no check line after the record is written. Output:
+$(cat "$OUT")"
 }
 
 # ---------------------------------------------------------------------------
