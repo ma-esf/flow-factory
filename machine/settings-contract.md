@@ -5,8 +5,10 @@ skill points at this file; no skill restates it.
 
 ## Where the file is
 
-`flow-factory.toml`, at the root of the project the skill is working in. The
-installer places it from `project/flow-factory.toml` in the factory repository.
+`flow-factory.toml`, at the root of the project the skill is working in.
+`./install --init`, run from the factory checkout, writes it together with the
+tracker and the exclude lines that keep both out of git. A copy made by hand
+has neither.
 
 This fixes the settings path only. Where a project's tracker files live is a
 separate question, still written `<tracker>/` everywhere in the factory.
@@ -64,7 +66,11 @@ needed.
 ## When the file is missing
 
 Stop. Say the project has no `flow-factory.toml`, so the factory was never
-installed here. Do not fall back to the defaults.
+fitted to it, and that `./install --init <project root> <answers file>`, run
+from the factory checkout, fits it. The checkout is the `checkout` line of
+`~/.flow-factory/install-record.txt`, and its `README.md`, "Fit a project",
+shows the answers file. Do not write the file yourself, and do not fall back to
+the defaults.
 
 A missing file is not an empty value. An empty value is a project that
 answered. A missing file is a project nobody asked, and every default is then a
