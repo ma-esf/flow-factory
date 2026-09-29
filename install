@@ -11,7 +11,7 @@
 #
 # --init fits one project on a machine that has the factory: it writes the
 # project's flow-factory.toml from an answers file, creates its tracker and
-# keeps both out of git. /flow-init proposes the answers; this does the writes.
+# keeps both out of git. README.md, "Fit a project", shows an answers file.
 
 set -euo pipefail
 
@@ -758,9 +758,9 @@ fi
 say ""
 say "Install complete."
 if [ "$SKILLS_EXISTED" = no ]; then
-    say "Next: restart Claude Code first, then open Claude Code in your project and type /flow-init"
+    say "Next: restart Claude Code first, then fit a project with ./install --init. README.md, \"Fit a project\", shows how."
 else
-    say "Next: open Claude Code in your project and type /flow-init"
+    say "Next: fit a project with ./install --init. README.md, \"Fit a project\", shows how."
 fi
 # No permission rules are added. That tool proposes them from real use.
 say "Once you have used the skills a while, /fewer-permission-prompts proposes permission rules from that use."

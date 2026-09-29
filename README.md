@@ -58,10 +58,38 @@ installer that pull brought, and removes every file it placed that the
 factory no longer ships. A pull that fails leaves the checkout as it stands,
 and that is what it installs.
 
-Fitting a project, its settings and its tracker, arrives with `/flow-init`.
-
 Nothing else is installed. No service, no database, no state shared between
 projects.
+
+The skills read their rules from `~/.flow-factory/`, outside any project, so
+Claude Code asks before each read. To allow them once, add this to the `allow`
+list in `~/.claude/settings.json`:
+
+```json
+{ "permissions": { "allow": ["Read(~/.flow-factory/**)"] } }
+```
+
+## Fit a project
+
+Once per project, from the factory checkout. Write the settings you know into
+an answers file, then run `--init` on the project's root:
+
+```bash
+cat > /tmp/answers.txt <<'EOF'
+git.default_branch = "main"
+test.command = "npm test"
+EOF
+./install --init ~/code/my-app /tmp/answers.txt
+```
+
+It writes `flow-factory.toml` at the project's root, creates the tracker in
+`.cortex/`, and keeps both out of git through `.git/info/exclude`. A key the
+answers file leaves out keeps its value from `project/flow-factory.toml`,
+which lists every key and what it does.
+
+Run it once. To change a setting afterwards, edit the project's
+`flow-factory.toml`: a second `--init` rebuilds the file from the template and
+the answers file, and a value edited by hand since is lost.
 
 ## Where to start
 
@@ -85,3 +113,4 @@ there is to work on.
 | `install` | the installer | not installed; it does the placing |
 | `tests/` | the installer's regression test | not installed |
 | `docs/` | the reference docs | not installed; read them here |
+| `THIRD_PARTY_NOTICES` | the license of the text taken from other projects | not installed |

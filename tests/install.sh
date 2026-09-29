@@ -366,7 +366,7 @@ case_new_skills_dir_says_restart_first() {
     h=$(new_home)
     run_install "$h"
     expect_status 0
-    expect_line "Next: restart Claude Code first, then open Claude Code in your project and type /flow-init"
+    expect_line "Next: restart Claude Code first, then fit a project with ./install --init."
     expect_line "/fewer-permission-prompts"
 }
 
@@ -376,7 +376,7 @@ case_existing_skills_dir_says_no_restart() {
     mkdir "$h/.claude/skills"
     run_install "$h"
     expect_status 0
-    expect_line "Next: open Claude Code in your project and type /flow-init"
+    expect_line "Next: fit a project with ./install --init."
     refuse_line "restart"
     expect_line "/fewer-permission-prompts"
 }
