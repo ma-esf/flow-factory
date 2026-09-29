@@ -1,6 +1,6 @@
 ---
 name: flow-status
-description: Session and git status snapshot. Reads session history and live git state to report what we've been working on, current worktree, branch, commits made this session, uncommitted changes, branch delta against the project's default branch, and 3 next-step options. Use when user types /flow-status or asks "what's our status", "where are we", "what have we done".
+description: Session and git status snapshot. Reads session history and live git state to report what we've been working on, current worktree, branch, commits made this session, uncommitted changes, branch delta against the project's default branch, 3 next-step options, and one line when the Flow Factory checkout is behind its origin. Use when user types /flow-status or asks "what's our status", "where are we", "what have we done".
 ---
 
 # flow-status - Session Status
@@ -98,9 +98,32 @@ git for-each-ref --merged="$BASE" --format='MERGED  %(refname:lstrip=2)' refs/he
 git for-each-ref --no-merged="$BASE" --format='ACTIVE  %(refname:lstrip=2)' refs/heads/
 ```
 
+Then check whether the factory checkout has an update. This check never stops the report: a factory that cannot be checked is no reason to withhold the project's status, and Step 0's two stops stay the only ones.
+
+```bash
+# Prints one FACTORY_LINE when the checkout is behind or cannot be checked, and
+# nothing when it is level or the record names no checkout.
+F=$(sed -n 's/^checkout //p' ~/.flow-factory/install-record.txt 2>/dev/null)
+if [ -n "$F" ]; then
+  n=
+  if [ -e "$F/.git" ]; then
+    # No credential prompt, and killed after 10 seconds, so no origin can hang the report.
+    GIT_TERMINAL_PROMPT=0 git -C "$F" fetch -q >/dev/null 2>&1 & p=$!
+    ( sleep 10; kill "$p" ) >/dev/null 2>&1 & t=$!
+    wait "$p" && n=$(git -C "$F" rev-list --count HEAD..@{u} 2>/dev/null)
+    kill "$t" 2>/dev/null
+  fi
+  if [ -z "$n" ]; then echo "FACTORY_LINE: I could not check for a Flow Factory update in $F."
+  elif [ "$n" -gt 0 ]; then
+    s=s; [ "$n" -eq 1 ] && s=
+    echo "FACTORY_LINE: Flow Factory is $n commit$s behind origin: run ./install in $F"
+  fi
+fi
+```
+
 ## Step 2 - Produce the report
 
-Output exactly these 7 sections, in order. Keep each section tight, no padding.
+Output exactly these 7 sections, in order, then the factory line when Step 1 printed one. Keep each section tight, no padding.
 
 ---
 
@@ -138,6 +161,8 @@ If local branches other than the current one are already merged into `$BASE` (pe
 Offer exactly 3 options, lettered A / B / C. Derive them from the session context: what was in progress, what was blocked, what was mentioned as upcoming. Be specific (file names, feature names), not generic.
 
 ---
+
+When the factory check in Step 1 printed a `FACTORY_LINE:`, end the report with the text after that prefix, as it stands, on its own line after section 7. When it printed none, add nothing about the factory. Never run the commands it names.
 
 ## Format rules
 - Use `###` headers exactly as above
