@@ -262,10 +262,11 @@ Under `gh` the skill may run `gh pr create` after the same single approval.
 Under both, `gh` has to be installed: the resume check below reads the pull
 request through it.
 
-Lead the options with the copy step: option 1 offers to copy the body file
-`/flow-pr-summary` wrote to the clipboard, ready to paste as the description.
-Run `pbcopy < <body file>` (confirm with `pbpaste | wc -c`) only when the user
-selects it, never before.
+Under `manual`, lead the options with the copy step: option 1 offers to copy
+the body file `/flow-pr-summary` wrote to the clipboard, ready to paste as the
+description. Run `pbcopy < <body file>` (confirm with `pbpaste | wc -c`) only
+when the user selects it, never before. Under `gh`, offer no copy step:
+`gh pr create` already put the body on the pull request.
 
 The tracker flip happens as soon as a pull request exists, without asking, the
 same way Stage 1 claims without asking: set `Status: in-review`, remove the
