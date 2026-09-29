@@ -58,7 +58,8 @@ Several skills are useful in more than one stage. Each is listed once.
   merge is verified
 - `/flow-jira-subtask` - turn shipped tickets into paste-ready Jira sub-tasks
 - `/flow-status` - report where this session stands: branch, commits made,
-  uncommitted changes, and the delta against the default branch
+  uncommitted changes, the delta against the default branch, and a line when
+  the factory checkout is behind its origin
 - `/flow-to-core` - cut one prose artifact (a skill, a doc, a CLAUDE.md, a
   prompt) down to what it actually does, part by part
 - `/flow-fix-agent-behavior` - take something the agent keeps doing wrong to

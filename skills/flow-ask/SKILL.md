@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 You don't remember every skill, so ask.
 
-A **flow** is a path through the skills. Most paths run along one **main flow**, and two **on-ramps** merge onto it. Everything else is standalone. The four stages the flow passes through are Discover, Define, Decompose and Deliver; `docs/4d-system.md` in the factory checkout says what each one answers.
+A **flow** is a path through the skills. Most paths run along one **main flow**, and two **on-ramps** merge onto it. Everything else is standalone. The four stages the flow passes through are Discover, Define, Decompose and Deliver; `docs/4d-system.md` in the factory checkout says what each one answers. Name it by full path: the checkout is the `checkout` line of `~/.flow-factory/install-record.txt`. With no such line, say the checkout path is unknown; with no such file there, say so. Either way, running `./install` from a current factory checkout fixes it.
 
 ## The main flow: idea → ship
 
@@ -67,7 +67,7 @@ A starting situation that generates work, then merges onto the main flow.
 Off the main flow entirely.
 
 - **`/flow-grilling`** — the same relentless interview as `/flow-grill-with-docs`, but for when you have **no codebase**. Stateless: it saves nothing locally. Reach for it to sharpen any plan or design that doesn't live in a repo.
-- **`/flow-status`** — where this session stands: branch, commits made, uncommitted changes, delta against the default branch.
+- **`/flow-status`** — where this session stands: branch, commits made, uncommitted changes, delta against the default branch, and whether the factory checkout is behind its origin.
 - **`/flow-reground`** — recheck an aged ticket, capture or spec against the latest default branch before picking it up.
 - **`/flow-codebase-design`** — vocabulary for deep modules: where a seam belongs, what makes a module testable.
 - **`/flow-run-app`** — start the project's app from the worktree you are in, one port per service, without touching anyone else's servers.
