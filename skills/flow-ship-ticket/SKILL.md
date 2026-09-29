@@ -29,19 +29,15 @@ not, stop as `~/.flow-factory/settings-contract.md` says.
   approval, the commit message approval in Stage 5, or `git push`.
 - Use ASD-STE100 Simplified Technical English. When `docs.context` is set, also
   use the ubiquitous language in that file.
-- When a stage starts, print its header as markdown, not in a code block: one
-  ship per stage number, then the number and the heading's name in bold, and
-  on the line below what the stage is about to do. Every stage prints its
-  header before its first tool call, as the first line of its message. Nothing
-  comes before it: what the stage just finished still has to show, such as a
-  delegated skill's report or the Stage 4 verdicts, goes below the second
-  line. A header after other text is lost; a reader saw only the headers that
-  opened their message. A stage with no work says why on the second line.
+- A stage's first tool call prints its header. Run it on its own, not
+  joined to another command, and do not write the header as text as well:
 
-  ```markdown
-  🚢🚢🚢 **3/7 Build**
-  Skipping the default branch in the branch loop, tested through its output.
+  ```bash
+  bash ~/.flow-factory/stage.sh 3 "Skipping the default branch in the branch loop, tested through its output."
   ```
+
+  The second argument is the header's second line: what the stage is about
+  to do. A stage with no work runs it too, and says why there.
 
 - A clean stage prints nothing when it ends; the next header shows it passed.
   When the run needs the user, print one line that ends with exactly what they
