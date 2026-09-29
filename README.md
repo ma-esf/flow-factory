@@ -37,14 +37,14 @@ looks like.
 
 ## Install
 
-Clone this repository. Then run the installer from the checkout, once per
-machine:
+Clone this repository. Then run the installer from the checkout:
 
 ```bash
 ./install
 ```
 
-It asks nothing. Before it writes, it names the only two places it writes:
+It asks nothing. Before it writes outside the checkout, it names the only two
+places it writes there:
 
 - `~/.claude/skills/flow-*`, one directory per skill.
 - `~/.flow-factory/`, the tracker and settings contracts, the file templates
@@ -52,6 +52,11 @@ It asks nothing. Before it writes, it names the only two places it writes:
   it placed.
 
 A `flow-*` skill directory it did not place is left alone and named.
+
+Run it again to update. It pulls the checkout, fast-forward only, runs the
+installer that pull brought, and removes every file it placed that the
+factory no longer ships. A pull that fails leaves the checkout as it stands,
+and that is what it installs.
 
 Fitting a project, its settings and its tracker, arrives with `/flow-init`.
 

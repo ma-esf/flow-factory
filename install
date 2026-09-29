@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 #
-# Flow Factory install: places the factory on this machine, once per machine.
+# Flow Factory install: places the factory on this machine, and updates it.
 #
 #   ./install
 #   ./install --init <project root> <answers file>
 #
 # Run it from a checkout of the factory. It copies the skills into
 # ~/.claude/skills/ and the contracts into ~/.flow-factory/, and asks nothing.
+# Run it again to update: it pulls the checkout first.
 #
 # --init fits one project on a machine that has the factory: it writes the
 # project's flow-factory.toml from an answers file, creates its tracker and
@@ -87,7 +88,7 @@ factory_stamp() {
 }
 
 # The stops for a factory that cannot be placed correctly. Every one runs
-# before the first write, so a stopped run leaves the machine as it was.
+# before the first write, so a stopped run leaves HOME as it was.
 #
 # Claude Code is absent when ~/.claude is absent, not when skills/ is. A user
 # who has never added a skill has the first and not the second.
@@ -103,6 +104,53 @@ for required in machine skills; do
     [ -d "$FACTORY_ROOT/$required" ] \
         || fail "$FACTORY_ROOT is not a factory checkout: no $required/"
 done
+
+# ---------------------------------------------------------------------------
+# The update
+#
+# A second ./install is how a machine takes a new factory version, so machine
+# mode pulls first. Fast-forward only, so it never makes a merge commit. A
+# pull that cannot, on a diverged or detached checkout or one with no
+# upstream, leaves the files as they are, so it does not stop the install.
+#
+# bash goes on running the text it started with after the pull replaces this
+# file, so a pull that moved HEAD hands over to the pulled installer.
+# FLOW_FACTORY_PULLED keeps that run from pulling again. A stop in that run
+# leaves the checkout pulled and HOME as it was.
+# ---------------------------------------------------------------------------
+update_checkout() {
+    local before from rc=0 msg
+    # A factory copied into another repository has no checkout of its own,
+    # and a pull there would move that repository.
+    if [ "$(git -C "$FACTORY_ROOT" rev-parse --show-toplevel 2>/dev/null || true)" \
+            != "$(cd -- "$FACTORY_ROOT" && pwd -P)" ]; then
+        say "  not pulled: the factory is not the top level of a checkout, so it is installed as it stands"
+        return 0
+    fi
+    before=$(git -C "$FACTORY_ROOT" rev-parse -q --verify HEAD || true)
+    from=$(git -C "$FACTORY_ROOT" describe --tags --always 2>/dev/null || true)
+    # --no-rebase, because before git 2.34 pull.rebase overrides --ff-only.
+    msg=$(GIT_TERMINAL_PROMPT=0 git -C "$FACTORY_ROOT" pull --ff-only --no-rebase -q 2>&1) || rc=$?
+    # HEAD, not the exit code, says whether the tree changed: a pull can land
+    # and still fail afterwards, in a hook.
+    if [ "$(git -C "$FACTORY_ROOT" rev-parse -q --verify HEAD || true)" != "$before" ]; then
+        say "  pulled $from to $(git -C "$FACTORY_ROOT" describe --tags --always)"
+        [ "$rc" -eq 0 ] || printf '%s\n' "$msg" | sed 's/^/    /'
+        [ -f "$FACTORY_ROOT/install" ] \
+            || fail "the pull left no install in $FACTORY_ROOT, so nothing was installed"
+        FLOW_FACTORY_PULLED=1 exec "$BASH" "$FACTORY_ROOT/install"
+    elif [ "$rc" -eq 0 ]; then
+        say "  the checkout is up to date"
+    else
+        say "  the pull failed, so the checkout is installed as it stands:"
+        printf '%s\n' "$msg" | sed 's/^/    /'
+    fi
+}
+if [ "$MODE" = machine ] && [ -z "${FLOW_FACTORY_PULLED:-}" ]; then
+    step "Update the checkout"
+    update_checkout
+fi
+
 # Project mode places from project/, machine mode from skills/ and machine/.
 if [ "$MODE" = init ]; then
     STAMP=$(factory_stamp project) || exit 1
@@ -444,12 +492,15 @@ recorded() {
 # withdrawn. The exception is a file behind a symlink, itself or a directory
 # above it, which may point into someone's checkout, so it is left alone. The
 # walk goes down from ~/.flow-factory, which is known not to be a link.
-behind_link() {
-    local rest=$1 p=$MACHINE_DIR
-    while [ -n "$rest" ]; do
+behind_link() { link_above "$MACHINE_DIR" "$1" || [ -L "$MACHINE_DIR/$1" ]; }
+
+# Whether a directory between $1 and the file $1/$2 is a symlink.
+link_above() {
+    local p=$1 rest=$2
+    while [ "${rest#*/}" != "$rest" ]; do
         p="$p/${rest%%/*}"
         [ ! -L "$p" ] || return 0
-        case $rest in */*) rest=${rest#*/} ;; *) rest="" ;; esac
+        rest=${rest#*/}
     done
     return 1
 }
@@ -489,9 +540,84 @@ printf '%s\n' "$SOURCES" | awk '
                   if (name in place) print }
 ' "$WORK/skills-place" - > "$WORK/skill-sources"
 
+# Remove every empty directory above file $1, up to but not including $2. A
+# lone .DS_Store counts as empty: Finder writes one into any folder it opens.
+prune_up() {
+    local d
+    d=$(dirname -- "$1")
+    while [ "${d#"$2"/}" != "$d" ]; do
+        [ "$(ls -A -- "$d")" != .DS_Store ] || rm -f -- "$d/.DS_Store"
+        rmdir -- "$d" 2>/dev/null || return 0
+        d=$(dirname -- "$d")
+    done
+}
+
+# The files an earlier run placed that the factory no longer ships, removed
+# before the record is rewritten, so a run cut short leaves them listed for the
+# next. A skill directory that still ships is replaced whole below, so a file
+# dropped from it needs nothing here. rm -f on the path removes a file-level
+# link and never follows it. A link in a directory above would carry the
+# removal into someone's checkout, so a file behind one is left alone, and so
+# is a skill directory that is itself a link.
+remove_withdrawn() {
+    [ -f "$RECORD" ] || return 0
+    local path rel name
+    : > "$WORK/removed-skills"; : > "$WORK/linked-skills"
+    while IFS= read -r path; do
+        case $path in
+            # A . or .. would carry the removal out of both directories.
+            */./*|*/../*)
+                tell "  left alone $path, a recorded path holding . or .." ;;
+            "$SKILLS_DIR"/*/*)
+                rel=${path#"$SKILLS_DIR"/}; name=${rel%%/*}
+                ! ships "$name" || continue
+                if [ -L "$SKILLS_DIR/$name" ]; then
+                    ! grep -qxF -- "$name" "$WORK/linked-skills" || continue
+                    printf '%s\n' "$name" >> "$WORK/linked-skills"
+                    tell "  left alone $name, no longer shipped, a link this installer does not write through"
+                elif drop "$path" "$rel" "$SKILLS_DIR" && ! grep -qxF -- "$name" "$WORK/removed-skills"; then
+                    printf '%s\n' "$name" >> "$WORK/removed-skills"
+                    tell "  removed $name, no longer shipped"
+                fi ;;
+            "$MACHINE_DIR"/*)
+                ! grep -qxF -- "$path" "$WORK/machine-dests" || continue
+                rel=${path#"$MACHINE_DIR"/}
+                if drop "$path" "$rel" "$MACHINE_DIR"; then tell "  removed $rel, no longer shipped"; fi ;;
+        esac
+    done < <(sed -n 's/^file //p' "$RECORD")
+    while IFS= read -r name; do
+        [ ! -d "$SKILLS_DIR/$name" ] || tell "  kept ~/.claude/skills/$name/, which is not empty"
+    done < "$WORK/removed-skills"
+}
+
+# Remove withdrawn file $1, named $2, from under directory $3, the skills or
+# machine directory. Fails when nothing was removed; a file left alone is
+# named.
+drop() {
+    if link_above "$3" "$2"; then
+        tell "  left alone $2, no longer shipped, behind a link this installer does not write through"
+    elif [ -d "$1" ] && [ ! -L "$1" ]; then
+        tell "  left alone $2, no longer shipped, now a directory this installer did not place"
+    elif [ -e "$1" ] || [ -L "$1" ]; then
+        # Called as a condition, where set -e does not stop on a failure.
+        rm -f -- "$1" || fail "cannot remove $1"
+        prune_up "$1" "$3"
+        return 0
+    fi
+    return 1
+}
+
+# Each line printed as it happens, so a removal cut short is still named.
+TOLD=no
+tell() { say "$*"; TOLD=yes; }
+
+step "Remove what the factory no longer ships"
+remove_withdrawn
+[ "$TOLD" = yes ] || say "  nothing to remove"
+
 # The earlier record's lines this run does not rewrite: every project, and
-# every file still on disk outside what this run places. A skill the factory
-# has withdrawn stays listed, so its removal can still find it.
+# every file still on disk outside what this run places. A withdrawn file is
+# gone from disk by now, so it drops out; one behind a link stays listed.
 carried_lines() {
     [ -f "$RECORD" ] || return 0
     local line path name
@@ -507,7 +633,10 @@ carried_lines() {
                     *)
                         ! grep -qxF -- "$path" "$WORK/machine-dests" || continue ;;
                 esac
-                if [ -e "$path" ] || [ -L "$path" ]; then printf '%s\n' "$line"; fi
+                # A directory at a recorded path is not a file this run
+                # placed, and a record claiming it would let a later run
+                # replace it.
+                if [ -f "$path" ] || [ -L "$path" ]; then printf '%s\n' "$line"; fi
                 ;;
         esac
     done < "$RECORD"

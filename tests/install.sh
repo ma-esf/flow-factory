@@ -20,6 +20,17 @@ SCRATCH=$(cd -- "$(mktemp -d)" && pwd -P)
 trap 'rm -rf -- "$SCRATCH"' EXIT
 # Every run sets its own HOME. This one catches a helper that forgets.
 export HOME="$SCRATCH/no-home"
+# ./install pulls, and a case must never reach the network. The URL forms a
+# factory checkout's remote takes are rewritten to a path that does not
+# exist, so such a pull fails at once and prints the line run_install
+# refuses. GIT_CONFIG_COUNT needs git 2.31.
+NETWORK=(https:// http:// ssh:// git:// git@)
+export GIT_CONFIG_COUNT=${#NETWORK[@]}
+for i in "${!NETWORK[@]}"; do
+    export "GIT_CONFIG_KEY_$i=url.$SCRATCH/no-network/.insteadOf" "GIT_CONFIG_VALUE_$i=${NETWORK[$i]}"
+done
+PULL_FAILED="the pull failed"
+GIT_ID=(-c user.name=test -c user.email=test@example.invalid)
 
 CASE=""
 RUNS=0
@@ -33,21 +44,41 @@ new_home() {
     printf '%s' "$h"
 }
 
+# A factory checkout cloned from a scratch origin, both under directory $1,
+# holding this tree as it stands, uncommitted changes included. The origin is
+# a working repository, so a case changes it by committing there.
+make_factory() {
+    mkdir -p "$1/origin"
+    cp -R "$FACTORY/install" "$FACTORY/skills" "$FACTORY/machine" "$FACTORY/project" "$FACTORY/.gitignore" "$1/origin/"
+    git -C "$1/origin" -c init.defaultBranch=main init -q
+    git -C "$1/origin" add -A
+    git -C "$1/origin" "${GIT_ID[@]}" commit -qm copy
+    git clone -q "$1/origin" "$1/factory"
+    printf '%s' "$1/factory"
+}
+
+# The checkout every run uses unless a case names its own. Never the real one:
+# ./install would pull it.
+CHECKOUT=$(make_factory "$SCRATCH/shared")
+
 # Run ./install from a factory checkout under HOME $1, with nothing on stdin
 # and any further arguments passed on. Sets OUT to the file holding stdout and
-# stderr, and STATUS to the exit code.
+# stderr, and STATUS to the exit code. A failed pull fails the case unless it
+# sets PULL_MAY_FAIL, because a pull reaching past the scratch origin fails.
 run_install() {
-    local h=$1 factory=${2:-$FACTORY}
+    local h=$1 factory=${2:-$CHECKOUT}
     shift; [ $# -eq 0 ] || shift
     RUNS=$((RUNS + 1))
     OUT="$SCRATCH/$CASE/out.$RUNS"
     STATUS=0
     HOME="$h" "$factory/install" "$@" </dev/null >"$OUT" 2>&1 || STATUS=$?
+    [ -n "${PULL_MAY_FAIL:-}" ] || ! grep -qF "$PULL_FAILED" "$OUT" || fail "the pull failed. Output:
+$(cat "$OUT")"
 }
 
 # Run ./install --init under HOME $1 on project root $2 with answers file $3.
 run_init() {
-    run_install "$1" "$FACTORY" --init "$2" "$3"
+    run_install "$1" "$CHECKOUT" --init "$2" "$3"
 }
 
 expect_status() {
@@ -66,18 +97,17 @@ refuse_line() {
 
 shipped() {
     local d
-    for d in "$FACTORY"/skills/*/; do basename -- "$d"; done
+    for d in "$CHECKOUT"/skills/*/; do basename -- "$d"; done
 }
 
-# A committed copy of this checkout, for a case that must change a shipped file.
-copy_factory() {
-    local dest="$SCRATCH/$CASE/factory"
-    mkdir -p "$dest"
-    cp -R "$FACTORY/install" "$FACTORY/skills" "$FACTORY/machine" "$FACTORY/project" "$FACTORY/.gitignore" "$dest/"
-    git -C "$dest" init -q
-    git -C "$dest" add -A
-    git -C "$dest" -c user.name=test -c user.email=test@example.invalid commit -qm copy
-    printf '%s' "$dest"
+# A checkout of this case's own, for a case that must change a shipped file.
+# Its origin is $SCRATCH/$CASE/origin.
+copy_factory() { make_factory "$SCRATCH/$CASE"; }
+
+# Commit every change in this case's origin, with message $1.
+commit_origin() {
+    git -C "$SCRATCH/$CASE/origin" add -A
+    git -C "$SCRATCH/$CASE/origin" "${GIT_ID[@]}" commit -qm "$1"
 }
 
 # ---------------------------------------------------------------------------
@@ -88,10 +118,10 @@ case_fresh_install_places_every_file() {
     run_install "$h"
     expect_status 0
     for name in $(shipped); do
-        diff -r -x .DS_Store "$FACTORY/skills/$name" "$h/.claude/skills/$name" >/dev/null \
+        diff -r -x .DS_Store "$CHECKOUT/skills/$name" "$h/.claude/skills/$name" >/dev/null \
             || fail "skill $name differs from skills/$name"
     done
-    diff -r -x .gitkeep -x .DS_Store -x install-record.txt "$FACTORY/machine" "$h/.flow-factory" >/dev/null \
+    diff -r -x .gitkeep -x .DS_Store -x install-record.txt "$CHECKOUT/machine" "$h/.flow-factory" >/dev/null \
         || fail "~/.flow-factory differs from machine/"
 }
 
@@ -101,7 +131,7 @@ case_announces_both_paths_before_any_write() {
     run_install "$h"
     expect_status 0
     # The first line that reports a write, including creating a directory.
-    first_write=$(grep -nE '^ *(placed|unchanged|OVERWROTE|installed|replaced|created|recorded) ' "$OUT" \
+    first_write=$(grep -nE '^ *(placed|unchanged|OVERWROTE|installed|replaced|created|recorded|removed) ' "$OUT" \
         | head -1 | cut -d: -f1)
     [ -n "$first_write" ] || fail "no line reports a write"
     paths=$(head -n $((first_write - 1)) "$OUT" | grep -oE '(~|/)[^ ]*' | sort | tr '\n' ' ')
@@ -116,13 +146,13 @@ case_record_lists_what_was_placed() {
     expect_status 0
     rec="$h/.flow-factory/install-record.txt"
     [ -f "$rec" ] || fail "no record at ~/.flow-factory/install-record.txt"
-    grep -q "^version $(git -C "$FACTORY" describe --tags --always)" "$rec" \
-        || fail "no version line naming $(git -C "$FACTORY" describe --tags --always)"
-    grep -qxF "checkout $FACTORY" "$rec" || fail "no line 'checkout $FACTORY'"
+    grep -qxF "version $(git -C "$CHECKOUT" describe --tags --always)" "$rec" \
+        || fail "no version line naming $(git -C "$CHECKOUT" describe --tags --always)"
+    grep -qxF "checkout $CHECKOUT" "$rec" || fail "no line 'checkout $CHECKOUT'"
     grep -qx 'mode copy' "$rec" || fail "no line 'mode copy'"
     ! grep -q '^project ' "$rec" || fail "a project line, before any project was initialised"
     # A Finder .DS_Store is git-ignored and not the factory.
-    expected=$(cd "$FACTORY" && find skills machine -type f ! -name .gitkeep ! -name .DS_Store \
+    expected=$(cd "$CHECKOUT" && find skills machine -type f ! -name .gitkeep ! -name .DS_Store \
         | wc -l | tr -d ' ')
     listed=$(grep -c '^file ' "$rec" || true)
     [ "$listed" -eq "$expected" ] || fail "$listed file lines, expected $expected"
@@ -174,22 +204,16 @@ case_reference_to_unshipped_skill_fails() {
     expect_line "skill referenced but not installed: flow-release"
 }
 
-case_rerun_keeps_record_lines_it_did_not_replace() {
+case_rerun_keeps_project_lines() {
     local h rec
     h=$(new_home)
     run_install "$h"
     expect_status 0
     rec="$h/.flow-factory/install-record.txt"
-    # A skill a later factory withdrew, and a project an init recorded.
-    mkdir -p "$h/.claude/skills/flow-withdrawn"
-    printf 'old\n' > "$h/.claude/skills/flow-withdrawn/SKILL.md"
-    printf 'file %s\nproject /work/app\n' "$h/.claude/skills/flow-withdrawn/SKILL.md" >> "$rec"
+    printf 'project /work/app\n' >> "$rec"
     run_install "$h"
     expect_status 0
-    grep -qxF "file $h/.claude/skills/flow-withdrawn/SKILL.md" "$rec" \
-        || fail "the rerun dropped the withdrawn skill from the record"
     grep -qx 'project /work/app' "$rec" || fail "the rerun dropped the project line"
-    refuse_line "left alone flow-withdrawn"
 }
 
 case_record_is_written_before_skills_are_copied() {
@@ -214,7 +238,7 @@ case_git_ignored_files_are_not_placed() {
     factory=$(copy_factory)
     printf '.DS_Store\n' > "$factory/.gitignore"
     git -C "$factory" add .gitignore
-    git -C "$factory" -c user.name=test -c user.email=test@example.invalid commit -qm ignore
+    git -C "$factory" "${GIT_ID[@]}" commit -qm ignore
     printf 'junk\n' > "$factory/skills/flow-tdd/.DS_Store"
     run_install "$h" "$factory"
     expect_status 0
@@ -307,7 +331,7 @@ case_unknown_argument_stops_writing_nothing() {
     cp -Rp "$h" "$h.before"
     # The empty argument is an unset variable in `./install "$PROJECT"`.
     for arg in "$SCRATCH/$CASE" ""; do
-        run_install "$h" "$FACTORY" "$arg"
+        run_install "$h" "$CHECKOUT" "$arg"
         [ "$STATUS" -ne 0 ] || fail "exit 0 with the argument '$arg'"
         diff -r "$h.before" "$h" >/dev/null || fail "HOME changed with the argument '$arg'"
         expect_line "usage: ./install"
@@ -358,9 +382,295 @@ case_existing_skills_dir_says_no_restart() {
 }
 
 # ---------------------------------------------------------------------------
-# Project mode: ./install --init <project root> <answers file>
+# Update: a second ./install pulls the checkout and places what it pulled.
 
-GIT_ID=(-c user.name=test -c user.email=test@example.invalid)
+# Install under HOME $1 from checkout $2, whose origin ships a skill
+# flow-release, then withdraw flow-release in the origin.
+install_then_withdraw() {
+    local h=$1 factory=$2 o="$SCRATCH/$CASE/origin"
+    mkdir -p "$o/skills/flow-release/references"
+    printf 'Cut a release.\n' > "$o/skills/flow-release/SKILL.md"
+    printf 'notes\n' > "$o/skills/flow-release/references/notes.md"
+    commit_origin "ship flow-release"
+    run_install "$h" "$factory"
+    expect_status 0
+    [ -f "$h/.claude/skills/flow-release/SKILL.md" ] || fail "flow-release was not placed"
+    rm -rf -- "$o/skills/flow-release"
+    commit_origin "withdraw flow-release"
+}
+
+case_update_removes_a_withdrawn_skill() {
+    local h factory n
+    h=$(new_home)
+    factory=$(copy_factory)
+    install_then_withdraw "$h" "$factory"
+    run_install "$h" "$factory"
+    expect_status 0
+    expect_line "pulled "
+    expect_line "removed flow-release, no longer shipped"
+    refuse_line "left alone flow-release"
+    [ ! -e "$h/.claude/skills/flow-release" ] || fail "flow-release is still on disk"
+    ! grep -q '/flow-release/' "$h/.flow-factory/install-record.txt" || fail "the record still lists flow-release"
+    n=0
+    for d in "$h/.claude/skills"/flow-*/; do n=$((n + 1)); done
+    [ "$n" -eq "$(shipped | wc -l)" ] || fail "$n flow-* directories, expected $(shipped | wc -l)"
+}
+
+# Blocks deleting every flow-* directory that has no source.
+case_update_keeps_an_unrecorded_skill() {
+    local h factory mine
+    h=$(new_home)
+    factory=$(copy_factory)
+    install_then_withdraw "$h" "$factory"
+    mine="$h/.claude/skills/flow-mine"
+    mkdir -p "$mine"
+    printf 'my own\n' > "$mine/SKILL.md"
+    cp -p "$mine/SKILL.md" "$SCRATCH/$CASE/flow-mine.before"
+    run_install "$h" "$factory"
+    expect_status 0
+    cmp -s "$SCRATCH/$CASE/flow-mine.before" "$mine/SKILL.md" || fail "flow-mine changed or is gone"
+}
+
+case_update_overwrites_a_changed_machine_file() {
+    local h factory o="$SCRATCH/$CASE/origin"
+    h=$(new_home)
+    factory=$(copy_factory)
+    run_install "$h" "$factory"
+    expect_status 0
+    printf '\nA new rule.\n' >> "$o/machine/tracker-contract.md"
+    commit_origin "change the tracker contract"
+    run_install "$h" "$factory"
+    expect_status 0
+    expect_line "OVERWROTE tracker-contract.md"
+    expect_line "unchanged settings-contract.md"
+    cmp -s "$o/machine/tracker-contract.md" "$h/.flow-factory/tracker-contract.md" \
+        || fail "tracker-contract.md is not the origin's"
+}
+
+# Commit to this case's origin an install whose closing line differs.
+change_origin_installer() {
+    local o="$SCRATCH/$CASE/origin"
+    # cat into the file keeps its mode, which a mv of a new file would lose.
+    sed 's/^say "Install complete."$/say "Install complete, by the pulled installer."/' "$o/install" \
+        > "$SCRATCH/$CASE/install.new"
+    cat "$SCRATCH/$CASE/install.new" > "$o/install"
+    commit_origin "change the installer"
+}
+
+# Blocks an update that places the new files with the old installer.
+case_update_runs_the_pulled_installer_once() {
+    local h factory
+    h=$(new_home)
+    factory=$(copy_factory)
+    run_install "$h" "$factory"
+    expect_status 0
+    change_origin_installer
+    run_install "$h" "$factory"
+    expect_status 0
+    expect_line "Install complete, by the pulled installer."
+    [ "$(grep -c '^== Update the checkout' "$OUT")" -eq 1 ] || fail "the run pulled more than once. Output:
+$(cat "$OUT")"
+}
+
+# A pull can land and still exit non-zero, in a hook. The tree is new, so the
+# new installer must place it.
+case_update_hands_over_after_a_pull_that_lands_and_fails() {
+    local h factory bin
+    h=$(new_home)
+    factory=$(copy_factory)
+    run_install "$h" "$factory"
+    expect_status 0
+    change_origin_installer
+    bin="$SCRATCH/$CASE/bin"
+    mkdir -p "$bin"
+    printf '#!/bin/sh\n"%s" "$@" || exit\ncase " $* " in *" pull "*) exit 1 ;; esac\n' "$(command -v git)" > "$bin/git"
+    chmod +x "$bin/git"
+    PATH="$bin:$PATH" run_install "$h" "$factory"
+    expect_status 0
+    expect_line "Install complete, by the pulled installer."
+}
+
+case_update_leaves_a_recorded_project_alone() {
+    local h factory p o="$SCRATCH/$CASE/origin"
+    h=$(new_home)
+    factory=$(copy_factory)
+    run_install "$h" "$factory"
+    expect_status 0
+    p=$(new_project)
+    run_install "$h" "$factory" --init "$p" "$(answers "${WORKED_EXAMPLE[@]}")"
+    expect_status 0
+    cp -p "$p/flow-factory.toml" "$SCRATCH/$CASE/settings.before"
+    # A template change an update must not carry into the project.
+    printf '\n# A new key.\n' >> "$o/project/flow-factory.toml"
+    commit_origin "change the template"
+    run_install "$h" "$factory"
+    expect_status 0
+    expect_line "pulled "
+    cmp -s "$SCRATCH/$CASE/settings.before" "$p/flow-factory.toml" || fail "the project's flow-factory.toml changed"
+    grep -qxF "project $p" "$h/.flow-factory/install-record.txt" || fail "the update dropped the project line"
+}
+
+case_update_on_a_diverged_checkout_installs_it_as_it_stands() {
+    local PULL_MAY_FAIL=1 h factory o="$SCRATCH/$CASE/origin"
+    h=$(new_home)
+    factory=$(copy_factory)
+    printf 'origin\n' > "$o/skills/flow-tdd/origin-note.md"
+    commit_origin "ahead"
+    printf 'local\n' > "$factory/skills/flow-tdd/local-note.md"
+    git -C "$factory" add -A
+    git -C "$factory" "${GIT_ID[@]}" commit -qm local
+    run_install "$h" "$factory"
+    expect_status 0
+    expect_line "$PULL_FAILED"
+    expect_line "installed as it stands"
+    grep -qxF "version $(git -C "$factory" describe --tags --always)" "$h/.flow-factory/install-record.txt" \
+        || fail "the record's version is not $(git -C "$factory" describe --tags --always)"
+    [ -f "$h/.claude/skills/flow-tdd/local-note.md" ] || fail "the checkout was not installed as it stands"
+}
+
+case_update_removes_withdrawn_links_without_following_them() {
+    local h rec gone target
+    h=$(new_home)
+    run_install "$h"
+    expect_status 0
+    rec="$h/.flow-factory/install-record.txt"
+    gone="$h/.claude/skills/flow-gone"
+    target="$SCRATCH/$CASE/target.md"
+    printf 'mine\n' > "$target"
+    cp -p "$target" "$target.before"
+    mkdir -p "$gone"
+    ln -s "$target" "$gone/SKILL.md"
+    ln -s "$SCRATCH/$CASE/missing.md" "$gone/extra.md"
+    ln -s "$SCRATCH/$CASE/missing.md" "$h/.flow-factory/old-contract.md"
+    printf 'file %s\n' "$gone/SKILL.md" "$gone/extra.md" "$h/.flow-factory/old-contract.md" >> "$rec"
+    run_install "$h"
+    expect_status 0
+    expect_line "removed flow-gone, no longer shipped"
+    expect_line "removed old-contract.md, no longer shipped"
+    [ ! -e "$gone" ] && [ ! -L "$gone" ] || fail "flow-gone is still on disk"
+    [ ! -L "$h/.flow-factory/old-contract.md" ] || fail "the dangling old-contract.md is still on disk"
+    cmp -s "$target.before" "$target" || fail "the link's target changed"
+    ! grep -qE 'flow-gone|old-contract' "$rec" || fail "the record still lists a removed file"
+}
+
+case_update_removes_a_withdrawn_skill_holding_a_ds_store() {
+    local h factory
+    h=$(new_home)
+    factory=$(copy_factory)
+    install_then_withdraw "$h" "$factory"
+    printf 'view\n' > "$h/.claude/skills/flow-release/references/.DS_Store"
+    printf 'view\n' > "$h/.claude/skills/flow-release/.DS_Store"
+    run_install "$h" "$factory"
+    expect_status 0
+    [ ! -e "$h/.claude/skills/flow-release" ] || fail "flow-release is still on disk"
+    refuse_line "kept ~/.claude/skills/flow-release"
+}
+
+# A removal that fails must stop the run, not report the file removed.
+case_update_stops_when_a_withdrawn_file_cannot_be_removed() {
+    local h rec locked
+    h=$(new_home)
+    run_install "$h"
+    expect_status 0
+    rec="$h/.flow-factory/install-record.txt"
+    locked="$h/.claude/skills/flow-gone"
+    mkdir -p "$locked"
+    printf 'old\n' > "$locked/SKILL.md"
+    printf 'file %s\n' "$locked/SKILL.md" >> "$rec"
+    chmod a-w "$locked"
+    run_install "$h"
+    chmod u+w "$locked"
+    [ "$STATUS" -ne 0 ] || fail "exit 0 with a file it could not remove"
+    expect_line "cannot remove $locked/SKILL.md"
+    refuse_line "removed flow-gone"
+}
+
+case_update_leaves_a_recorded_path_with_dot_dot_alone() {
+    local h
+    h=$(new_home)
+    run_install "$h"
+    expect_status 0
+    printf 'mine\n' > "$h/victim.txt"
+    printf 'file %s\n' "$h/.flow-factory/../victim.txt" >> "$h/.flow-factory/install-record.txt"
+    run_install "$h"
+    expect_status 0
+    expect_line "left alone $h/.flow-factory/../victim.txt"
+    [ -f "$h/victim.txt" ] || fail "a file outside the factory's directories was removed"
+}
+
+# A factory inside another repository must not pull that repository.
+case_update_never_pulls_a_repository_the_factory_sits_in() {
+    local h outer before
+    h=$(new_home)
+    outer="$SCRATCH/$CASE/outer"
+    mkdir -p "$outer/origin/vendor"
+    cp -R "$(dirname -- "$CHECKOUT")/origin/." "$outer/origin/vendor/factory"
+    rm -rf -- "$outer/origin/vendor/factory/.git"
+    git -C "$outer/origin" -c init.defaultBranch=main init -q
+    git -C "$outer/origin" add -A
+    git -C "$outer/origin" "${GIT_ID[@]}" commit -qm outer
+    git clone -q "$outer/origin" "$outer/clone"
+    printf 'later\n' > "$outer/origin/later.txt"
+    git -C "$outer/origin" add -A
+    git -C "$outer/origin" "${GIT_ID[@]}" commit -qm later
+    before=$(git -C "$outer/clone" rev-parse HEAD)
+    run_install "$h" "$outer/clone/vendor/factory"
+    expect_status 0
+    expect_line "not pulled: the factory is not the top level of a checkout"
+    [ "$(git -C "$outer/clone" rev-parse HEAD)" = "$before" ] || fail "the install pulled the outer repository"
+}
+
+# rm -f refuses a directory, and under set -e that would stop every later
+# install at the same path.
+case_update_leaves_a_directory_where_a_withdrawn_file_was() {
+    local h rec
+    h=$(new_home)
+    run_install "$h"
+    expect_status 0
+    rec="$h/.flow-factory/install-record.txt"
+    mkdir -p "$h/.flow-factory/old-contract.md" "$h/.claude/skills/flow-gone/notes"
+    printf 'mine\n' > "$h/.claude/skills/flow-gone/notes/mine.md"
+    printf 'file %s\n' "$h/.flow-factory/old-contract.md" "$h/.claude/skills/flow-gone/notes" >> "$rec"
+    run_install "$h"
+    expect_status 0
+    expect_line "left alone old-contract.md, no longer shipped, now a directory"
+    expect_line "left alone flow-gone/notes, no longer shipped, now a directory"
+    [ -f "$h/.claude/skills/flow-gone/notes/mine.md" ] || fail "a file in the directory is gone"
+    ! grep -qE 'old-contract|flow-gone' "$rec" || fail "the record still claims a directory"
+}
+
+# rm -f on the path would follow the directory link and delete a file in
+# someone's own checkout.
+case_update_leaves_withdrawn_files_behind_a_linked_directory() {
+    local h rec notes theirs refs
+    h=$(new_home)
+    run_install "$h"
+    expect_status 0
+    rec="$h/.flow-factory/install-record.txt"
+    # A machine directory, a skill directory and a directory inside a skill,
+    # each a link into someone's checkout.
+    notes="$SCRATCH/$CASE/their-notes"
+    theirs="$SCRATCH/$CASE/their-skill"
+    refs="$SCRATCH/$CASE/their-references"
+    mkdir -p "$notes" "$theirs" "$refs" "$h/.claude/skills/flow-gone2"
+    printf 'mine\n' | tee "$notes/notes.md" "$theirs/SKILL.md" "$refs/a.md" "$SCRATCH/$CASE/before" >/dev/null
+    ln -s "$notes" "$h/.flow-factory/old"
+    ln -s "$theirs" "$h/.claude/skills/flow-gone"
+    ln -s "$refs" "$h/.claude/skills/flow-gone2/references"
+    printf 'file %s\n' "$h/.flow-factory/old/notes.md" "$h/.claude/skills/flow-gone/SKILL.md" \
+        "$h/.claude/skills/flow-gone2/references/a.md" >> "$rec"
+    run_install "$h"
+    expect_status 0
+    expect_line "left alone old/notes.md, no longer shipped"
+    expect_line "left alone flow-gone, no longer shipped"
+    expect_line "left alone flow-gone2/references/a.md, no longer shipped"
+    for f in "$notes/notes.md" "$theirs/SKILL.md" "$refs/a.md"; do
+        cmp -s "$SCRATCH/$CASE/before" "$f" || fail "$f changed"
+    done
+}
+
+# ---------------------------------------------------------------------------
+# Project mode: ./install --init <project root> <answers file>
 
 # A HOME with the factory installed, as --init needs.
 installed_home() {
@@ -412,7 +722,7 @@ case_init_writes_the_worked_example() {
 > test.command = "npm test"' ] || fail "the diff against the template is not the two answers:
 $changes"
     [ -d "$p/.cortex/tickets" ] && [ -d "$p/.cortex/candidates" ] || fail "no .cortex/tickets or candidates"
-    grep -qF "Flow Factory $(git -C "$FACTORY" describe --tags --always)" "$p/.cortex/README.md" \
+    grep -qF "Flow Factory $(git -C "$CHECKOUT" describe --tags --always)" "$p/.cortex/README.md" \
         || fail ".cortex/README.md does not carry the factory version"
     grep -qF "installed $(date +%Y-%m-%d)." "$p/.cortex/README.md" || fail ".cortex/README.md has no date"
     rec="$h/.flow-factory/install-record.txt"
