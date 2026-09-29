@@ -1,10 +1,13 @@
 Flow Factory contains text from mattpocock/skills
 (https://github.com/mattpocock/skills), used under the MIT License below.
 
-Copied in part:  skills/flow-tdd/, skills/flow-codebase-design/,
-                 skills/flow-to-tickets/, skills/flow-grilling/
+Copied in part:  skills/flow-ask/, skills/flow-codebase-design/,
+                 skills/flow-grilling/, skills/flow-research/,
+                 skills/flow-tdd/, skills/flow-to-tickets/
+                 Each carries this license as LICENSE, which the installer
+                 copies with the skill.
 Started from it: skills/flow-triage/, skills/flow-grill-with-docs/,
-                 skills/flow-to-spec/, skills/flow-research/
+                 skills/flow-to-spec/
 
 -------------------------------------------------------------------------------
 
