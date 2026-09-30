@@ -121,6 +121,15 @@ shipped() {
     for d in "$CHECKOUT"/skills/*/; do basename -- "$d"; done
 }
 
+# Every file the factory ships, each skills/<path> or machine/<path>. A Finder
+# .DS_Store is git-ignored and not the factory.
+shipped_files() {
+    (cd "$CHECKOUT" && find skills machine -type f ! -name .gitkeep ! -name .DS_Store)
+}
+
+# Every file machine/ ships, as a path below it.
+machine_files() { shipped_files | sed -n 's|^machine/||p'; }
+
 # A checkout of this case's own, for a case that must change a shipped file.
 # Its origin is $SCRATCH/$CASE/origin.
 copy_factory() { make_factory "$SCRATCH/$CASE"; }
@@ -172,9 +181,7 @@ case_record_lists_what_was_placed() {
     grep -qxF "checkout $CHECKOUT" "$rec" || fail "no line 'checkout $CHECKOUT'"
     grep -qx 'mode copy' "$rec" || fail "no line 'mode copy'"
     ! grep -q '^project ' "$rec" || fail "a project line, before any project was initialised"
-    # A Finder .DS_Store is git-ignored and not the factory.
-    expected=$(cd "$CHECKOUT" && find skills machine -type f ! -name .gitkeep ! -name .DS_Store \
-        | wc -l | tr -d ' ')
+    expected=$(shipped_files | wc -l | tr -d ' ')
     listed=$(grep -c '^file ' "$rec" || true)
     [ "$listed" -eq "$expected" ] || fail "$listed file lines, expected $expected"
     while IFS= read -r f; do
@@ -267,21 +274,20 @@ case_git_ignored_files_are_not_placed() {
     ! grep -q '\.DS_Store' "$h/.flow-factory/install-record.txt" || fail "a git-ignored file was recorded"
 }
 
-case_linked_machine_file_is_left_alone() {
+case_linked_machine_file_stops_a_copy_run() {
     local h target
     h=$(new_home)
     target="$SCRATCH/$CASE/checkout-copy.md"
     printf 'mine\n' > "$target"
     mkdir -p "$h/.flow-factory"
     ln -s "$target" "$h/.flow-factory/tracker-contract.md"
-    run_install "$h"
-    expect_status 0
-    expect_line "left alone tracker-contract.md"
+    expect_stop_writing_nothing "$h"
+    expect_line "~/.flow-factory/tracker-contract.md is a link"
+    expect_line "./install --link"
     [ "$(cat "$target")" = mine ] || fail "the install wrote through the link"
-    [ -L "$h/.flow-factory/tracker-contract.md" ] || fail "the link was replaced"
 }
 
-case_linked_machine_directory_is_left_alone() {
+case_linked_machine_directory_stops_a_copy_run() {
     local h target
     h=$(new_home)
     target="$SCRATCH/$CASE/checkout-templates"
@@ -289,12 +295,10 @@ case_linked_machine_directory_is_left_alone() {
     cp -R "$FACTORY/machine/templates" "$target"
     printf 'mine\n' > "$target/ticket.md"
     ln -s "$target" "$h/.flow-factory/templates"
-    run_install "$h"
-    expect_status 0
-    expect_line "left alone templates/ticket.md"
+    expect_stop_writing_nothing "$h"
+    expect_line "~/.flow-factory/templates is a link"
+    expect_line "./install --link"
     [ "$(cat "$target/ticket.md")" = mine ] || fail "the install wrote through the linked directory"
-    ! grep -q "^file $h/.flow-factory/templates/" "$h/.flow-factory/install-record.txt" \
-        || fail "the record claims files behind a link"
 }
 
 case_home_with_trailing_slash_installs() {
@@ -334,14 +338,403 @@ case_nothing_placed_is_not_reported_as_checked() {
     expect_line "no skill was placed"
 }
 
-# Run the install and expect a stop that leaves HOME $1 exactly as it was.
+# Run the install with any further arguments, from FACTORY_UNDER_TEST when it
+# is set, and expect a stop that leaves HOME $1 exactly as it was, each link
+# still a link to the same path.
 expect_stop_writing_nothing() {
     local h=$1
+    shift
+    rm -rf -- "$h.before"
     cp -Rp "$h" "$h.before"
-    run_install "$h"
+    run_install "$h" "${FACTORY_UNDER_TEST:-$CHECKOUT}" "$@"
     [ "$STATUS" -ne 0 ] || fail "exit 0, expected a stop"
-    diff -r "$h.before" "$h" >/dev/null || fail "HOME changed. Output:
+    diff -r --no-dereference "$h.before" "$h" >/dev/null || fail "HOME changed. Output:
 $(cat "$OUT")"
+}
+
+# The link leads to a copy of this case's own, so a run that wrote through it
+# would change that copy and not the checkout later cases install from.
+case_copy_run_stops_on_an_unrecorded_linked_skill() {
+    local h theirs
+    h=$(new_home)
+    theirs="$SCRATCH/$CASE/flow-park"
+    cp -R "$CHECKOUT/skills/flow-park" "$theirs"
+    mkdir -p "$h/.claude/skills"
+    ln -s "$theirs" "$h/.claude/skills/flow-park"
+    # HOME has no ~/.flow-factory yet, so the stop comes before it is made.
+    expect_stop_writing_nothing "$h"
+    diff -r "$CHECKOUT/skills/flow-park" "$theirs" >/dev/null || fail "the run wrote through the link"
+    expect_line "~/.claude/skills/flow-park is a link"
+    expect_line "./install --link"
+}
+
+# Blocks the replace a recorded skill gets, which put a copy over the link.
+case_copy_run_stops_on_a_recorded_skill_swapped_for_a_link() {
+    local h theirs
+    h=$(new_home)
+    theirs="$SCRATCH/$CASE/flow-park"
+    cp -R "$CHECKOUT/skills/flow-park" "$theirs"
+    run_install "$h"
+    expect_status 0
+    rm -rf -- "$h/.claude/skills/flow-park"
+    ln -s "$theirs" "$h/.claude/skills/flow-park"
+    expect_stop_writing_nothing "$h"
+    diff -r "$CHECKOUT/skills/flow-park" "$theirs" >/dev/null || fail "the run wrote through the link"
+    expect_line "~/.claude/skills/flow-park is a link"
+    expect_line "./install --link"
+}
+
+# The copy step removes each recorded skill before copying it, so through such
+# a link it would delete the checkout's own sources.
+case_skills_dir_that_is_the_checkouts_stops_writing_nothing() {
+    local h factory
+    h=$(new_home)
+    factory=$(copy_factory)
+    run_install "$h" "$factory"
+    expect_status 0
+    rm -rf -- "$h/.claude/skills"
+    ln -s "$factory/skills" "$h/.claude/skills"
+    FACTORY_UNDER_TEST=$factory expect_stop_writing_nothing "$h"
+    [ -z "$(git -C "$factory" status --porcelain -- skills)" ] || fail "the checkout's skills changed"
+    expect_line "~/.claude/skills is this checkout's skills/"
+}
+
+case_something_in_the_way_of_a_machine_file_stops_writing_nothing() {
+    local h
+    h=$(new_home home-copy)
+    mkdir -p "$h/.flow-factory/tracker-contract.md"
+    expect_stop_writing_nothing "$h"
+    expect_line "~/.flow-factory/tracker-contract.md is a directory where a file goes"
+    h=$(new_home home-link)
+    mkdir -p "$h/.flow-factory/tracker-contract.md"
+    expect_stop_writing_nothing "$h" --link
+    expect_line "~/.flow-factory/tracker-contract.md is a directory where a file goes"
+    h=$(new_home home-file)
+    mkdir -p "$h/.flow-factory"
+    printf 'not a directory\n' > "$h/.flow-factory/templates"
+    expect_stop_writing_nothing "$h" --link
+    expect_line "~/.flow-factory/templates is a file where a directory goes"
+    h=$(new_home home-dangling)
+    mkdir -p "$h/.flow-factory"
+    ln -s "$SCRATCH/$CASE/removed-worktree/machine/templates" "$h/.flow-factory/templates"
+    expect_stop_writing_nothing "$h" --link
+    expect_line "~/.flow-factory/templates is a link to nothing"
+    h=$(new_home home-machine-file)
+    printf 'not a directory\n' > "$h/.flow-factory"
+    expect_stop_writing_nothing "$h" --link
+    expect_line "~/.flow-factory is not a directory"
+}
+
+# An update can turn a machine file into a directory, or back. What the earlier
+# run placed there is withdrawn and removed first, so it is never in the way.
+case_update_turns_a_machine_file_into_a_directory_and_back() {
+    local mode h o factory
+    for mode in copy link; do
+        o="$SCRATCH/$CASE/$mode/origin"
+        factory=$(make_factory "$SCRATCH/$CASE/$mode")
+        h=$(new_home "home-$mode")
+        printf 'one\n' > "$o/machine/extra"
+        git -C "$o" add -A && git -C "$o" "${GIT_ID[@]}" commit -qm "ship a file"
+        install_in_mode "$mode" "$h" "$factory"
+        rm -- "$o/machine/extra"
+        mkdir "$o/machine/extra" && printf 'one\n' > "$o/machine/extra/one.md"
+        git -C "$o" add -A && git -C "$o" "${GIT_ID[@]}" commit -qm "a directory now"
+        install_in_mode "$mode" "$h" "$factory"
+        expect_line "removed extra, no longer shipped"
+        placed_in_mode "$mode" "$h/.flow-factory/extra/one.md" "$factory/machine/extra/one.md"
+        grep -qx "file $h/.flow-factory/extra/one.md" "$h/.flow-factory/install-record.txt" \
+            || fail "the record does not list extra/one.md in $mode mode"
+        rm -r -- "$o/machine/extra" && printf 'one\n' > "$o/machine/extra"
+        git -C "$o" add -A && git -C "$o" "${GIT_ID[@]}" commit -qm "a file again"
+        install_in_mode "$mode" "$h" "$factory"
+        expect_line "removed extra/one.md, no longer shipped"
+        placed_in_mode "$mode" "$h/.flow-factory/extra" "$factory/machine/extra"
+    done
+}
+
+# Run the install under HOME $2 from checkout $3 in mode $1, copy or link, and
+# expect it to pass.
+install_in_mode() {
+    if [ "$1" = link ]; then run_install "$2" "$3" --link; else run_install "$2" "$3"; fi
+    expect_status 0
+}
+
+# Expect $2 to be what mode $1 places for source $3: a copy, or a link to it.
+placed_in_mode() {
+    if [ "$1" = link ]; then
+        [ -L "$2" ] && [ "$2" -ef "$3" ] || fail "$2 is not a link to $3"
+    else
+        [ -f "$2" ] && [ ! -L "$2" ] && cmp -s "$3" "$2" || fail "$2 is not a copy of $3"
+    fi
+}
+
+# The removal of withdrawn files cannot empty a directory that holds a folder
+# of the person's own, so that directory is in the way, and says so first.
+case_update_stops_when_a_withdrawn_directory_holds_a_persons_folder() {
+    local h factory o="$SCRATCH/$CASE/origin"
+    h=$(new_home)
+    factory=$(copy_factory)
+    mkdir "$o/machine/extra" && printf 'one\n' > "$o/machine/extra/one.md"
+    commit_origin "ship a directory"
+    run_install "$h" "$factory"
+    expect_status 0
+    mkdir "$h/.flow-factory/extra/drafts"
+    rm -r -- "$o/machine/extra" && printf 'one\n' > "$o/machine/extra"
+    commit_origin "a file now"
+    # The pull that brings the change runs first, and writes only the checkout.
+    git -C "$factory" pull -q --ff-only
+    FACTORY_UNDER_TEST=$factory expect_stop_writing_nothing "$h"
+    expect_line "~/.flow-factory/extra is a directory where a file goes"
+}
+
+# A path an earlier run placed that the person has since made a folder is not
+# removed, so what the folder holds is checked like anything else.
+case_update_stops_on_what_a_recorded_path_now_holds() {
+    local h factory o="$SCRATCH/$CASE/origin"
+    h=$(new_home)
+    factory=$(copy_factory)
+    printf 'one\n' > "$o/machine/extra"
+    commit_origin "ship a file"
+    run_install "$h" "$factory"
+    expect_status 0
+    rm -- "$h/.flow-factory/extra"
+    mkdir "$h/.flow-factory/extra" && printf 'mine\n' > "$h/.flow-factory/extra/sub"
+    rm -- "$o/machine/extra" && mkdir -p "$o/machine/extra/sub" && printf 'x\n' > "$o/machine/extra/sub/x.md"
+    commit_origin "a directory now"
+    git -C "$factory" pull -q --ff-only
+    FACTORY_UNDER_TEST=$factory expect_stop_writing_nothing "$h"
+    expect_line "~/.flow-factory/extra/sub is a file where a directory goes"
+}
+
+# ---------------------------------------------------------------------------
+# Link mode: ./install --link, for the machine that builds the factory.
+
+# The record lists the links, never a file behind one: rm -f on such a path
+# deletes the checkout's own file through the link.
+case_link_install_links_every_entry_and_records_the_links() {
+    local h rec name rel dest expected=""
+    h=$(new_home)
+    run_install "$h" "$CHECKOUT" --link
+    expect_status 0
+    rec="$h/.flow-factory/install-record.txt"
+    grep -qx 'mode link' "$rec" || fail "no line 'mode link'"
+    for name in $(shipped); do
+        dest="$h/.claude/skills/$name"
+        [ -L "$dest" ] && [ "$dest" -ef "$CHECKOUT/skills/$name" ] \
+            || fail "~/.claude/skills/$name is not a link to the checkout's skills/$name"
+        expected+="file $dest"$'\n'
+    done
+    while IFS= read -r rel; do
+        dest="$h/.flow-factory/$rel"
+        [ -L "$dest" ] && [ "$dest" -ef "$CHECKOUT/machine/$rel" ] \
+            || fail "~/.flow-factory/$rel is not a link to the checkout's machine/$rel"
+        expected+="file $dest"$'\n'
+    done < <(machine_files)
+    [ "$(grep '^file ' "$rec" | sort)" = "$(printf '%s' "$expected" | sort)" ] \
+        || fail "the record's file lines are not the links placed:
+$(diff <(printf '%s' "$expected" | sort) <(grep '^file ' "$rec" | sort))"
+}
+
+case_second_link_run_changes_nothing() {
+    local h rec name rel
+    h=$(new_home)
+    rec="$h/.flow-factory/install-record.txt"
+    run_install "$h" "$CHECKOUT" --link
+    expect_status 0
+    grep '^file ' "$rec" > "$SCRATCH/$CASE/files.before"
+    run_install "$h" "$CHECKOUT" --link
+    expect_status 0
+    for name in $(shipped); do expect_line "  unchanged $name"; done
+    while IFS= read -r rel; do expect_line "  unchanged $rel"; done < <(machine_files)
+    refuse_line "linked "
+    grep '^file ' "$rec" | cmp -s "$SCRATCH/$CASE/files.before" - \
+        || fail "the second run changed the record's file lines"
+}
+
+# The dev machine's statusline.sh once pointed into a worktree, not at main.
+case_link_run_leaves_a_foreign_link_alone() {
+    local h theirs rec
+    h=$(new_home)
+    theirs="$SCRATCH/$CASE/theirs"
+    mkdir -p "$theirs/flow-park" "$h/.claude/skills" "$h/.flow-factory"
+    printf 'mine\n' | tee "$theirs/flow-park/SKILL.md" "$theirs/contract.md" "$SCRATCH/$CASE/before" >/dev/null
+    ln -s "$theirs/flow-park" "$h/.claude/skills/flow-park"
+    ln -s "$theirs/contract.md" "$h/.flow-factory/tracker-contract.md"
+    run_install "$h" "$CHECKOUT" --link
+    expect_status 0
+    expect_line "left alone flow-park, a link to $theirs/flow-park"
+    expect_line "left alone tracker-contract.md, a link to $theirs/contract.md"
+    [ "$(readlink "$h/.claude/skills/flow-park")" = "$theirs/flow-park" ] || fail "the flow-park link was changed"
+    [ "$(readlink "$h/.flow-factory/tracker-contract.md")" = "$theirs/contract.md" ] \
+        || fail "the tracker-contract.md link was changed"
+    cmp -s "$SCRATCH/$CASE/before" "$theirs/flow-park/SKILL.md" || fail "flow-park's target changed"
+    cmp -s "$SCRATCH/$CASE/before" "$theirs/contract.md" || fail "tracker-contract.md's target changed"
+    rec="$h/.flow-factory/install-record.txt"
+    ! grep -qE "^file $h/(.claude/skills/flow-park|.flow-factory/tracker-contract.md)\$" "$rec" \
+        || fail "the record claims a link this run left alone"
+}
+
+# A pull that moves HEAD hands over to the pulled installer. Without the flag
+# that run is a copy run, and on a fresh HOME it places copies without a word.
+case_link_run_that_pulls_stays_in_link_mode() {
+    local h factory name rel
+    h=$(new_home)
+    factory=$(copy_factory)
+    printf '\nA line the pull brings.\n' >> "$SCRATCH/$CASE/origin/machine/tracker-contract.md"
+    commit_origin "change a contract"
+    run_install "$h" "$factory" --link
+    expect_status 0
+    expect_line "pulled "
+    grep -qx 'mode link' "$h/.flow-factory/install-record.txt" || fail "the pulled installer ran as a copy run"
+    for name in $(shipped); do
+        [ -L "$h/.claude/skills/$name" ] || fail "~/.claude/skills/$name is not a link"
+    done
+    while IFS= read -r rel; do
+        [ -L "$h/.flow-factory/$rel" ] || fail "~/.flow-factory/$rel is not a link"
+    done < <(machine_files)
+}
+
+# In link mode every skill directory is a link, and a check that does not
+# follow links reads nothing there and reports a pass.
+case_link_run_final_check_finds_a_broken_reference() {
+    local h factory
+    h=$(new_home)
+    factory=$(copy_factory)
+    printf '\nWhen done, run /flow-gone.\n' >> "$factory/skills/flow-tdd/SKILL.md"
+    run_install "$h" "$factory" --link
+    [ "$STATUS" -ne 0 ] || fail "exit 0 with a reference to an unshipped skill"
+    expect_line "skill referenced but not installed: flow-gone"
+}
+
+# Switching an install from copies to links is not done in place.
+case_link_run_stops_over_recorded_copies() {
+    local h
+    h=$(new_home)
+    run_install "$h"
+    expect_status 0
+    expect_stop_writing_nothing "$h" --link
+    expect_line "~/.claude/skills/flow-park is a copy an earlier run placed"
+    expect_line "~/.flow-factory/tracker-contract.md is a copy an earlier run placed"
+}
+
+# A removed worktree leaves every link it placed leading nowhere. A live link
+# elsewhere may be a person testing a branch, so it stays.
+case_link_run_replaces_the_dangling_links_it_placed() {
+    local h factory theirs name rel
+    h=$(new_home)
+    factory=$(copy_factory)
+    theirs="$SCRATCH/$CASE/theirs"
+    run_install "$h" "$factory" --link
+    expect_status 0
+    cp -R "$CHECKOUT/skills/flow-park" "$theirs"
+    ln -sfn "$theirs" "$h/.claude/skills/flow-park"
+    rm -rf -- "$factory"
+    run_install "$h" "$CHECKOUT" --link
+    expect_status 0
+    expect_line "left alone flow-park, a link to $theirs"
+    expect_line "replaced  flow-tdd, a link to nothing"
+    expect_line "replaced  tracker-contract.md, a link to nothing"
+    for name in $(shipped); do
+        [ "$name" = flow-park ] || [ "$h/.claude/skills/$name" -ef "$CHECKOUT/skills/$name" ] \
+            || fail "~/.claude/skills/$name does not lead to the checkout"
+    done
+    while IFS= read -r rel; do
+        [ "$h/.flow-factory/$rel" -ef "$CHECKOUT/machine/$rel" ] \
+            || fail "~/.flow-factory/$rel does not lead to the checkout"
+    done < <(machine_files)
+    [ "$(readlink "$h/.claude/skills/flow-park")" = "$theirs" ] || fail "the live link was re-pointed"
+    # A later uninstall removes what the record lists.
+    ! grep -qx "file $h/.claude/skills/flow-park" "$h/.flow-factory/install-record.txt" \
+        || fail "the record still claims the link left alone"
+}
+
+# A link run's line for a skill vouches for the link it placed. Once the link
+# is moved aside, the directory a person makes there is theirs.
+case_copy_run_leaves_a_directory_where_a_link_run_placed_a_link() {
+    local h
+    h=$(new_home)
+    mkdir -p "$h/.claude/skills/flow-park" "$h/.flow-factory"
+    printf 'mine\n' > "$h/.claude/skills/flow-park/NOTES.md"
+    printf 'mode link\nfile %s\n' "$h/.claude/skills/flow-park" > "$h/.flow-factory/install-record.txt"
+    run_install "$h"
+    expect_status 0
+    expect_line "left alone flow-park, which this installer did not place"
+    [ "$(cat "$h/.claude/skills/flow-park/NOTES.md")" = mine ] || fail "the person's flow-park was replaced"
+}
+
+# With no record at all, the dead link would otherwise be left alone, and the
+# final check would fail after every write.
+case_link_run_replaces_an_unrecorded_dangling_link() {
+    local h
+    h=$(new_home)
+    mkdir -p "$h/.claude/skills"
+    ln -s "$SCRATCH/$CASE/removed-worktree/skills/flow-park" "$h/.claude/skills/flow-park"
+    run_install "$h" "$CHECKOUT" --link
+    expect_status 0
+    expect_line "replaced  flow-park, a link to nothing"
+    [ "$h/.claude/skills/flow-park" -ef "$CHECKOUT/skills/flow-park" ] || fail "flow-park does not lead to the checkout"
+}
+
+# A linked directory of machine files is someone's checkout, and the record
+# must not name files behind it. What that checkout holds, even a directory
+# where the factory places a file, is not the run's to stop on.
+case_link_run_leaves_files_behind_a_linked_directory_alone() {
+    local h theirs
+    h=$(new_home)
+    theirs="$SCRATCH/$CASE/templates"
+    cp -R "$CHECKOUT/machine/templates" "$theirs"
+    printf 'mine\n' > "$theirs/ticket.md"
+    rm -- "$theirs/spec.md" && mkdir "$theirs/spec.md"
+    mkdir -p "$h/.flow-factory"
+    ln -s "$theirs" "$h/.flow-factory/templates"
+    run_install "$h" "$CHECKOUT" --link
+    expect_status 0
+    expect_line "left alone templates/ticket.md, behind a link this installer does not write through"
+    expect_line "left alone templates/spec.md, behind a link this installer does not write through"
+    [ "$(cat "$theirs/ticket.md")" = mine ] || fail "the run wrote through the linked directory"
+    ! grep -q "^file $h/.flow-factory/templates/" "$h/.flow-factory/install-record.txt" \
+        || fail "the record names files behind a link"
+}
+
+# A dev machine's stage.sh, placed by hand, is such a plain copy.
+case_link_run_replaces_a_plain_machine_file_with_a_link() {
+    local h
+    h=$(new_home)
+    mkdir -p "$h/.flow-factory"
+    cp "$CHECKOUT/machine/stage.sh" "$h/.flow-factory/stage.sh"
+    printf 'an old copy\n' > "$h/.flow-factory/tracker-contract.md"
+    run_install "$h" "$CHECKOUT" --link
+    expect_status 0
+    expect_line "  linked    stage.sh"
+    expect_line "  OVERWROTE tracker-contract.md"
+    [ -L "$h/.flow-factory/stage.sh" ] && [ -L "$h/.flow-factory/tracker-contract.md" ] \
+        || fail "a plain machine file was not replaced by a link"
+}
+
+# From another checkout every live link would be left alone, and the record
+# rewritten to name the checkout nothing leads to.
+case_link_run_from_another_checkout_stops_writing_nothing() {
+    local h factory
+    h=$(new_home)
+    factory=$(copy_factory)
+    run_install "$h" "$factory" --link
+    expect_status 0
+    expect_stop_writing_nothing "$h" --link
+    expect_line "this machine is linked to the checkout $factory"
+}
+
+# A Finder .DS_Store in a linked skill makes macOS sed abort under a UTF-8
+# locale, and the check then reads nothing after it.
+case_link_run_final_check_reads_past_a_binary_file() {
+    local h factory
+    h=$(new_home)
+    factory=$(copy_factory)
+    printf '\0\0\0\1Bud1\377\376\200\201\0' > "$factory/skills/flow-ask/.DS_Store"
+    printf '\nWhen done, run /flow-gone.\n' >> "$factory/skills/flow-tdd/SKILL.md"
+    # LC_ALL, which overrides any locale the environment sets.
+    LC_ALL=en_US.UTF-8 run_install "$h" "$factory" --link
+    [ "$STATUS" -ne 0 ] || fail "exit 0 with a reference to an unshipped skill"
+    expect_line "skill referenced but not installed: flow-gone"
 }
 
 # The old installer took the project as its argument. That habit must not
@@ -357,6 +750,10 @@ case_unknown_argument_stops_writing_nothing() {
         diff -r "$h.before" "$h" >/dev/null || fail "HOME changed with the argument '$arg'"
         expect_line "usage: ./install"
     done
+    run_install "$h" "$CHECKOUT" --link "$SCRATCH/$CASE"
+    [ "$STATUS" -ne 0 ] || fail "exit 0 with --link and a project"
+    diff -r "$h.before" "$h" >/dev/null || fail "HOME changed with --link and a project"
+    expect_line "usage: ./install"
 }
 
 case_stops_without_claude_code() {
