@@ -1,9 +1,15 @@
 # Skills
 
-The 27 skills Flow Factory installs, grouped by the stage of `4d-system.md`
-where each one does its main work. Type the slash command to invoke one.
+The 28 skills Flow Factory installs: the one for init, then the rest grouped
+by the stage of `4d-system.md` where each one does its main work. Type the
+slash command to invoke one.
 
 Several skills are useful in more than one stage. Each is listed once.
+
+## Init
+
+- `/flow-init` - fit this project: read the repository, propose its settings
+  on one screen, and write them through the installer on your approval
 
 ## Discover
 
