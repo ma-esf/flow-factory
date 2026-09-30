@@ -36,6 +36,16 @@ mkdir -p "$SCRATCH/gh-logged-out"
 printf '#!/bin/sh\nexit 1\n' > "$SCRATCH/gh-logged-out/gh"
 chmod +x "$SCRATCH/gh-logged-out/gh"
 export PATH="$SCRATCH/gh-logged-out:$PATH"
+# The rest of the machine check's tools, the same way: each fails, so no case
+# launches iTerm2, reads its real preferences, reaches GitHub or runs this
+# machine's login shell or claude.
+mkdir -p "$SCRATCH/no-machine"
+for tool in osascript defaults curl claude login-shell; do
+    printf '#!/bin/sh\nexit 1\n' > "$SCRATCH/no-machine/$tool"
+    chmod +x "$SCRATCH/no-machine/$tool"
+done
+export PATH="$SCRATCH/no-machine:$PATH" SHELL="$SCRATCH/no-machine/login-shell"
+unset TMUX
 GIT_ID=(-c user.name=test -c user.email=test@example.invalid)
 
 CASE=""
@@ -1459,6 +1469,323 @@ case_init_prints_the_check_lines() {
     sed -n '/^== Record the project/,$p' "$OUT" | grep -qxF "  origin has no branch main: $ORIGIN_LOSES. Fix: git push origin main" \
         || fail "no check line after the record is written. Output:
 $(cat "$OUT")"
+}
+
+# ---------------------------------------------------------------------------
+# The machine check: ./install's last step names what this machine lacks.
+
+# Every command in /bin and /usr/bin but the tools the check looks for, with
+# this machine's git and bash, in farm/. Built once.
+farm() {
+    local f
+    [ ! -d "$SCRATCH/farm" ] || return 0
+    mkdir -p "$SCRATCH/farm"
+    for f in /bin/* /usr/bin/*; do
+        case ${f##*/} in osascript|defaults|pbcopy|gh|lsof|curl|claude|git|bash) continue ;; esac
+        [ -e "$SCRATCH/farm/${f##*/}" ] || ln -s "$f" "$SCRATCH/farm/"
+    done
+    ln -s "$(command -v git)" "$SCRATCH/farm/git"
+    ln -s "$BASH" "$SCRATCH/farm/bash"
+}
+
+# Tool $1 in this case's machine/, a shell script running $2.
+stub() {
+    printf '#!/bin/sh\n%s\n' "$2" > "$SCRATCH/$CASE/machine/$1"
+    chmod +x "$SCRATCH/$CASE/machine/$1"
+}
+
+# A stub in machine/ of every tool the check runs, each answering as a
+# machine on which its check passes: macOS with iTerm2 running and its
+# Automation permission granted, a logged-in gh, a reachable GitHub, and a login shell that
+# finds claude. Each tool named in $@ is left out. A case changes one by
+# stubbing it again.
+passing_machine() {
+    local tool
+    farm
+    mkdir -p "$SCRATCH/$CASE/machine"
+    stub osascript 'case "$2" in *"count windows") echo 1 ;; *"is running") echo true ;; *) echo com.googlecode.iterm2 ;; esac'
+    stub defaults 'echo "\"Custom Command\" = No;"'
+    stub pbcopy 'cat >/dev/null'
+    stub gh 'exit 0'
+    stub lsof 'exit 0'
+    stub curl 'exit 0'
+    stub claude 'echo "2.1.282 (Claude Code)"'
+    stub login-shell 'echo /usr/local/bin/claude'
+    for tool; do rm -f -- "$SCRATCH/$CASE/machine/$tool"; done
+}
+
+# Run ./install under HOME $1 on the machine passing_machine built.
+run_machine() {
+    PATH="$SCRATCH/$CASE/machine:$SCRATCH/farm" SHELL="$SCRATCH/$CASE/machine/login-shell" \
+        run_install "$1"
+}
+
+# The lines of the machine check, without its heading.
+check_lines() { sed -n '/^== Check this machine$/,/^$/p' "$OUT" | sed '1d;/^$/d'; }
+
+# A skill-creator in HOME $1's skills, linked there as a skill manager does.
+link_skill_creator() {
+    mkdir -p "$SCRATCH/$CASE/agents/skill-creator" "$1/.claude/skills"
+    printf -- '---\nname: skill-creator\n---\n' > "$SCRATCH/$CASE/agents/skill-creator/SKILL.md"
+    ln -s "$SCRATCH/$CASE/agents/skill-creator" "$1/.claude/skills/skill-creator"
+}
+
+case_machine_check_passes_on_a_complete_machine() {
+    local h
+    h=$(new_home)
+    link_skill_creator "$h"
+    passing_machine
+    run_machine "$h"
+    expect_status 0
+    [ "$(check_lines)" = "  claude --version: 2.1.282 (Claude Code), with no minimum version checked
+  no gaps in 13 checks: osascript and defaults, iTerm2, not inside tmux, pbcopy, gh, lsof, curl, mktemp and /tmp, skill-creator, claude in a new pane, the gh login, the network to GitHub, the Automation permission" ] \
+        || fail "not the two lines of a machine with no gaps. Output:
+$(cat "$OUT")"
+}
+
+case_machine_check_names_what_a_missing_gh_costs() {
+    local h
+    h=$(new_home)
+    link_skill_creator "$h"
+    passing_machine gh
+    run_machine "$h"
+    expect_status 0
+    [ "$(check_lines | grep -cw gh)" -eq 1 ] || fail "not exactly one line naming gh. Output:
+$(cat "$OUT")"
+    check_lines | grep -qxF "  gh is not installed, so its login is not checked: /flow-close-out, /flow-new-github-issue, /flow-ship-ticket and /flow-stakeholder-update error, and /flow-comments-review and /flow-pr-summary diff against the default branch, not the pull request's base. Fix: brew install gh" \
+        || fail "no line naming gh, what it costs and its fix. Output:
+$(cat "$OUT")"
+    check_lines | grep -qxF "  1 gap in 12 checks:" || fail "the login was counted as run. Output:
+$(cat "$OUT")"
+}
+
+case_machine_check_names_a_logged_out_gh() {
+    local h
+    h=$(new_home)
+    link_skill_creator "$h"
+    passing_machine
+    stub gh 'case "$1 $2" in "auth status") exit 1 ;; esac'
+    run_machine "$h"
+    expect_status 0
+    check_lines | grep -qxF "  gh is not logged in to github.com: for a project there, /flow-new-github-issue stops, /flow-close-out, /flow-ship-ticket and /flow-stakeholder-update error, and /flow-comments-review and /flow-pr-summary diff against the default branch, not the pull request's base. Fix: gh auth login" \
+        || fail "no line saying gh is not logged in. Output:
+$(cat "$OUT")"
+    refuse_line "gh is not installed"
+}
+
+case_machine_check_names_a_missing_lsof() {
+    local h
+    h=$(new_home)
+    link_skill_creator "$h"
+    passing_machine lsof
+    run_machine "$h"
+    expect_status 0
+    check_lines | grep -qE '^  lsof is not (installed|on PATH): /flow-run-app reads every port as free, ' \
+        || fail "no line saying /flow-run-app reads every port as free. Output:
+$(cat "$OUT")"
+}
+
+# Every check fails that can while its tool is there, and every other tool
+# is missing. The lines come in the order the prerequisites are listed:
+# machine, then Claude Code; every access check is ruled out here. Without
+# iTerm2 no pane can open, so the login shell a pane runs is never started.
+case_machine_check_names_every_gap_in_order() {
+    local h
+    h=$(new_home)
+    passing_machine pbcopy gh lsof curl
+    stub osascript 'echo "execution error: Can'"'"'t get application id \"com.googlecode.iterm2\". (-1728)" >&2; exit 1'
+    stub login-shell "touch \"$SCRATCH/$CASE/login-shell-ran\""
+    stub mktemp 'case "$1" in /tmp/*) exit 1 ;; *) exec /usr/bin/mktemp "$@" ;; esac'
+    TMUX=/tmp/tmux-501/default,1,0 run_machine "$h"
+    expect_status 0
+    [ "$(check_lines | sed 1d | cut -d: -f1)" = "  8 gaps in 9 checks
+  iTerm2 is not installed, so the Automation permission and claude in a new pane are not checked
+  this shell is inside tmux
+  pbcopy is not installed
+  gh is not installed, so its login is not checked
+  lsof is not $(if [ -x /usr/sbin/lsof ]; then echo on PATH; else echo installed; fi)
+  curl is not installed, so the network to GitHub is not checked
+  mktemp cannot make a file in /tmp
+  skill-creator is not installed" ] \
+        || fail "not every gap, in order. Output:
+$(cat "$OUT")"
+    [ "$(check_lines | grep /flow-conductor | cut -d: -f1)" = "  iTerm2 is not installed, so the Automation permission and claude in a new pane are not checked
+  this shell is inside tmux" ] \
+        || fail "a line naming /flow-conductor is not a dispatch probe's. Output:
+$(cat "$OUT")"
+    [ ! -e "$SCRATCH/$CASE/login-shell-ran" ] || fail "the login shell was run without iTerm2"
+}
+
+# With iTerm2 there, the other three dispatch probes fail, each in its own
+# layer's place, and each names /flow-conductor and no other skill.
+case_machine_check_dispatch_probes_name_only_the_conductor() {
+    local h
+    h=$(new_home)
+    link_skill_creator "$h"
+    passing_machine
+    stub osascript 'case "$2" in
+    *"count windows") echo "execution error: Not authorized to send Apple events to iTerm2. (-1743)" >&2; exit 1 ;;
+    *"is running") echo true ;;
+    *) echo com.googlecode.iterm2 ;;
+esac'
+    stub login-shell 'exit 1'
+    TMUX=/tmp/tmux-501/default,1,0 run_machine "$h"
+    expect_status 0
+    [ "$(check_lines | sed 1d)" = "  3 gaps in 13 checks:
+  this shell is inside tmux: /flow-conductor stops at its dispatch probes there
+  claude is not on PATH in the login shell a new iTerm2 pane runs: /flow-conductor stops at its dispatch probes
+  this terminal has no Automation permission for iTerm2, execution error: Not authorized to send Apple events to iTerm2. (-1743): /flow-conductor stops at its dispatch probes. Fix: grant it in System Settings, Privacy & Security, Automation" ] \
+        || fail "not the three dispatch lines. Output:
+$(cat "$OUT")"
+}
+
+# What the check cannot probe without a side effect or an input is named,
+# not counted: an iTerm2 that is not running, which probe 2 would launch, or
+# one osascript cannot ask about; no SHELL to run; and no defaults to read
+# the profile with. A gh from before accounts, which has no --active, is
+# asked without it.
+case_machine_check_names_what_it_cannot_probe() {
+    local h
+    h=$(new_home)
+    link_skill_creator "$h"
+    passing_machine
+    stub osascript "echo \"\$2\" >> \"$SCRATCH/$CASE/osascript-calls\"
+case \"\$2\" in *\"is running\") echo false ;; *) echo com.googlecode.iterm2 ;; esac"
+    stub gh 'case "$*" in *--active*) echo "unknown flag: --active" >&2; exit 1 ;; esac'
+    PATH="$SCRATCH/$CASE/machine:$SCRATCH/farm" SHELL= run_install "$h"
+    expect_status 0
+    expect_line "  no gaps in 11 checks: "
+    expect_line "  not checked: claude in a new pane, because SHELL is not set"
+    expect_line "  not checked: the Automation permission, because iTerm2 is not running, and the check does not start it"
+    ! grep -q "count windows" "$SCRATCH/$CASE/osascript-calls" || fail "iTerm2 was sent an event while it was not running"
+
+    passing_machine defaults
+    stub login-shell "touch \"$SCRATCH/$CASE/login-shell-ran\""
+    stub osascript 'case "$2" in *"is running") echo "execution error: timed out (-1712)" >&2; exit 1 ;; *) echo com.googlecode.iterm2 ;; esac'
+    run_machine "$h"
+    expect_status 0
+    check_lines | grep -qxF "  defaults is not installed, so claude in a new pane is not checked: /flow-conductor stops at its dispatch probes" \
+        || fail "no defaults line naming the probe it rules out. Output:
+$(cat "$OUT")"
+    [ ! -e "$SCRATCH/$CASE/login-shell-ran" ] || fail "the login shell was run with no profile read"
+    expect_line "  not checked: the Automation permission, because osascript cannot say whether iTerm2 is running, execution error: timed out (-1712)"
+}
+
+# Probe 4 reads the first profile's Custom Command, as the conductor does.
+# Anything but No runs a command other than the login shell, which is then
+# never run.
+case_machine_check_skips_probe_4_for_a_custom_command() {
+    local h value
+    h=$(new_home)
+    link_skill_creator "$h"
+    passing_machine
+    stub login-shell "touch \"$SCRATCH/$CASE/login-shell-ran\""
+    for value in Yes '"Custom Shell"'; do
+        stub defaults "echo '\"Custom Command\" = $value;'"
+        run_machine "$h"
+        expect_status 0
+        expect_line "  no gaps in 12 checks: "
+        expect_line "  not checked: claude in a new pane, because the iTerm2 profile runs a custom command. ~/.flow-factory/dispatch-prerequisites.md says how to probe it"
+        [ ! -e "$SCRATCH/$CASE/login-shell-ran" ] || fail "the login shell was run for Custom Command = $value"
+    done
+
+    stub defaults "printf '%s\n' '\"Custom Command\" = No;' '\"Custom Command\" = Yes;'"
+    run_machine "$h"
+    expect_status 0
+    expect_line "  no gaps in 13 checks: "
+    [ -e "$SCRATCH/$CASE/login-shell-ran" ] || fail "the login shell was not run for a first profile running it"
+}
+
+# Claude Code's record of the plugins installed, holding plugin $1 installed
+# for scope $2 at $3, under HOME $4.
+plugin_record() {
+    mkdir -p "$4/.claude/plugins"
+    cat > "$4/.claude/plugins/installed_plugins.json" <<EOF
+{
+  "version": 2,
+  "plugins": {
+    "$1@claude-plugins-official": [
+      {
+        "scope": "$2",
+        "projectPath": "/somewhere/else",
+        "installPath": "$3",
+        "version": "1.0.0"
+      }
+    ]
+  }
+}
+EOF
+}
+
+# A skill-creator plugin counts only when it is installed for every
+# project, and the catalog of plugins offered never counts.
+case_machine_check_finds_skill_creator_only_where_it_is_installed() {
+    local h plugin
+    h=$(new_home)
+    plugin="$h/.claude/plugins/cache/claude-plugins-official/skill-creator/1.0.0"
+    mkdir -p "$plugin/skills/skill-creator" \
+        "$h/.claude/plugins/marketplaces/claude-plugins-official/plugins/skill-creator/skills/skill-creator"
+    printf -- '---\nname: skill-creator\n---\n' | tee "$plugin/skills/skill-creator/SKILL.md" \
+        > "$h/.claude/plugins/marketplaces/claude-plugins-official/plugins/skill-creator/skills/skill-creator/SKILL.md"
+    passing_machine
+
+    plugin_record skill-creator project "$plugin" "$h"
+    run_machine "$h"
+    expect_status 0
+    expect_line "  skill-creator is not installed: "
+
+    plugin_record skill-creator user "$plugin" "$h"
+    run_machine "$h"
+    expect_status 0
+    expect_line "  no gaps in 13 checks: "
+}
+
+# Calls that never answer give up after 10 seconds, together: the Automation
+# probe, as a permission dialog nobody answers; a login shell whose startup
+# file hangs and ignores TERM, which the hangup of its own terminal still
+# ends; and curl, as a network that drops packets, after which gh is not
+# asked. Then gh alone.
+case_machine_check_gives_up_on_calls_that_hang() {
+    local h start
+    h=$(new_home)
+    link_skill_creator "$h"
+    passing_machine
+    stub osascript 'case "$2" in *"count windows") exec sleep 30 ;; *"is running") echo true ;; *) echo com.googlecode.iterm2 ;; esac'
+    stub login-shell 'trap "" TERM; sleep 30'
+    stub curl 'exec sleep 30'
+    stub gh "touch \"$SCRATCH/$CASE/gh-ran\""
+    start=$SECONDS
+    run_machine "$h"
+    expect_status 0
+    [ $((SECONDS - start)) -lt 20 ] || fail "the check took $((SECONDS - start)) seconds"
+    expect_line "  not checked: claude in a new pane, because the login shell gave no answer in 10 seconds"
+    expect_line "  GitHub cannot be reached, no answer in 10 seconds, so the gh login is not checked: "
+    expect_line "  this terminal has no Automation permission for iTerm2, no answer in 10 seconds: /flow-conductor stops at its dispatch probes. Fix: answer the macOS dialog if one is open, or grant it in System Settings, Privacy & Security, Automation"
+    [ ! -e "$SCRATCH/$CASE/gh-ran" ] || fail "gh was asked about a login while GitHub could not be reached"
+
+    passing_machine
+    stub gh 'exec sleep 30'
+    start=$SECONDS
+    run_machine "$h"
+    expect_status 0
+    [ $((SECONDS - start)) -lt 18 ] || fail "the check took $((SECONDS - start)) seconds"
+    expect_line "  no gaps in 12 checks: "
+    expect_line "  not checked: the gh login, because gh auth status gave no answer in 10 seconds"
+}
+
+# This machine's curl, through a closed local proxy, which no_proxy must not
+# route around.
+case_machine_check_names_an_unreachable_github() {
+    local h
+    h=$(new_home)
+    link_skill_creator "$h"
+    passing_machine
+    ln -sf /usr/bin/curl "$SCRATCH/$CASE/machine/curl"
+    https_proxy=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9 all_proxy= ALL_PROXY= \
+        no_proxy= NO_PROXY= run_machine "$h"
+    expect_status 0
+    expect_line "  GitHub cannot be reached, curl: "
+    expect_line ", so the gh login is not checked: for a project there, /flow-close-out, /flow-comments-review, /flow-new-github-issue, /flow-pr-summary, /flow-ship-ticket, /flow-stakeholder-update, /flow-worktree-close and /flow-worktree-create error, /flow-status and /flow-reground stop"
 }
 
 # ---------------------------------------------------------------------------
