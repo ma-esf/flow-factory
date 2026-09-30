@@ -52,7 +52,10 @@ places it writes there:
   the skills write against, and `install-record.txt`, the list of every file
   it placed.
 
-A `flow-*` skill directory it did not place is left alone and named.
+A `flow-*` skill directory it did not place is left alone and named. A link
+where it would place a copy stops it before it writes outside the checkout:
+`./install --link`, for the machine that builds the factory, places links into
+the checkout instead.
 
 Run it again to update. It pulls the checkout, fast-forward only, runs the
 installer that pull brought, and removes every file it placed that the

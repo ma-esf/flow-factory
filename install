@@ -3,12 +3,16 @@
 # Flow Factory install: places the factory on this machine, and updates it.
 #
 #   ./install
+#   ./install --link
 #   ./install --init <project root> <answers file>
 #   ./install --check <project root> <answers file>
 #
 # Run it from a checkout of the factory. It copies the skills into
 # ~/.claude/skills/ and the contracts into ~/.flow-factory/, and asks nothing.
 # Run it again to update: it pulls the checkout first.
+#
+# --link is for the machine that builds the factory: it places links into this
+# checkout instead of copies, so a skill edited here is the one that runs.
 #
 # --init fits one project on a machine that has the factory: it writes the
 # project's flow-factory.toml from an answers file, creates its tracker and
@@ -41,8 +45,9 @@ SKILLS_DIR="$HOME/.claude/skills"
 #
 #   version <factory_stamp>
 #   checkout <absolute path of this checkout>
-#   mode copy
-#   file <absolute path of a placed file>        one per file
+#   mode copy                                    or link, from ./install --link
+#   file <absolute path of a placed file>        one per file, or in link mode
+#                                                one per link placed
 #   project <absolute path of a project root>    one per initialised project
 RECORD="$MACHINE_DIR/install-record.txt"
 
@@ -50,12 +55,19 @@ say()  { printf '%s\n' "$*"; }
 step() { printf '\n== %s\n' "$*"; }
 fail() { printf '\nFAILED: %s\n' "$*" >&2; exit 1; }
 
-USAGE="usage: ./install, or ./install --init|--check <project root> <answers file>"
+USAGE="usage: ./install, ./install --link, or ./install --init|--check <project root> <answers file>"
 MODE=machine
+# How machine mode places the factory, and the record's mode: copies, or links
+# into this checkout for the machine that builds the factory.
+PLACE=copy
 if [ $# -gt 0 ]; then
-    case $1 in --init) MODE=init ;; --check) MODE=check ;; *) fail "$USAGE" ;; esac
-    [ $# -eq 3 ] || fail "$USAGE"
-    PROJECT_ARG=$2; ANSWERS_ARG=$3
+    case $1 in
+        --link) [ $# -eq 1 ] || fail "$USAGE"; PLACE=link ;;
+        --init|--check)
+            [ $# -eq 3 ] || fail "$USAGE"
+            MODE=${1#--}; PROJECT_ARG=$2; ANSWERS_ARG=$3 ;;
+        *) fail "$USAGE" ;;
+    esac
 fi
 
 # ---------------------------------------------------------------------------
@@ -104,6 +116,26 @@ command -v git >/dev/null 2>&1 \
 # nothing, not even the record, is written through it.
 [ ! -L "$MACHINE_DIR" ] \
     || fail "~/.flow-factory is a link. Nothing is written through it; move it aside and run again."
+# A ~/.claude/skills that is this checkout's skills/ would have the copy step
+# delete the sources it copies from. Any other link there, such as one into a
+# dotfiles repository, is written through as the person set it up.
+[ "$MODE" != machine ] || [ ! "$SKILLS_DIR" -ef "$FACTORY_ROOT/skills" ] \
+    || fail "~/.claude/skills is this checkout's skills/. Nothing is written into it; move it aside and run again."
+# Anything there but a directory, or a link to one, would stop mkdir partway.
+if [ "$MODE" = machine ]; then
+    for dir in "$MACHINE_DIR" "$SKILLS_DIR"; do
+        [ -d "$dir" ] || { [ ! -e "$dir" ] && [ ! -L "$dir" ]; } \
+            || fail "~${dir#"$HOME"} is not a directory. Move it aside and run again."
+    done
+fi
+# A link run from a checkout other than the one this machine is linked to would
+# leave every live link alone and rewrite the record to name itself. Once that
+# checkout is gone its links lead nowhere, and a run from anywhere replaces them.
+if [ "$PLACE" = link ] && [ -f "$RECORD" ] && grep -qx 'mode link' "$RECORD"; then
+    LINKED=$(awk 'index($0, "checkout ") == 1 { print substr($0, 10); exit }' "$RECORD")
+    [ -z "$LINKED" ] || [ ! -d "$LINKED" ] || [ "$LINKED" -ef "$FACTORY_ROOT" ] \
+        || fail "this machine is linked to the checkout $LINKED. Run ./install --link from there."
+fi
 for required in machine skills; do
     [ -d "$FACTORY_ROOT/$required" ] \
         || fail "$FACTORY_ROOT is not a factory checkout: no $required/"
@@ -118,7 +150,8 @@ done
 # upstream, leaves the files as they are, so it does not stop the install.
 #
 # bash goes on running the text it started with after the pull replaces this
-# file, so a pull that moved HEAD hands over to the pulled installer.
+# file, so a pull that moved HEAD hands over to the pulled installer, with the
+# arguments this run was given.
 # FLOW_FACTORY_PULLED keeps that run from pulling again. A stop in that run
 # leaves the checkout pulled and HOME as it was.
 # ---------------------------------------------------------------------------
@@ -142,7 +175,7 @@ update_checkout() {
         [ "$rc" -eq 0 ] || printf '%s\n' "$msg" | sed 's/^/    /'
         [ -f "$FACTORY_ROOT/install" ] \
             || fail "the pull left no install in $FACTORY_ROOT, so nothing was installed"
-        FLOW_FACTORY_PULLED=1 exec "$BASH" "$FACTORY_ROOT/install"
+        FLOW_FACTORY_PULLED=1 exec "$BASH" "$FACTORY_ROOT/install" "$@"
     elif [ "$rc" -eq 0 ]; then
         say "  the checkout is up to date"
     else
@@ -152,7 +185,7 @@ update_checkout() {
 }
 if [ "$MODE" = machine ] && [ -z "${FLOW_FACTORY_PULLED:-}" ]; then
     step "Update the checkout"
-    update_checkout
+    update_checkout "$@"
 fi
 
 # Project mode places from project/, machine mode from skills/ and machine/.
@@ -648,6 +681,191 @@ say "  ~/.flow-factory/"
 WORK=$(mktemp -d)
 trap 'rm -rf -- "$WORK" "$RECORD.tmp"' EXIT
 
+# ===========================================================================
+# The plan: what this run places and what it leaves alone
+#
+# Decided in full before anything is placed, so the record can be written
+# first. A run cut short then leaves files the record lists, which the next
+# run replaces, never files it treats as someone else's. It writes nothing,
+# so its stops leave HOME as it was.
+# ===========================================================================
+
+# A copy run never writes onto a link where it places a skill directory or a
+# machine file. A link is how a dev machine runs the checkout it builds, and a
+# copy over it ends that without a word. Nor does a link run replace a copy an
+# earlier run placed: that is a switch of mode. Each is named here, and the run
+# stops once the plan is done.
+: > "$WORK/links"; : > "$WORK/copies"
+
+# Whether the record from an earlier run lists path $1 itself: a machine file,
+# or a skill directory a link run placed.
+recorded_file() { [ -f "$RECORD" ] && grep -qxF -- "file $1" "$RECORD"; }
+
+# Whether an earlier copy run placed skill $1: the record lists files inside it.
+copied() {
+    [ -f "$RECORD" ] || return 1
+    P="file $SKILLS_DIR/$1/" awk 'index($0, ENVIRON["P"]) == 1 { found = 1; exit }
+        END { exit !found }' "$RECORD"
+}
+
+# Whether an earlier copy run placed machine file $1. Its line reads the same
+# in both modes, so the record's mode says which run wrote it.
+copied_file() { recorded_file "$1" && grep -qx 'mode copy' "$RECORD"; }
+
+# Whether the record lists skill $1 at all. The bare line a link run writes
+# vouches for a link, never for a directory now at that path, so only copied()
+# lets a directory be replaced.
+recorded() { copied "$1" || recorded_file "$SKILLS_DIR/$1"; }
+
+# The first symlink on the way from directory $1 down to its file $2, the file
+# itself included, printed relative to $1. Fails when there is none. $1 itself
+# is not tested.
+first_link() {
+    local seen="" rest=$2
+    while :; do
+        seen=${seen:+$seen/}${rest%%/*}
+        [ ! -L "$1/$seen" ] || { printf '%s' "$seen"; return 0; }
+        [ "${rest#*/}" != "$rest" ] || return 1
+        rest=${rest#*/}
+    done
+}
+
+# Whether a directory between $1 and the file $1/$2 is a symlink.
+link_above() { local l; l=$(first_link "$1" "$2") && [ "$l" != "$2" ]; }
+
+# What stands where machine file $1 goes, so that it cannot be placed: a file
+# where a directory above it goes, a link above it that leads nowhere, or a
+# directory where the file goes. Printed with the reason; fails when nothing
+# does. Found here, it stops the run before the first write, where mkdir or
+# cp would stop it partway or put the file inside that directory.
+#
+# What an earlier run placed is not in the way when the removal of withdrawn
+# files, which runs before anything is placed, takes it away: a file or link
+# above a shipped file, or a directory holding only such files. That is how an
+# update turns a machine file into a directory, or back. The walk ends at a
+# live link, since what lies behind one is left alone, or stops a copy run.
+in_the_way() {
+    local seen="" rest=$1 p
+    while [ "${rest#*/}" != "$rest" ]; do
+        seen=${seen:+$seen/}${rest%%/*}; rest=${rest#*/}
+        p="$MACHINE_DIR/$seen"
+        if [ -L "$p" ] && [ -e "$p" ]; then
+            return 1
+        elif { [ -L "$p" ] || [ -f "$p" ]; } && recorded_file "$p"; then
+            return 1
+        elif [ -L "$p" ]; then
+            printf '~/.flow-factory/%s is a link to nothing' "$seen"; return 0
+        elif [ -e "$p" ] && [ ! -d "$p" ]; then
+            printf '~/.flow-factory/%s is a file where a directory goes' "$seen"; return 0
+        fi
+    done
+    if [ -d "$MACHINE_DIR/$1" ] && [ ! -L "$MACHINE_DIR/$1" ] && ! withdrawn_whole "$MACHINE_DIR/$1"; then
+        printf '~/.flow-factory/%s is a directory where a file goes' "$1"; return 0
+    fi
+    return 1
+}
+
+# Whether removing the withdrawn files removes directory $1 too: every file and
+# link under it is one the record lists, and every directory under it holds
+# one. A lone Finder .DS_Store is removed with its directory.
+withdrawn_whole() {
+    local f
+    grep -qF -- "file $1/" "$RECORD" 2>/dev/null || return 1
+    while IFS= read -r -d '' f; do
+        if [ -d "$f" ] && [ ! -L "$f" ]; then
+            grep -qF -- "file $f/" "$RECORD" || return 1
+        elif [ "${f##*/}" != .DS_Store ]; then
+            recorded_file "$f" || return 1
+        fi
+    done < <(find "$1" -mindepth 1 -print0)
+}
+
+# Whether a link between ~/.flow-factory and its file $1 is someone else's: a
+# link an earlier run placed is withdrawn once a shipped file lies below it.
+theirs_above() {
+    local l
+    l=$(first_link "$MACHINE_DIR" "$1") && [ "$l" != "$1" ] && ! recorded_file "$MACHINE_DIR/$l"
+}
+
+# A machine file is compared and overwritten, never skipped because it exists:
+# a copy left in place can carry an instruction the factory has since
+# withdrawn. In link mode, a link that leads somewhere other than the checkout
+# is the exception, since a person may have pointed it at a branch on purpose.
+# A link that leads nowhere is replaced: a removed worktree leaves such links.
+# Each *-alone file holds the lines printed for it.
+: > "$WORK/in-the-way"
+: > "$WORK/machine-place"; : > "$WORK/machine-alone"; : > "$WORK/machine-dests"
+while IFS= read -r rel; do
+    rel=${rel#machine/}
+    dest="$MACHINE_DIR/$rel"
+    printf '%s\n' "$dest" >> "$WORK/machine-dests"
+    if way=$(in_the_way "$rel"); then
+        grep -qxF -- "$way" "$WORK/in-the-way" || printf '%s\n' "$way" >> "$WORK/in-the-way"
+    elif [ "$PLACE" = copy ] && link=$(first_link "$MACHINE_DIR" "$rel"); then
+        grep -qxF -- "~/.flow-factory/$link" "$WORK/links" \
+            || printf '~/.flow-factory/%s\n' "$link" >> "$WORK/links"
+    elif theirs_above "$rel"; then
+        say "  left alone $rel, behind a link this installer does not write through" >> "$WORK/machine-alone"
+    elif [ -L "$dest" ] && [ -e "$dest" ] && [ ! "$dest" -ef "$FACTORY_ROOT/machine/$rel" ]; then
+        say "  left alone $rel, a link to $(readlink -- "$dest")" >> "$WORK/machine-alone"
+    elif [ "$PLACE" = link ] && [ -f "$dest" ] && [ ! -L "$dest" ] && copied_file "$dest"; then
+        printf '~/.flow-factory/%s\n' "$rel" >> "$WORK/copies"
+    else
+        printf '%s\n' "$rel" >> "$WORK/machine-place"
+    fi
+done < <(printf '%s\n' "$SOURCES" | grep '^machine/')
+
+# A skill directory already on disk is replaced only when an earlier copy run
+# placed it. Anything else there, shipped name or not, is someone's own work,
+# and is left alone and named. A link run sorts links as for machine files.
+: > "$WORK/skills-place"; : > "$WORK/skills-alone"
+while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    dest="$SKILLS_DIR/$name"
+    if [ -L "$dest" ] && [ "$PLACE" = copy ]; then
+        printf '~/.claude/skills/%s\n' "$name" >> "$WORK/links"
+    elif [ -L "$dest" ] && [ -e "$dest" ] && [ ! "$dest" -ef "$FACTORY_ROOT/skills/$name" ]; then
+        say "  left alone $name, a link to $(readlink -- "$dest")" >> "$WORK/skills-alone"
+    elif [ -L "$dest" ] || [ ! -e "$dest" ]; then
+        printf '%s\n' "$name" >> "$WORK/skills-place"
+    elif ! copied "$name"; then
+        say "  left alone $name, which this installer did not place" >> "$WORK/skills-alone"
+    elif [ "$PLACE" = link ]; then
+        printf '~/.claude/skills/%s\n' "$name" >> "$WORK/copies"
+    else
+        printf '%s\n' "$name" >> "$WORK/skills-place"
+    fi
+done <<< "$SHIPPED"
+for dest in "$SKILLS_DIR"/flow-*; do
+    name=${dest##*/}
+    ships "$name" || recorded "$name" \
+        || say "  left alone $name, which this installer did not place" >> "$WORK/skills-alone"
+done
+
+# The files of the skills this run places, each skills/<name>/<path>. Matched
+# on the name as a string, never as a pattern.
+printf '%s\n' "$SOURCES" | awk '
+    NR == FNR { place[$0] = 1; next }
+    /^skills\// { name = $0; sub(/^skills\//, "", name); sub(/\/.*/, "", name)
+                  if (name in place) print }
+' "$WORK/skills-place" - > "$WORK/skill-sources"
+
+if [ -s "$WORK/in-the-way" ]; then
+    say ""
+    sed 's/^/  /' "$WORK/in-the-way"
+    fail "the factory's files cannot be placed around these. Move them aside and run again"
+fi
+if [ -s "$WORK/links" ]; then
+    say ""
+    sed 's/^/  /; s/$/ is a link/' "$WORK/links"
+    fail "./install copies, and never onto a link. Run ./install --link to link this machine to the checkout, or move the links aside to install copies"
+fi
+if [ -s "$WORK/copies" ]; then
+    say ""
+    sed 's/^/  /; s/$/ is a copy an earlier run placed/' "$WORK/copies"
+    fail "./install --link never replaces a copy. To switch to links, move the copies aside, then run ./install --link again"
+fi
+
 # Claude Code sees new skills without a restart, except when the skills
 # directory itself is new.
 SKILLS_EXISTED=yes
@@ -658,73 +876,6 @@ if [ ! -d "$SKILLS_DIR" ]; then
     say "  created ~/.claude/skills, which this machine did not have yet"
 fi
 mkdir -p "$MACHINE_DIR"
-
-# ===========================================================================
-# The plan: what this run places and what it leaves alone
-#
-# Decided in full before anything is placed, so the record can be written
-# first. A run cut short then leaves files the record lists, which the next
-# run replaces, never files it treats as someone else's.
-# ===========================================================================
-
-recorded() {
-    [ -f "$RECORD" ] || return 1
-    P="file $SKILLS_DIR/$1/" awk 'index($0, ENVIRON["P"]) == 1 { found = 1; exit }
-        END { exit !found }' "$RECORD"
-}
-
-# A machine file is compared and overwritten, never skipped because it exists:
-# a copy left in place can carry an instruction the factory has since
-# withdrawn. The exception is a file behind a symlink, itself or a directory
-# above it, which may point into someone's checkout, so it is left alone. The
-# walk goes down from ~/.flow-factory, which is known not to be a link.
-behind_link() { link_above "$MACHINE_DIR" "$1" || [ -L "$MACHINE_DIR/$1" ]; }
-
-# Whether a directory between $1 and the file $1/$2 is a symlink.
-link_above() {
-    local p=$1 rest=$2
-    while [ "${rest#*/}" != "$rest" ]; do
-        p="$p/${rest%%/*}"
-        [ ! -L "$p" ] || return 0
-        rest=${rest#*/}
-    done
-    return 1
-}
-: > "$WORK/machine-place"; : > "$WORK/machine-alone"; : > "$WORK/machine-dests"
-while IFS= read -r rel; do
-    rel=${rel#machine/}
-    printf '%s\n' "$MACHINE_DIR/$rel" >> "$WORK/machine-dests"
-    if behind_link "$rel"; then
-        printf '%s\n' "$rel" >> "$WORK/machine-alone"
-    else
-        printf '%s\n' "$rel" >> "$WORK/machine-place"
-    fi
-done < <(printf '%s\n' "$SOURCES" | grep '^machine/')
-
-# A skill directory already on disk is replaced only when the record from an
-# earlier run lists it. Anything else there, shipped name or not, is someone's
-# own work, and is left alone and named.
-: > "$WORK/skills-place"; : > "$WORK/skills-alone"
-while IFS= read -r name; do
-    [ -n "$name" ] || continue
-    if { [ -e "$SKILLS_DIR/$name" ] || [ -L "$SKILLS_DIR/$name" ]; } && ! recorded "$name"; then
-        printf '%s\n' "$name" >> "$WORK/skills-alone"
-    else
-        printf '%s\n' "$name" >> "$WORK/skills-place"
-    fi
-done <<< "$SHIPPED"
-for dest in "$SKILLS_DIR"/flow-*; do
-    name=${dest##*/}
-    ships "$name" || recorded "$name" || printf '%s\n' "$name" >> "$WORK/skills-alone"
-done
-
-# The files of the skills this run places, each skills/<name>/<path>. Matched
-# on the name as a string, never as a pattern.
-printf '%s\n' "$SOURCES" | awk '
-    NR == FNR { place[$0] = 1; next }
-    /^skills\// { name = $0; sub(/^skills\//, "", name); sub(/\/.*/, "", name)
-                  if (name in place) print }
-' "$WORK/skills-place" - > "$WORK/skill-sources"
 
 # Remove every empty directory above file $1, up to but not including $2. A
 # lone .DS_Store counts as empty: Finder writes one into any folder it opens.
@@ -802,8 +953,7 @@ remove_withdrawn
 [ "$TOLD" = yes ] || say "  nothing to remove"
 
 # The earlier record's lines this run does not rewrite: every project, and
-# every file still on disk outside what this run places. A withdrawn file is
-# gone from disk by now, so it drops out; one behind a link stays listed.
+# every withdrawn file the removal left on disk, such as one behind a link.
 carried_lines() {
     [ -f "$RECORD" ] || return 0
     local line path name
@@ -814,8 +964,10 @@ carried_lines() {
                 path=${line#file }
                 case $path in
                     "$SKILLS_DIR"/*)
+                        # A shipped skill is placed afresh or left alone as
+                        # someone else's, so only a withdrawn one carries over.
                         name=${path#"$SKILLS_DIR"/}; name=${name%%/*}
-                        ! grep -qxF -- "$name" "$WORK/skills-place" || continue ;;
+                        ! ships "$name" || continue ;;
                     *)
                         ! grep -qxF -- "$path" "$WORK/machine-dests" || continue ;;
                 esac
@@ -832,9 +984,13 @@ step "Record what this run places"
 {
     say "version $STAMP"
     say "checkout $FACTORY_ROOT"
-    say "mode copy"
+    say "mode $PLACE"
     D="$MACHINE_DIR" awk '{ print "file " ENVIRON["D"] "/" $0 }' "$WORK/machine-place"
-    D="$SKILLS_DIR" awk '{ print "file " ENVIRON["D"] "/" substr($0, 8) }' "$WORK/skill-sources"
+    if [ "$PLACE" = link ]; then
+        D="$SKILLS_DIR" awk '{ print "file " ENVIRON["D"] "/" $0 }' "$WORK/skills-place"
+    else
+        D="$SKILLS_DIR" awk '{ print "file " ENVIRON["D"] "/" substr($0, 8) }' "$WORK/skill-sources"
+    fi
     carried_lines
 } > "$RECORD.tmp"
 # Built beside the record, so the move is a rename and never a partial copy.
@@ -845,12 +1001,32 @@ say "  recorded  $(grep -c '^file ' "$RECORD" | tr -d ' ') files in ~/.flow-fact
 # The placing
 # ===========================================================================
 
+# Link $2 to $1, named $3 in what is printed. The plan lets through only a
+# link to $1, a link that leads nowhere, a plain file, or nothing.
+link_to() {
+    if [ -L "$2" ] && [ "$2" -ef "$1" ]; then
+        say "  unchanged $3"
+        return 0
+    elif [ -L "$2" ]; then
+        say "  replaced  $3, a link to nothing"
+    elif [ -e "$2" ] && ! cmp -s "$1" "$2"; then
+        say "  OVERWROTE $3"
+    else
+        say "  linked    $3"
+    fi
+    rm -f -- "$2"
+    ln -s -- "$1" "$2"
+}
+
 step "Place the machine files in ~/.flow-factory/"
 while IFS= read -r rel; do
     src="$FACTORY_ROOT/machine/$rel"
     dest="$MACHINE_DIR/$rel"
     mkdir -p "$(dirname -- "$dest")"
-    if [ ! -e "$dest" ]; then
+    if [ "$PLACE" = link ]; then
+        link_to "$src" "$dest" "$rel"
+        continue
+    elif [ ! -e "$dest" ]; then
         say "  placed    $rel"
     elif cmp -s "$src" "$dest"; then
         say "  unchanged $rel"
@@ -859,34 +1035,34 @@ while IFS= read -r rel; do
     fi
     cp -- "$src" "$dest"
 done < "$WORK/machine-place"
-while IFS= read -r rel; do
-    say "  left alone $rel, a link this installer does not write through"
-done < "$WORK/machine-alone"
+cat "$WORK/machine-alone"
 
-step "Copy each skill directory into ~/.claude/skills/"
-# Copy, never symlink. find and grep -r take a symlinked directory as an
-# argument and do not descend into it, so any later check over the skills
-# directory would read nothing and report a pass.
-#
-# The destination is removed first so a file dropped from a skill does not
-# survive the install.
-while IFS= read -r name; do
-    dest="$SKILLS_DIR/$name"
-    if [ -e "$dest" ] || [ -L "$dest" ]; then
-        say "  replaced  $name"
-        rm -rf -- "$dest"
-    else
-        say "  installed $name"
-    fi
-done < "$WORK/skills-place"
-while IFS= read -r rel; do
-    rel=${rel#skills/}
-    mkdir -p "$(dirname -- "$SKILLS_DIR/$rel")"
-    cp -- "$FACTORY_ROOT/skills/$rel" "$SKILLS_DIR/$rel"
-done < "$WORK/skill-sources"
-while IFS= read -r name; do
-    say "  left alone $name, which this installer did not place"
-done < "$WORK/skills-alone"
+if [ "$PLACE" = link ]; then
+    step "Link each skill directory into ~/.claude/skills/"
+    while IFS= read -r name; do
+        link_to "$FACTORY_ROOT/skills/$name" "$SKILLS_DIR/$name" "$name"
+    done < "$WORK/skills-place"
+else
+    step "Copy each skill directory into ~/.claude/skills/"
+    # The destination is removed first so a file dropped from a skill does not
+    # survive the install. A link needs no such step: it shows the checkout as
+    # it stands.
+    while IFS= read -r name; do
+        dest="$SKILLS_DIR/$name"
+        if [ -e "$dest" ] || [ -L "$dest" ]; then
+            say "  replaced  $name"
+            rm -rf -- "$dest"
+        else
+            say "  installed $name"
+        fi
+    done < "$WORK/skills-place"
+    while IFS= read -r rel; do
+        rel=${rel#skills/}
+        mkdir -p "$(dirname -- "$SKILLS_DIR/$rel")"
+        cp -- "$FACTORY_ROOT/skills/$rel" "$SKILLS_DIR/$rel"
+    done < "$WORK/skill-sources"
+fi
+cat "$WORK/skills-alone"
 
 # ===========================================================================
 # The final check: every reference a placed skill makes resolves
@@ -897,8 +1073,8 @@ done < "$WORK/skills-alone"
 # reference resolves only when the factory ships <name>, so a stale directory
 # of an unshipped name cannot satisfy it.
 #
-# find -L, because an install that ever links instead of copying would make a
-# plain find read nothing and report a pass.
+# find -L, because in link mode every skill directory is a link, where a plain
+# find reads nothing and reports a pass.
 # ===========================================================================
 
 step "Final check. Every reference in a placed skill resolves"
@@ -908,11 +1084,16 @@ while IFS= read -r name; do
 done < "$WORK/skills-place" > "$WORK/installed-files"
 : > "$WORK/misses"
 
+# Each scan reads bytes, not characters, and binary files as text. Link mode
+# shows the checkout's own files, a Finder .DS_Store among them, and under a
+# UTF-8 locale macOS sed aborts on one, so the check would read nothing after
+# it and pass. The locale is set inside each scan, not for the machine check.
+
 # A ~/.flow-factory/<path> reference. Trailing sentence punctuation is dropped.
 while IFS= read -r ref; do
     [ -e "$HOME/.flow-factory/${ref#\~/.flow-factory/}" ] \
         || printf 'machine file not installed: %s\n' "$ref" >> "$WORK/misses"
-done < <(xargs -0 grep -hoE '~/\.flow-factory/[A-Za-z0-9._/-]+' < "$WORK/installed-files" \
+done < <(export LC_ALL=C; xargs -0 grep -ahoE '~/\.flow-factory/[A-Za-z0-9._/-]+' < "$WORK/installed-files" \
     | sed 's/[.,)]$//' | sort -u)
 
 # A flow-<name> reference, with or without the leading slash: skills and docs
@@ -926,8 +1107,8 @@ done < <(xargs -0 grep -hoE '~/\.flow-factory/[A-Za-z0-9._/-]+' < "$WORK/install
 while IFS= read -r name; do
     ships "$name" && [ -d "$SKILLS_DIR/$name" ] \
         || printf 'skill referenced but not installed: %s\n' "$name" >> "$WORK/misses"
-done < <(xargs -0 sed 's/^/ /' < "$WORK/installed-files" \
-    | grep -oE '[^A-Za-z0-9._-]flow-[a-z0-9-]+([.][A-Za-z0-9]+)?' \
+done < <(export LC_ALL=C; xargs -0 sed 's/^/ /' < "$WORK/installed-files" \
+    | grep -aoE '[^A-Za-z0-9._-]flow-[a-z0-9-]+([.][A-Za-z0-9]+)?' \
     | grep -v '\.' | sed 's|^.||' | sort -u)
 
 if [ -s "$WORK/misses" ]; then
