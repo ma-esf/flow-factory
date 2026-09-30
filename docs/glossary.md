@@ -37,6 +37,10 @@ term used in only one file.
 ## Factory terms
 
 - **Flow Factory** (FF) - the packaged product.
+- **Install** - the machine half of setting up the factory: `./install`
+  places the skills and contracts.
+- **Init** - the project half: fitting one project, with `/flow-init` or
+  `./install --init`.
 - **MVP** - one numbered release of the factory, useful to an engineer on its
   own. MVP 1 is the first.
 - **Project agnostic** - carries no assumption about the project it runs in.
