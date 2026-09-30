@@ -257,6 +257,7 @@ GH_LOSES="/flow-close-out, /flow-comments-review, /flow-new-github-issue, /flow-
 # that drops packets fails a check instead of hanging it. The reason is said
 # before the kill, which wakes the caller. The sleep holds no output, or a
 # caller's $(...) would wait for it, and dies with the watcher.
+NO_ANSWER="no answer in 10 seconds"
 bounded() {
     local pid watcher rc=0
     "$@" &
@@ -267,11 +268,13 @@ bounded() {
         sleep 10 >/dev/null 2>&1 &
         s=$!
         wait "$s"
-        say "no answer in 10 seconds" >&2
+        say "$NO_ANSWER" >&2
         kill "$pid" 2>/dev/null
     ) &
     watcher=$!
-    wait "$pid" || rc=$?
+    # bash 3.2 says on stderr that a killed command was killed, which would
+    # take the place of the reason. The command's own stderr is not wait's.
+    wait "$pid" 2>/dev/null || rc=$?
     kill "$watcher" 2>/dev/null || true
     wait "$watcher" 2>/dev/null || true
     return "$rc"
@@ -937,6 +940,267 @@ if [ -s "$WORK/skills-place" ]; then
 else
     say "  no skill was placed by this run, so there was nothing to check"
 fi
+
+# ===========================================================================
+# The machine check: what the skills need from this machine
+#
+# One line per gap, in a fixed order: what is missing, the skills that lose
+# and how, and the fix where there is one. A gap never stops the install,
+# and a check that another gap rules out is named in that gap's line. Every
+# call that can wait on a network, a dialog or a startup file is bounded,
+# and none reads stdin. A permission or a login is checked here; the
+# installer grants neither.
+#
+# The Claude Code features the skills use have no probe but the version, and
+# no minimum version has been measured, so the version is shown, not judged.
+# ===========================================================================
+
+step "Check this machine"
+
+CONDUCTOR_LOSES="/flow-conductor stops at its dispatch probes"
+WRONG_BASE="/flow-comments-review and /flow-pr-summary diff against the default branch, not the pull request's base"
+
+: > "$WORK/gaps"; : > "$WORK/passed"
+GAPS=0
+# A check that passed, named, and one that found gap $1. A note is neither:
+# a check not run, for a reason that is no gap.
+passed() { printf '%s\n' "$1" >> "$WORK/passed"; }
+gap()    { GAPS=$((GAPS + 1)); printf '  %s\n' "$1" >> "$WORK/gaps"; }
+note()   { printf '  %s\n' "$1" >> "$WORK/gaps"; }
+has()    { command -v "$1" >/dev/null 2>&1; }
+# The last line of file $1 that is not empty.
+reason() { grep . "$1" | tail -n 1 || true; }
+
+# A probe that can wait on a network, a dialog or a startup file, and needs
+# no other probe's answer, runs in the background, so the waits overlap.
+# Probe $1 leaves its exit code, stdout and stderr in $WORK/$1.rc, .out and
+# .why.
+PROBES=""
+start_probe() {
+    local name=$1
+    shift
+    ( rc=0; bounded "$@" >"$WORK/$name.out" 2>"$WORK/$name.why" || rc=$?; echo "$rc" > "$WORK/$name.rc" ) &
+    PROBES="$PROBES $!"
+}
+probe_passed() { [ -f "$WORK/$1.rc" ] && [ "$(cat "$WORK/$1.rc")" = 0 ]; }
+
+! has claude || start_probe claude-version claude --version
+# gh talks to api.github.com, and git to github.com. An HTTP error fails, so
+# a proxy's block page is no answer. /rate_limit costs no rate limit, and
+# has no HEAD.
+if has curl; then
+    start_probe web curl -fsSI -o /dev/null --connect-timeout 5 https://github.com
+    start_probe api curl -fsS -o /dev/null --connect-timeout 5 https://api.github.com/rate_limit
+fi
+
+# Dispatch probes 1 and 3 of ~/.flow-factory/dispatch-prerequisites.md, which
+# /flow-conductor runs before its first dispatch. 4 and 2 follow in their
+# own places below.
+MISSING=""
+for tool in osascript defaults; do has "$tool" || MISSING="$MISSING $tool"; done
+case $MISSING in
+    "") passed "osascript and defaults" ;;
+    " defaults") gap "defaults is not installed, so claude in a new pane is not checked: $CONDUCTOR_LOSES" ;;
+    " osascript") gap "osascript is not installed, so iTerm2, the Automation permission and claude in a new pane are not checked: $CONDUCTOR_LOSES" ;;
+    *) gap "osascript and defaults are not installed, so iTerm2, the Automation permission and claude in a new pane are not checked: $CONDUCTOR_LOSES" ;;
+esac
+ITERM=""
+if has osascript; then
+    if bounded osascript -e 'id of application id "com.googlecode.iterm2"' >/dev/null 2>"$WORK/iterm.why"; then
+        ITERM=yes
+        passed iTerm2
+    elif grep -qF "(-1728)" "$WORK/iterm.why"; then
+        gap "iTerm2 is not installed, so the Automation permission and claude in a new pane are not checked: $CONDUCTOR_LOSES. Fix: brew install --cask iterm2"
+    else
+        WHY=$(reason "$WORK/iterm.why")
+        gap "osascript cannot say whether iTerm2 is installed, ${WHY:-osascript failed}, so the Automation permission and claude in a new pane are not checked: $CONDUCTOR_LOSES"
+    fi
+fi
+if [ -z "${TMUX:-}" ]; then
+    passed "not inside tmux"
+else
+    gap "this shell is inside tmux: $CONDUCTOR_LOSES there"
+fi
+
+# Probe 2, only while iTerm2 is running: the probe would launch it, on every
+# update. The first time, macOS may ask the user in a dialog, which the
+# bound stops the run waiting for. Asking whether it runs sends it nothing.
+RUNNING=""
+if [ -n "$ITERM" ]; then
+    if ! bounded osascript -e 'application id "com.googlecode.iterm2" is running' >"$WORK/running" 2>"$WORK/running.why"; then
+        RUNNING=unknown
+    elif [ "$(cat "$WORK/running")" = true ]; then
+        RUNNING=yes
+        start_probe automation osascript -e 'tell application id "com.googlecode.iterm2" to count windows'
+    fi
+fi
+# Probe 4 runs the shell a new iTerm2 pane runs, with nothing inherited, and
+# reads the profile as dispatch-prerequisites.md does. A profile running
+# anything else is probed with that command's flags, which only its owner
+# knows. script gives the shell a terminal of its own, since an interactive
+# shell takes over its terminal's foreground and one killed on the bound
+# would leave it there. Killing script hangs up the shell and its children.
+PANE=""
+if [ -n "$ITERM" ] && has defaults; then
+    case $(defaults read com.googlecode.iterm2 "New Bookmarks" 2>/dev/null | grep -m1 '"Custom Command"' || true) in
+        ""|*"= No;"*) PANE=login ;;
+        *) PANE=custom ;;
+    esac
+fi
+[ "$PANE" != login ] || [ -z "${SHELL:-}" ] \
+    || start_probe login-shell \
+        script -q /dev/null env -i HOME="$HOME" TERM=xterm "$SHELL" -lic 'command -v claude'
+# One process id per word.
+wait $PROBES
+
+if ! has claude; then
+    say "  claude is not on this shell's PATH, so its version is not shown"
+elif probe_passed claude-version; then
+    say "  claude --version: $(head -n 1 "$WORK/claude-version.out"), with no minimum version checked"
+else
+    WHY=$(reason "$WORK/claude-version.why")
+    say "  claude --version failed${WHY:+, $WHY}"
+fi
+
+if has pbcopy; then
+    passed pbcopy
+else
+    gap "pbcopy is not installed: the copy option in /flow-pr-summary and /flow-ship-ticket errors"
+fi
+
+if has gh; then
+    passed gh
+else
+    gap "gh is not installed, so its login is not checked: /flow-close-out, /flow-new-github-issue, /flow-ship-ticket and /flow-stakeholder-update error, and $WRONG_BASE. Fix: brew install gh"
+fi
+
+if has lsof; then
+    passed lsof
+else
+    LOSES="/flow-run-app reads every port as free, and so does /flow-verify-delivery through it, and /flow-worktree-close errors"
+    if [ -x /usr/sbin/lsof ]; then
+        gap "lsof is not on PATH: $LOSES. Fix: add /usr/sbin to PATH"
+    else
+        gap "lsof is not installed: $LOSES"
+    fi
+fi
+
+if has curl; then
+    passed curl
+elif has gh; then
+    gap "curl is not installed, so the network to GitHub and the gh login are not checked: /flow-verify-delivery errors. Fix: brew install curl"
+else
+    gap "curl is not installed, so the network to GitHub is not checked: /flow-verify-delivery errors. Fix: brew install curl"
+fi
+
+if PROBE=$(mktemp /tmp/flow-factory-check.XXXXXX 2>/dev/null); then
+    rm -f -- "$PROBE"
+    passed "mktemp and /tmp"
+else
+    gap "mktemp cannot make a file in /tmp: /flow-pr-summary and /flow-verify-delivery error"
+fi
+
+# In the skills directory, followed if it is a link, or in a plugin installed
+# for every project. An install for one project serves only that one, and
+# marketplaces/ is never read: it holds every plugin a catalog offers,
+# installed or not. The record is read one key per line, as Claude Code
+# writes it, so a record in another layout finds nothing and reports a gap.
+skill_creator_plugin() {
+    local path
+    [ -f "$HOME/.claude/plugins/installed_plugins.json" ] || return 1
+    while IFS= read -r path; do
+        [ ! -f "$path/skills/skill-creator/SKILL.md" ] || return 0
+    done < <(awk '
+        /"scope"[[:space:]]*:/ { user = ($0 ~ /:[[:space:]]*"user"/) }
+        /"installPath"[[:space:]]*:/ {
+            path = $0
+            sub(/.*"installPath"[[:space:]]*:[[:space:]]*"/, "", path)
+            sub(/".*/, "", path)
+        }
+        /}/ { if (user && path != "") print path; user = 0; path = "" }
+    ' "$HOME/.claude/plugins/installed_plugins.json")
+    return 1
+}
+if [ -f "$SKILLS_DIR/skill-creator/SKILL.md" ] || skill_creator_plugin; then
+    passed skill-creator
+else
+    gap "skill-creator is not installed: /flow-fix-agent-behavior errors at its handoff. Fix: claude plugin install skill-creator@claude-plugins-official"
+fi
+
+case $PANE in
+    login)
+        if [ -z "${SHELL:-}" ]; then
+            note "not checked: claude in a new pane, because SHELL is not set"
+        elif probe_passed login-shell; then
+            passed "claude in a new pane"
+        elif grep -qxF "$NO_ANSWER" "$WORK/login-shell.why"; then
+            note "not checked: claude in a new pane, because the login shell gave $NO_ANSWER"
+        else
+            gap "claude is not on PATH in the login shell a new iTerm2 pane runs: $CONDUCTOR_LOSES"
+        fi ;;
+    custom)
+        note "not checked: claude in a new pane, because the iTerm2 profile runs a custom command. ~/.flow-factory/dispatch-prerequisites.md says how to probe it" ;;
+esac
+
+# gh auth status fails offline too, so the login is asked about only once
+# GitHub has answered, and only for the account gh uses on github.com, the
+# host that answered: an account failing elsewhere is not this check's gap.
+# A project on another host has its login checked by --check. A gh from
+# before accounts, with no --active, is asked without it.
+gh_login() {
+    bounded gh auth status --active --hostname github.com >/dev/null 2>"$WORK/gh.why" && return 0
+    grep -qF "unknown flag: --active" "$WORK/gh.why" || return 1
+    bounded gh auth status --hostname github.com >/dev/null 2>"$WORK/gh.why"
+}
+NET=""
+if has curl; then
+    NET=yes
+    for probe in web api; do
+        probe_passed "$probe" || { NET=no; WHY=$(reason "$WORK/$probe.why"); break; }
+    done
+fi
+if has gh && [ "$NET" = yes ]; then
+    if gh_login; then
+        passed "the gh login"
+    elif grep -qxF "$NO_ANSWER" "$WORK/gh.why"; then
+        note "not checked: the gh login, because gh auth status gave $NO_ANSWER"
+    else
+        gap "gh is not logged in to github.com: for a project there, /flow-new-github-issue stops, /flow-close-out, /flow-ship-ticket and /flow-stakeholder-update error, and $WRONG_BASE. Fix: gh auth login"
+    fi
+fi
+case $NET in
+    yes) passed "the network to GitHub" ;;
+    no)
+        SKIP=""
+        ! has gh || SKIP=", so the gh login is not checked"
+        gap "GitHub cannot be reached, ${WHY:-curl failed}$SKIP: for a project there, $NETWORK_LOSES" ;;
+esac
+
+if [ "$RUNNING" = unknown ]; then
+    WHY=$(reason "$WORK/running.why")
+    note "not checked: the Automation permission, because osascript cannot say whether iTerm2 is running, ${WHY:-osascript failed}"
+elif [ -n "$ITERM" ] && [ -z "$RUNNING" ]; then
+    note "not checked: the Automation permission, because iTerm2 is not running, and the check does not start it"
+elif [ -n "$ITERM" ]; then
+    if probe_passed automation; then
+        passed "the Automation permission"
+    else
+        WHY=$(reason "$WORK/automation.why")
+        FIX="grant it in System Settings, Privacy & Security, Automation"
+        [ "$WHY" != "$NO_ANSWER" ] || FIX="answer the macOS dialog if one is open, or $FIX"
+        gap "this terminal has no Automation permission for iTerm2, ${WHY:-osascript failed}: $CONDUCTOR_LOSES. Fix: $FIX"
+    fi
+fi
+
+RAN=$(( $(grep -c . "$WORK/passed" || true) + GAPS ))
+if [ "$GAPS" -eq 0 ]; then
+    say "  no gaps in $RAN checks: $(paste -s -d , "$WORK/passed" | sed 's/,/, /g')"
+elif [ "$GAPS" -eq 1 ]; then
+    say "  1 gap in $RAN checks:"
+else
+    say "  $GAPS gaps in $RAN checks:"
+fi
+cat "$WORK/gaps"
 
 say ""
 say "Install complete."

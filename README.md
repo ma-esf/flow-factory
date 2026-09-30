@@ -18,8 +18,8 @@ stages.
 - **git.** Both this checkout and the project you install into have to be git
   repositories, and the project needs at least one commit.
 
-The installer does not check three more, and the skills that ship work need
-all of them:
+The skills that ship work need three more. `./install` reports the first in
+its last step, `./install --check` the second, and nothing checks the third:
 
 - **`gh`, installed and authenticated.** `/flow-close-out` reads it as the
   proof that a pull request merged, and `/flow-new-github-issue` cannot run
@@ -31,7 +31,8 @@ all of them:
 
 One skill needs more than that. `/flow-conductor` launches a session per ticket
 by driving iTerm2, so it needs iTerm2 installed and macOS Automation permission
-granted to the terminal the agent runs in.
+granted to the terminal the agent runs in. `./install` checks both, the
+permission only while iTerm2 is running.
 `machine/dispatch-prerequisites.md` holds the probes and what each failure
 looks like.
 
