@@ -75,12 +75,6 @@ On approval, and only then:
 
 Never implement a fix the user did not approve, even one you are confident about.
 
-## Log the run
-
-After the change is applied, or after you and the user conclude no fix is warranted, append a short dated entry to `~/.claude/agent-behavior-log.md`: what happened, the root-cause class (gap / ignored-instruction / no-structural-fix), what changed (file + lever) and why, and the scope. No-fix outcomes are worth logging too; the pattern is the point.
-
-This is a private pattern-tracking journal. It is deliberately **not** referenced from any CLAUDE.md / AGENTS.md / memory, so no agent auto-loads it. Writing here during this skill's own run is fine, since the skill only executes when invoked. Create the file with a `# Agent behavior log` header if it is missing; put new entries at the top of the entry list (newest first), directly below the intro.
-
 ## Pushback: when there is no config fix
 
 "No structural fix" is still a useful answer, but only if you say *why* and point to the real remedy. Do not just decline. Name which of these it is:
