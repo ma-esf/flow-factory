@@ -26,6 +26,9 @@ export GIT_CONFIG_COUNT=${#NETWORK[@]}
 for i in "${!NETWORK[@]}"; do
     export "GIT_CONFIG_KEY_$i=url.$SCRATCH/no-network/.insteadOf" "GIT_CONFIG_VALUE_$i=${NETWORK[$i]}"
 done
+# An update is taken without asking unless a case clears this, as in
+# tests/install.sh.
+export FLOW_FACTORY_UPDATE=yes
 GIT_ID=(-c user.name=test -c user.email=test@example.invalid)
 CLAUDE_ONLY='AskUserQuestion|EnterWorktree|ExitWorktree|CLAUDE_CODE_SESSION_ID|~/\.claude/|claude -n|/code-review|Agent tool'
 
@@ -230,6 +233,27 @@ case_update_removes_a_withdrawn_skill() {
     expect_line "removed flow-release, no longer shipped"
     [ ! -e "$h/.copilot/skills/flow-release" ] || fail "the withdrawn skill is still there"
     ! grep -qF "/flow-release/" "$h/.flow-factory-copilot/install-record.txt" || fail "still recorded"
+}
+
+# With no terminal and no FLOW_FACTORY_UPDATE=yes, an update is shown and left
+# where it is, and the checkout is installed as it stands.
+case_update_without_a_terminal_is_shown_and_not_taken() {
+    local f h before o="$SCRATCH/$CASE/origin"
+    f=$(copy_factory)
+    h=$(new_home)
+    run_install "$h" "$f"
+    expect_status 0
+    mkdir -p "$o/skills/flow-release"
+    printf 'Cut a release.\n' > "$o/skills/flow-release/SKILL.md"
+    commit_origin "ship flow-release"
+    before=$(git -C "$f" rev-parse HEAD)
+    FLOW_FACTORY_UPDATE='' run_install "$h" "$f"
+    expect_status 0
+    expect_line "ship flow-release"
+    expect_line "not pulled: there is no terminal to ask at"
+    expect_line "run this command again in a terminal"
+    [ "$(git -C "$f" rev-parse HEAD)" = "$before" ] || fail "the checkout moved"
+    [ ! -e "$h/.copilot/skills/flow-release" ] || fail "the update's skill was placed"
 }
 
 case_unrecorded_skill_is_left_alone() {

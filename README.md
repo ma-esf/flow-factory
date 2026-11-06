@@ -44,7 +44,7 @@ These are machine-wide installs; you do not copy the factory into each project.
 
 The Copilot installer respects `COPILOT_HOME` when set. In VS Code, turn on `chat.useAgentSkills`. Both installs can coexist.
 
-Rerun your chosen installer from the factory checkout to update. It attempts a fast-forward pull before refreshing the installed files.
+Rerun your chosen installer from the factory checkout to update. It lists the incoming commits and asks before pulling. Without a terminal, it updates only when `FLOW_FACTORY_UPDATE=yes` is set.
 
 ### Fit a project
 
