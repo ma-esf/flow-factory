@@ -10,8 +10,9 @@
 # Run it from a checkout of the factory. It builds each skill from skills/,
 # with the Copilot rewrite in copilot/ taking the place of any file it ports,
 # copies the skills into ~/.copilot/skills/ (or $COPILOT_HOME/skills/) and the
-# contracts into ~/.flow-factory-copilot/, and asks nothing. Run it again to
-# update: it pulls the checkout first.
+# contracts into ~/.flow-factory-copilot/. Run it again to update: it shows
+# what the update brings and asks before it pulls. The update is the only
+# question it asks.
 #
 # It never writes where ./install does, so the Claude Code and the Copilot
 # install can sit on one machine. --init fits a project exactly as
@@ -124,11 +125,16 @@ if [ "$MODE" != machine ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# The update, as in ./install: fast-forward only, and a pull that moved HEAD
-# hands over to the pulled installer.
+# The update, as in ./install: fetch, show what the update brings, ask, then
+# take the exact commit shown, fast-forward only. A merge that moved HEAD hands
+# over to the new installer.
 # ---------------------------------------------------------------------------
+pull_failed() {
+    say "  the pull failed, so the checkout is installed as it stands:"
+    printf '%s\n' "$1" | sed 's/^/    /'
+}
 update_checkout() {
-    local before from rc=0 msg
+    local before from upstream sha n answer rc=0 msg
     # A factory copied into another repository has no checkout of its own,
     # and a pull there would move that repository.
     if [ "$(git -C "$FACTORY_ROOT" rev-parse --show-toplevel 2>/dev/null || true)" \
@@ -138,18 +144,50 @@ update_checkout() {
     fi
     before=$(git -C "$FACTORY_ROOT" rev-parse -q --verify HEAD || true)
     from=$(git -C "$FACTORY_ROOT" describe --tags --always 2>/dev/null || true)
-    msg=$(GIT_TERMINAL_PROMPT=0 git -C "$FACTORY_ROOT" pull --ff-only --no-rebase -q 2>&1) || rc=$?
+    upstream=$(git -C "$FACTORY_ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>&1) \
+        || { pull_failed "$upstream"; return 0; }
+    msg=$(GIT_TERMINAL_PROMPT=0 git -C "$FACTORY_ROOT" fetch -q 2>&1) \
+        || { pull_failed "$msg"; return 0; }
+    sha=$(git -C "$FACTORY_ROOT" rev-parse -q --verify '@{u}^{commit}') \
+        || { pull_failed "$upstream is gone after the fetch"; return 0; }
+    n=$(git -C "$FACTORY_ROOT" rev-list --count "HEAD..$sha")
+    if [ "$n" -eq 0 ]; then
+        say "  the checkout is up to date"
+        return 0
+    fi
+    git -C "$FACTORY_ROOT" merge-base --is-ancestor HEAD "$sha" \
+        || { pull_failed "the checkout has commits $upstream does not, so it cannot fast-forward"; return 0; }
+
+    say "  $upstream is $n commit(s) ahead of this checkout:"
+    git -C "$FACTORY_ROOT" log --oneline --no-decorate "HEAD..$sha" | sed 's/^/    /'
+    git -C "$FACTORY_ROOT" diff --stat HEAD "$sha" | sed 's/^/    /'
+    say "  The whole change: git -C ${FACTORY_ROOT/#$HOME/$TILDE} diff HEAD $(git -C "$FACTORY_ROOT" rev-parse --short "$sha")"
+    if [ "${FLOW_FACTORY_UPDATE:-}" = yes ]; then
+        say "  taken without asking: FLOW_FACTORY_UPDATE=yes"
+        answer=y
+    elif [ -t 0 ]; then
+        printf '  Install this update? [y/N] '
+        read -r answer || answer=""
+    else
+        say "  not pulled: there is no terminal to ask at, so the checkout is installed as it stands."
+        say "  To take the update, run this command again in a terminal, or set FLOW_FACTORY_UPDATE=yes."
+        return 0
+    fi
+    case $answer in
+        [yY]|[yY][eE][sS]) ;;
+        *) say "  not pulled: the update was declined, so the checkout is installed as it stands"
+           return 0 ;;
+    esac
+
+    msg=$(git -C "$FACTORY_ROOT" merge --ff-only -q "$sha" 2>&1) || rc=$?
     if [ "$(git -C "$FACTORY_ROOT" rev-parse -q --verify HEAD || true)" != "$before" ]; then
         say "  pulled $from to $(git -C "$FACTORY_ROOT" describe --tags --always)"
         [ "$rc" -eq 0 ] || printf '%s\n' "$msg" | sed 's/^/    /'
         [ -f "$FACTORY_ROOT/install-copilot" ] \
             || fail "the pull left no install-copilot in $FACTORY_ROOT, so nothing was installed"
         FLOW_FACTORY_PULLED=1 exec "$BASH" "$FACTORY_ROOT/install-copilot" "$@"
-    elif [ "$rc" -eq 0 ]; then
-        say "  the checkout is up to date"
     else
-        say "  the pull failed, so the checkout is installed as it stands:"
-        printf '%s\n' "$msg" | sed 's/^/    /'
+        pull_failed "$msg"
     fi
 }
 if [ -z "${FLOW_FACTORY_PULLED:-}" ]; then

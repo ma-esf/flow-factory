@@ -44,8 +44,8 @@ Clone this repository. Then run the installer from the checkout:
 ./install
 ```
 
-It asks nothing. Before it writes outside the checkout, it names the only two
-places it writes there:
+A first install asks nothing. Before it writes outside the checkout, it names
+the only two places it writes there:
 
 - `~/.claude/skills/flow-*`, one directory per skill.
 - `~/.flow-factory/`, the tracker and settings contracts, the file templates
@@ -57,10 +57,15 @@ where it would place a copy stops it before it writes outside the checkout:
 `./install --link`, for the machine that builds the factory, places links into
 the checkout instead.
 
-Run it again to update. It pulls the checkout, fast-forward only, runs the
-installer that pull brought, and removes every file it placed that the
-factory no longer ships. A pull that fails leaves the checkout as it stands,
-and that is what it installs.
+Run it again to update. It fetches the checkout's upstream, lists the commits
+and files an update would bring, and asks `Install this update? [y/N]`. On a
+yes it pulls exactly what it showed, fast-forward only, runs the installer
+that pull brought, and removes every file it placed that the factory no longer
+ships. On a no, or a pull that fails, the checkout stays as it stands, and
+that is what it installs.
+
+Run without a terminal, it shows the update and does not take it. Set
+`FLOW_FACTORY_UPDATE=yes` to take an update without being asked.
 
 Nothing else is installed. No service, no database, no state shared between
 projects.

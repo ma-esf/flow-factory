@@ -46,6 +46,10 @@ for tool in osascript defaults curl claude login-shell; do
 done
 export PATH="$SCRATCH/no-machine:$PATH" SHELL="$SCRATCH/no-machine/login-shell"
 unset TMUX
+# An update that would ask at a terminal is taken without asking, so a case
+# that brings one tests what the update places. A case about the question
+# clears it.
+export FLOW_FACTORY_UPDATE=yes
 GIT_ID=(-c user.name=test -c user.email=test@example.invalid)
 
 CASE=""
@@ -89,6 +93,23 @@ run_install() {
     STATUS=0
     HOME="$h" "$factory/install" "$@" </dev/null >"$OUT" 2>&1 || STATUS=$?
     [ -n "${PULL_MAY_FAIL:-}" ] || ! grep -qF "$PULL_FAILED" "$OUT" || fail "the pull failed. Output:
+$(cat "$OUT")"
+}
+
+# Run ./install from checkout $2 under HOME $1 at a terminal, with update
+# approval cleared, and answer its question with $3. BSD script gives the run a
+# terminal. The answer waits a second so it lands after the run starts, and
+# stdin stays open two more, because script turns its end into an EOF that a
+# read could take first.
+run_install_at_terminal() {
+    local h=$1 factory=$2 answer=$3
+    RUNS=$((RUNS + 1))
+    OUT="$SCRATCH/$CASE/out.$RUNS"
+    STATUS=0
+    { sleep 1; printf '%s\n' "$answer"; sleep 2; } \
+        | FLOW_FACTORY_UPDATE='' HOME="$h" script -q /dev/null "$factory/install" 2>&1 \
+        | tr -d '\r' >"$OUT" || STATUS=$?
+    ! grep -qF "$PULL_FAILED" "$OUT" || fail "the pull failed. Output:
 $(cat "$OUT")"
 }
 
@@ -885,13 +906,14 @@ case_update_runs_the_pulled_installer_once() {
     change_origin_installer
     run_install "$h" "$factory"
     expect_status 0
+    expect_line "taken without asking: FLOW_FACTORY_UPDATE=yes"
     expect_line "Install complete, by the pulled installer."
     [ "$(grep -c '^== Update the checkout' "$OUT")" -eq 1 ] || fail "the run pulled more than once. Output:
 $(cat "$OUT")"
 }
 
-# A pull can land and still exit non-zero, in a hook. The tree is new, so the
-# new installer must place it.
+# The merge that takes an update can land and still exit non-zero, in a hook.
+# The tree is new, so the new installer must place it.
 case_update_hands_over_after_a_pull_that_lands_and_fails() {
     local h factory bin
     h=$(new_home)
@@ -901,11 +923,72 @@ case_update_hands_over_after_a_pull_that_lands_and_fails() {
     change_origin_installer
     bin="$SCRATCH/$CASE/bin"
     mkdir -p "$bin"
-    printf '#!/bin/sh\n"%s" "$@" || exit\ncase " $* " in *" pull "*) exit 1 ;; esac\n' "$(command -v git)" > "$bin/git"
+    printf '#!/bin/sh\n"%s" "$@" || exit\ncase " $* " in *" merge "*) exit 1 ;; esac\n' "$(command -v git)" > "$bin/git"
     chmod +x "$bin/git"
     PATH="$bin:$PATH" run_install "$h" "$factory"
     expect_status 0
     expect_line "Install complete, by the pulled installer."
+}
+
+# With no terminal and no FLOW_FACTORY_UPDATE=yes, an update is shown and left
+# where it is, and the checkout is installed as it stands. A second run must
+# not take it either: the checkout never moved, so it is shown again.
+case_update_without_a_terminal_is_shown_and_not_taken() {
+    local h factory before
+    h=$(new_home)
+    factory=$(copy_factory)
+    run_install "$h" "$factory"
+    expect_status 0
+    change_origin_installer
+    before=$(git -C "$factory" rev-parse HEAD)
+    FLOW_FACTORY_UPDATE='' run_install "$h" "$factory"
+    expect_status 0
+    expect_line "1 commit(s) ahead of this checkout:"
+    expect_line "change the installer"
+    expect_line "not pulled: there is no terminal to ask at"
+    expect_line "Install complete."
+    refuse_line "pulled installer"
+    [ "$(git -C "$factory" rev-parse HEAD)" = "$before" ] || fail "the checkout moved"
+    FLOW_FACTORY_UPDATE='' run_install "$h" "$factory"
+    expect_status 0
+    expect_line "not pulled: there is no terminal to ask at"
+    [ "$(git -C "$factory" rev-parse HEAD)" = "$before" ] || fail "the second run moved the checkout"
+}
+
+# At a terminal the update is asked about, and a no leaves the checkout where it
+# was and installs it as it stands.
+case_update_declined_at_a_terminal_is_not_taken() {
+    local h factory before
+    h=$(new_home)
+    factory=$(copy_factory)
+    run_install "$h" "$factory"
+    expect_status 0
+    change_origin_installer
+    before=$(git -C "$factory" rev-parse HEAD)
+    run_install_at_terminal "$h" "$factory" n
+    expect_status 0
+    expect_line "Install this update? [y/N]"
+    expect_line "not pulled: the update was declined"
+    expect_line "Install complete."
+    refuse_line "pulled installer"
+    [ "$(git -C "$factory" rev-parse HEAD)" = "$before" ] || fail "the checkout moved"
+}
+
+# A yes at the terminal takes the update and hands over to the new installer.
+case_update_approved_at_a_terminal_is_taken() {
+    local h factory
+    h=$(new_home)
+    factory=$(copy_factory)
+    run_install "$h" "$factory"
+    expect_status 0
+    change_origin_installer
+    run_install_at_terminal "$h" "$factory" y
+    expect_status 0
+    expect_line "Install this update? [y/N]"
+    expect_line "pulled "
+    expect_line "Install complete, by the pulled installer."
+    [ "$(git -C "$factory" rev-parse HEAD)" = "$(git -C "$SCRATCH/$CASE/origin" rev-parse HEAD)" ] \
+        || fail "the checkout is not at the origin's commit"
 }
 
 case_update_leaves_a_recorded_project_alone() {

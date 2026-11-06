@@ -8,8 +8,9 @@
 #   ./install --check <project root> <answers file>
 #
 # Run it from a checkout of the factory. It copies the skills into
-# ~/.claude/skills/ and the contracts into ~/.flow-factory/, and asks nothing.
-# Run it again to update: it pulls the checkout first.
+# ~/.claude/skills/ and the contracts into ~/.flow-factory/. Run it again to
+# update: it shows what the update brings and asks before it pulls. The update
+# is the only question it asks.
 #
 # --link is for the machine that builds the factory: it places links into this
 # checkout instead of copies, so a skill edited here is the one that runs.
@@ -153,18 +154,29 @@ done
 # The update
 #
 # A second ./install is how a machine takes a new factory version, so machine
-# mode pulls first. Fast-forward only, so it never makes a merge commit. A
-# pull that cannot, on a diverged or detached checkout or one with no
-# upstream, leaves the files as they are, so it does not stop the install.
+# mode looks for one first. The update is code this run goes on to execute, so
+# it fetches, shows the commits and files the update brings, and asks before it
+# takes them. It takes the exact commit it showed, fast-forward only, so it
+# never makes a merge commit and never runs code nobody was shown. With no
+# terminal to ask at, only FLOW_FACTORY_UPDATE=yes, set ahead of time, takes
+# it.
 #
-# bash goes on running the text it started with after the pull replaces this
-# file, so a pull that moved HEAD hands over to the pulled installer, with the
+# An update that is declined, or that cannot be taken on a diverged or
+# detached checkout or one with no upstream, leaves the files as they are, so
+# it does not stop the install: the checkout is installed as it stands.
+#
+# bash goes on running the text it started with after the merge replaces this
+# file, so a merge that moved HEAD hands over to the new installer, with the
 # arguments this run was given.
-# FLOW_FACTORY_PULLED keeps that run from pulling again. A stop in that run
+# FLOW_FACTORY_PULLED keeps that run from looking again. A stop in that run
 # leaves the checkout pulled and HOME as it was.
 # ---------------------------------------------------------------------------
+pull_failed() {
+    say "  the pull failed, so the checkout is installed as it stands:"
+    printf '%s\n' "$1" | sed 's/^/    /'
+}
 update_checkout() {
-    local before from rc=0 msg
+    local before from upstream sha n answer rc=0 msg
     # A factory copied into another repository has no checkout of its own,
     # and a pull there would move that repository.
     if [ "$(git -C "$FACTORY_ROOT" rev-parse --show-toplevel 2>/dev/null || true)" \
@@ -174,9 +186,46 @@ update_checkout() {
     fi
     before=$(git -C "$FACTORY_ROOT" rev-parse -q --verify HEAD || true)
     from=$(git -C "$FACTORY_ROOT" describe --tags --always 2>/dev/null || true)
-    # --no-rebase, because before git 2.34 pull.rebase overrides --ff-only.
-    msg=$(GIT_TERMINAL_PROMPT=0 git -C "$FACTORY_ROOT" pull --ff-only --no-rebase -q 2>&1) || rc=$?
-    # HEAD, not the exit code, says whether the tree changed: a pull can land
+    # A detached checkout, or a branch with no upstream, has nothing to pull.
+    upstream=$(git -C "$FACTORY_ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>&1) \
+        || { pull_failed "$upstream"; return 0; }
+    # With no arguments, fetch reads the remote the upstream lives on.
+    msg=$(GIT_TERMINAL_PROMPT=0 git -C "$FACTORY_ROOT" fetch -q 2>&1) \
+        || { pull_failed "$msg"; return 0; }
+    # The upstream can be gone after the fetch, when fetch.prune drops it.
+    sha=$(git -C "$FACTORY_ROOT" rev-parse -q --verify '@{u}^{commit}') \
+        || { pull_failed "$upstream is gone after the fetch"; return 0; }
+    n=$(git -C "$FACTORY_ROOT" rev-list --count "HEAD..$sha")
+    if [ "$n" -eq 0 ]; then
+        say "  the checkout is up to date"
+        return 0
+    fi
+    git -C "$FACTORY_ROOT" merge-base --is-ancestor HEAD "$sha" \
+        || { pull_failed "the checkout has commits $upstream does not, so it cannot fast-forward"; return 0; }
+
+    say "  $upstream is $n commit(s) ahead of this checkout:"
+    git -C "$FACTORY_ROOT" log --oneline --no-decorate "HEAD..$sha" | sed 's/^/    /'
+    git -C "$FACTORY_ROOT" diff --stat HEAD "$sha" | sed 's/^/    /'
+    say "  The whole change: git -C ${FACTORY_ROOT/#$HOME/$TILDE} diff HEAD $(git -C "$FACTORY_ROOT" rev-parse --short "$sha")"
+    if [ "${FLOW_FACTORY_UPDATE:-}" = yes ]; then
+        say "  taken without asking: FLOW_FACTORY_UPDATE=yes"
+        answer=y
+    elif [ -t 0 ]; then
+        printf '  Install this update? [y/N] '
+        read -r answer || answer=""
+    else
+        say "  not pulled: there is no terminal to ask at, so the checkout is installed as it stands."
+        say "  To take the update, run this command again in a terminal, or set FLOW_FACTORY_UPDATE=yes."
+        return 0
+    fi
+    case $answer in
+        [yY]|[yY][eE][sS]) ;;
+        *) say "  not pulled: the update was declined, so the checkout is installed as it stands"
+           return 0 ;;
+    esac
+
+    msg=$(git -C "$FACTORY_ROOT" merge --ff-only -q "$sha" 2>&1) || rc=$?
+    # HEAD, not the exit code, says whether the tree changed: a merge can land
     # and still fail afterwards, in a hook.
     if [ "$(git -C "$FACTORY_ROOT" rev-parse -q --verify HEAD || true)" != "$before" ]; then
         say "  pulled $from to $(git -C "$FACTORY_ROOT" describe --tags --always)"
@@ -184,11 +233,8 @@ update_checkout() {
         [ -f "$FACTORY_ROOT/install" ] \
             || fail "the pull left no install in $FACTORY_ROOT, so nothing was installed"
         FLOW_FACTORY_PULLED=1 exec "$BASH" "$FACTORY_ROOT/install" "$@"
-    elif [ "$rc" -eq 0 ]; then
-        say "  the checkout is up to date"
     else
-        say "  the pull failed, so the checkout is installed as it stands:"
-        printf '%s\n' "$msg" | sed 's/^/    /'
+        pull_failed "$msg"
     fi
 }
 if [ "$MODE" = machine ] && [ -z "${FLOW_FACTORY_PULLED:-}" ]; then
