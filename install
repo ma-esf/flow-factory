@@ -25,6 +25,9 @@ set -euo pipefail
 # An inherited CDPATH makes cd print the directory, which a $(cd ... && pwd)
 # then captures along with the path.
 unset CDPATH
+# A path shown to the user names $HOME as ~ through ${path/#$HOME/$TILDE}.
+# The ~ sits in a variable because bash 5.2+ expands a literal ~ there.
+TILDE='~'
 
 FACTORY_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 
@@ -65,7 +68,10 @@ if [ $# -gt 0 ]; then
         --link) [ $# -eq 1 ] || fail "$USAGE"; PLACE=link ;;
         --init|--check)
             [ $# -eq 3 ] || fail "$USAGE"
-            MODE=${1#--}; PROJECT_ARG=$2; ANSWERS_ARG=$3 ;;
+            MODE=${1#--}; PROJECT_ARG=$2; ANSWERS_ARG=$3
+            # ./install-copilot fits and checks a project through these
+            # modes, reading and writing the Copilot install's record instead.
+            RECORD=${FLOW_FACTORY_RECORD:-$RECORD} ;;
         *) fail "$USAGE" ;;
     esac
 fi
@@ -108,7 +114,9 @@ factory_stamp() {
 #
 # Claude Code is absent when ~/.claude is absent, not when skills/ is. A user
 # who has never added a skill has the first and not the second.
-[ -d "$HOME/.claude" ] \
+# Fitting or checking a project writes nothing Claude Code reads, so only
+# machine mode needs it.
+[ "$MODE" != machine ] || [ -d "$HOME/.claude" ] \
     || fail "no ~/.claude. Claude Code was not found on this machine."
 command -v git >/dev/null 2>&1 \
     || fail "git is not on PATH. The factory needs git to say which version it placed."
@@ -209,7 +217,13 @@ fi
 # ===========================================================================
 
 TEMPLATE="$FACTORY_ROOT/project/flow-factory.toml"
-README_TEMPLATE="$FACTORY_ROOT/project/.cortex/README.md"
+# ./install-copilot passes its own copy, which names its install's contracts.
+README_TEMPLATE=${FLOW_FACTORY_README_TEMPLATE:-$FACTORY_ROOT/project/.cortex/README.md}
+# Where /flow-worktree-create puts worktrees, below the top level. The Copilot
+# skills use .copilot/worktrees, which ./install-copilot passes.
+WORKTREES_DIR=${FLOW_FACTORY_WORKTREES_DIR:-.claude/worktrees}
+[[ $WORKTREES_DIR =~ ^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$ ]] && [[ ! /$WORKTREES_DIR/ =~ /\.\.?/ ]] \
+    || fail "FLOW_FACTORY_WORKTREES_DIR must be a relative path below the top level, got $WORKTREES_DIR"
 
 # A TOML string in double quotes, holding only the escapes TOML defines.
 # Inside brackets a backslash is literal, so [^"\\] is any character but a
@@ -275,11 +289,11 @@ queue_exclude() {
 # Whether file $1 ends without a newline, which an appended line would join.
 ends_open() { [ -s "$1" ] && [ -n "$(tail -c1 "$1")" ]; }
 
-# Whether top level $1 tracks anything under .claude/worktrees/, where
+# Whether top level $1 tracks anything under $WORKTREES_DIR/, where
 # /flow-worktree-create makes the worktrees. Only this checkout's index
 # counts: a worktree another branch committed is the accident the exclude
 # line prevents.
-worktrees_tracked() { [ -n "$(git -C "$1" ls-files -- .claude/worktrees/)" ]; }
+worktrees_tracked() { [ -n "$(git -C "$1" ls-files -- "$WORKTREES_DIR/")" ]; }
 
 # The skills each gap breaks, and how.
 ORIGIN_LOSES="/flow-close-out, /flow-comments-review, /flow-pr-summary, /flow-worktree-close and /flow-worktree-create error, /flow-status and /flow-reground stop"
@@ -390,7 +404,7 @@ project_gaps() {
 
     # Untracked, it is left to the exclude line --init writes.
     ! worktrees_tracked "$top" \
-        || say ".claude/worktrees/ is tracked: /flow-worktree-create is wrong, git add -A in the main checkout stages each worktree. Fix: git -C \"$top\" rm -r --cached .claude/worktrees/"
+        || say "$WORKTREES_DIR/ is tracked: /flow-worktree-create is wrong, git add -A in the main checkout stages each worktree. Fix: git -C \"$top\" rm -r --cached $WORKTREES_DIR/"
 
     # Whether gh is there and logged in is the machine's gap, not this
     # project's, so it is skipped here and named. The login is checked for
@@ -450,7 +464,7 @@ init_project() {
     local services commands ports branch pattern verb d
 
     [ -f "$RECORD" ] \
-        || fail "the factory is not installed on this machine: no ~/.flow-factory/install-record.txt. Run ./install first."
+        || fail "the factory is not installed on this machine: no ${RECORD/#$HOME/$TILDE}. Run ./install first."
     [ -f "$TEMPLATE" ] && [ -f "$README_TEMPLATE" ] \
         || fail "$FACTORY_ROOT is not a factory checkout: no project/flow-factory.toml or project/.cortex/README.md"
     [ -d "$PROJECT_ARG" ] || fail "no such directory: $PROJECT_ARG"
@@ -557,9 +571,9 @@ init_project() {
     queue_exclude "$root" "$prefix" flow-factory.toml
     # The worktrees sit under the top level whatever the root.
     if worktrees_tracked "$top"; then
-        say "  not excluded: .claude/worktrees/ is tracked, and an exclude line would not untrack it" >> "$WORK/kept"
+        say "  not excluded: $WORKTREES_DIR/ is tracked, and an exclude line would not untrack it" >> "$WORK/kept"
     else
-        say "/.claude/worktrees/" >> "$WORK/patterns"
+        say "/$WORKTREES_DIR/" >> "$WORK/patterns"
     fi
 
     # Name every path written before writing any of them.
@@ -567,7 +581,7 @@ init_project() {
     say "  $SETTINGS"
     say "  $root/.cortex/"
     say "  $exclude"
-    say "  ~/.flow-factory/install-record.txt"
+    say "  ${RECORD/#$HOME/$TILDE}"
 
     step "Write flow-factory.toml"
     if [ -f "$SETTINGS" ] && cmp -s "$WORK/settings" "$SETTINGS"; then
@@ -632,7 +646,7 @@ init_project() {
 
     step "Record the project"
     if grep -qxF -- "project $root" "$RECORD"; then
-        say "  unchanged ~/.flow-factory/install-record.txt, which lists $root"
+        say "  unchanged ${RECORD/#$HOME/$TILDE}, which lists $root"
     else
         PENDING="$RECORD.tmp"
         {
@@ -642,7 +656,7 @@ init_project() {
         } > "$PENDING"
         mv -- "$PENDING" "$RECORD"
         PENDING=""
-        say "  recorded  $root in ~/.flow-factory/install-record.txt"
+        say "  recorded  $root in ${RECORD/#$HOME/$TILDE}"
     fi
 
     step "Check the project"

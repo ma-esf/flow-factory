@@ -6,6 +6,10 @@ slash command to invoke one.
 
 Several skills are useful in more than one stage. Each is listed once.
 
+Under GitHub Copilot (`./install-copilot`) the commands are the same. The
+skills that relied on Claude Code tools have a rewrite in `copilot/`. README,
+"Install for GitHub Copilot", lists what differs.
+
 ## Init
 
 - `/flow-init` - fit this project: read the repository, propose its settings

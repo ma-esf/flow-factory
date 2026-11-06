@@ -73,6 +73,55 @@ list in `~/.claude/settings.json`:
 { "permissions": { "allow": ["Read(~/.flow-factory/**)"] } }
 ```
 
+## Install for GitHub Copilot
+
+The same skills, ported for GitHub Copilot: Copilot CLI and VS Code agent
+mode (with `chat.useAgentSkills` on). Run the Copilot installer from the
+checkout:
+
+```bash
+./install-copilot
+```
+
+It needs macOS and git, as `./install` does, but not Claude Code. It writes
+only two places:
+
+- `~/.copilot/skills/flow-*`, one directory per skill. Set `COPILOT_HOME`
+  to place them under `$COPILOT_HOME/skills/` instead.
+- `~/.flow-factory-copilot/`, the contracts, the templates and this
+  install's own `install-record.txt`.
+
+Each skill is built from `skills/`. Where a file needs a Copilot rewrite,
+the version in `copilot/` takes its place. In the rewritten skills:
+
+- questions go through `ask_user` (CLI) or `askQuestions` (VS Code);
+- subagents run through `task` (CLI) or `runSubagent` (VS Code);
+- review goes through `/review`;
+- the claim marker is generated once per session;
+- worktrees are worked on by path rather than entered.
+
+The installer stops, writing nothing, if a file it would place still names
+a Claude-only tool. It warns when a source has changed since its rewrite
+was made: `copilot/PORTED` records the source each rewrite came from.
+
+Updating, withdrawn skills, and skills it did not place work as they do for
+`./install`. Fit a project with `/flow-init`, or by hand with
+`./install-copilot --init <project root> <answers file>` (`--check` first
+prints its gaps and writes nothing). It writes the same `flow-factory.toml`
+and `.cortex/`, so a project fitted once works under both agents.
+
+Both installs can live on one machine without touching each other's files.
+VS Code also reads `~/.claude/skills`, so with both installed it may list
+each skill twice.
+
+What still differs under Copilot:
+
+- `/flow-conductor` still drives iTerm2, now launching
+  `copilot --name <name> -i "<command>"`. Whether iTerm2 shows that name
+  as the pane title has not been verified.
+- `/flow-worktree-create` no longer shares Claude Code's project memory
+  with the worktree.
+
 ## Fit a project
 
 Once per project, from the factory checkout. Write the settings you know into
@@ -114,7 +163,9 @@ there is to work on.
 | `skills/` | the skill sources | on the machine, once |
 | `machine/` | the tracker rules and the file templates skills write against | on the machine, once |
 | `project/` | the settings file and the pointer file | in each project, once |
+| `copilot/` | the Copilot rewrites of the skill and machine files that need one, and `PORTED` | on the machine, by `./install-copilot` |
 | `install` | the installer | not installed; it does the placing |
-| `tests/` | the installer's regression test | not installed |
+| `install-copilot` | the installer for GitHub Copilot | not installed; it does the placing |
+| `tests/` | the installers' regression tests | not installed |
 | `docs/` | the reference docs | not installed; read them here |
 | `THIRD_PARTY_NOTICES` | the license of the text taken from other projects | not installed |
