@@ -165,4 +165,4 @@ For workflow changes, exercise the affected path in a disposable project and des
 
 ## License and acknowledgments
 
-This repository does not currently include a top-level license. Third-party skill material from [Matt Pocock's skills](https://github.com/mattpocock/skills) carries its own MIT license; see [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) for attribution and terms.
+Flow Factory is released under the [MIT License](LICENSE). Third-party skill material from [Matt Pocock's skills](https://github.com/mattpocock/skills) keeps its own MIT notice; see [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) for attribution and terms.
