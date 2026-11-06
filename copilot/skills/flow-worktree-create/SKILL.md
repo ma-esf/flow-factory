@@ -59,8 +59,8 @@ reports success. Machine first is what prevents that.
    whole branch with every `/` turned into `-`, so `feat/foo` and `fix/foo` get
    different directories.
 
-2. **Create and link.** Fill in the first two lines before running any of it:
-   an unsubstituted `BASE` assigns without error and only fails three lines
+2. **Create and link.** Fill in the first three lines before running any of it:
+   an unsubstituted `BASE` assigns without error and only fails a few lines
    later, naming a ref nobody typed. Run from anywhere inside the repo:
 
    ```bash
@@ -69,9 +69,11 @@ reports success. Machine first is what prevents that.
                                          #    this project's settings, unless the
                                          #    user or the calling skill named a
                                          #    base, then origin/<that branch>
+   DIR=".copilot/worktrees"              # <- worktree.dir from this project's
+                                         #    settings; .copilot/worktrees when unset
    MAIN="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"
    NAME="${BRANCH//\//-}"
-   WT="$MAIN/.copilot/worktrees/$NAME"
+   WT="$MAIN/$DIR/$NAME"
 
    git -C "$MAIN" fetch origin -p
    # --no-track: from a remote-tracking BASE, git makes BASE the upstream, and

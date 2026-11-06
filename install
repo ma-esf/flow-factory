@@ -265,10 +265,12 @@ fi
 TEMPLATE="$FACTORY_ROOT/project/flow-factory.toml"
 # ./install-copilot passes its own copy, which names its install's contracts.
 README_TEMPLATE=${FLOW_FACTORY_README_TEMPLATE:-$FACTORY_ROOT/project/.cortex/README.md}
-# Where /flow-worktree-create puts worktrees, below the top level. The Copilot
+# Where /flow-worktree-create puts worktrees, below the top level: the
+# project's worktree.dir when set, else the agent's default. The Copilot
 # skills use .copilot/worktrees, which ./install-copilot passes.
+below_top() { [[ $1 =~ ^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$ ]] && [[ ! /$1/ =~ /\.\.?/ ]]; }
 WORKTREES_DIR=${FLOW_FACTORY_WORKTREES_DIR:-.claude/worktrees}
-[[ $WORKTREES_DIR =~ ^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$ ]] && [[ ! /$WORKTREES_DIR/ =~ /\.\.?/ ]] \
+below_top "$WORKTREES_DIR" \
     || fail "FLOW_FACTORY_WORKTREES_DIR must be a relative path below the top level, got $WORKTREES_DIR"
 
 # A TOML string in double quotes, holding only the escapes TOML defines.
@@ -579,6 +581,10 @@ init_project() {
                         && [ "$port" -le 65535 ] && [ "${item//\{NN\}/20}" -ge 1 ] \
                         || fail "bad port \"$item\" in 'app.ports': digits, with {NN} for the suffix, from 1 to 65535, for example 80{NN}"
                 done < <(list_items "$value") ;;
+            worktree.dir)
+                item=${value#\"}; item=${item%\"}
+                [ -z "$item" ] || below_top "$item" \
+                    || fail "'worktree.dir' must be a relative path below the top level, for example \".worktrees\", got $value" ;;
         esac
         set_key "$key" "$value" "$WORK/settings"
         printf '%s\n' "$key" >> "$WORK/answered"
@@ -597,6 +603,11 @@ init_project() {
     git -C "$root" show-ref --verify -q "refs/heads/$branch" \
         || git -C "$root" show-ref --verify -q "refs/remotes/origin/$branch" \
         || fail "'git.default_branch' is \"$branch\", which names neither a local branch nor origin/$branch"
+
+    # The project's own worktree directory wins over the agent's default.
+    wt=$(key_value worktree.dir "$WORK/settings")
+    wt=${wt#\"}; wt=${wt%\"}
+    [ -z "$wt" ] || WORKTREES_DIR=$wt
 
     # Nothing above writes outside $WORK, so --check ends here.
     if [ "$MODE" = check ]; then

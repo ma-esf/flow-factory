@@ -164,6 +164,8 @@ Flow Factory init: billing
   The exclude file is `info/exclude` under `git rev-parse --git-common-dir`,
   which is `.git/info/exclude` in a plain repository and elsewhere in a
   submodule.
+- The kept-out-of-git line names the worktree directory: `worktree.dir` when
+  the answers set it, `.claude/worktrees/` otherwise.
 - `--init` excludes no path that `git ls-files` lists. It also leaves
   `.cortex` and `flow-factory.toml` in git when any branch or tag holds them,
   since a checkout of that ref would overwrite them. Name such a path as

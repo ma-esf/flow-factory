@@ -11,10 +11,10 @@
 # when this file is missing are written once in
 # `~/.flow-factory/settings-contract.md`. They are not repeated here.
 #
-# Twenty keys: fifteen of the sixteen the port map reconciled, plus
+# Twenty-one keys: fifteen of the sixteen the port map reconciled, plus
 # reports.stakeholder_dir (flow-stakeholder-update), the three app.* keys
-# (flow-run-app) and github.create_issue. Twenty-one names: github.labels and
-# github.assignees share one row there.
+# (flow-run-app), github.create_issue and worktree.dir. Twenty-two names:
+# github.labels and github.assignees share one row there.
 
 
 # --- git and branches ---
@@ -33,6 +33,13 @@ git.default_branch = "main"
 # Branch name prefixes offered when a skill names a new branch.
 # unset: default `["feat/", "fix/", "docs/", "wip/"]`
 branch.prefixes = ["feat/", "fix/", "docs/", "wip/"]
+
+# Where /flow-worktree-create puts worktrees, as a path relative to the
+# repository's top level, for example `.worktrees`. `./install --init` keeps
+# it out of git. Empty here, unlike other defaults, because the default
+# depends on the agent and this template serves both.
+# unset: default `.claude/worktrees`, or `.copilot/worktrees` for the Copilot skills
+worktree.dir = ""
 
 
 # --- GitHub ---
