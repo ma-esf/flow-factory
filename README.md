@@ -16,7 +16,7 @@ The skills share project settings and a local Markdown tracker. Decisions, depen
 - Claude Code or GitHub Copilot, with the corresponding review capability available.
 - Your project's dependencies and a working test command.
 
-Parallel dispatch through `/flow-conductor` also requires iTerm2, macOS Automation permission, and the `claude` or `copilot` CLI available in new terminal panes. Run it outside tmux.
+Optional: parallel dispatch through `/flow-conductor` needs iTerm2, macOS Automation permission, and the `claude` or `copilot` CLI available in new terminal panes. Run it outside tmux.
 
 ### Install
 
