@@ -507,7 +507,7 @@ if [ ${#claude_copies[@]} -gt 0 ]; then
     say "Note: ~/.claude/skills holds flow-* skills too. VS Code reads both directories, so it may list each skill twice."
 fi
 if [ "$SKILLS_EXISTED" = no ]; then
-    say "Next: restart Copilot first, then fit a project with ./install-copilot --init. README.md, \"Install for GitHub Copilot\", shows how."
+    say "Next: restart Copilot first, then fit a project with ./install-copilot --init. README.md, \"Fit a project\", shows how."
 else
-    say "Next: fit a project with ./install-copilot --init. README.md, \"Install for GitHub Copilot\", shows how."
+    say "Next: fit a project with ./install-copilot --init. README.md, \"Fit a project\", shows how."
 fi
