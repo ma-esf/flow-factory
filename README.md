@@ -1,171 +1,168 @@
 # Flow Factory
 
-Flow Factory is an agentic software factory: a set of skills, a markdown ticket
-tracker and an installer that carry one piece of work from an unclear idea to a
-merged, closed-out change.
+**From an idea to a verified, merged change.**
 
-It is for an engineer who builds with a coding agent and wants every piece of
-work to take the same route: captured, triaged, built, verified, shipped,
-closed out. It is project agnostic. An AI engineer on a retrieval system and a
-software engineer on a dashboard install the same factory and use the same four
-stages.
+Flow Factory connects 28 agent skills into a software delivery workflow for Claude Code and GitHub Copilot. Clarify the problem, define the work, split it into buildable tickets, and ship each ticket through implementation, tests, review, and post-merge cleanup.
 
-## Before you install
+The skills share project settings and a local Markdown tracker. Decisions, dependencies, acceptance criteria, and handoffs live in files rather than only in a conversation. There is no hosted service or central database.
 
-- **macOS.** The installer and the skills use macOS tools.
-- **Claude Code.** The skills are installed into `~/.claude/skills/`, and the
-  installer stops when `~/.claude` is absent.
-- **git.** Both this checkout and the project you install into have to be git
-  repositories, and the project needs at least one commit.
+## Quick start
 
-The skills that ship work need three more. `./install` reports the first in
-its last step, `./install --check` the second, and nothing checks the third:
+### Prerequisites
 
-- **`gh`, installed and authenticated.** `/flow-close-out` reads it as the
-  proof that a pull request merged, and `/flow-new-github-issue` cannot run
-  without it.
-- **A remote named `origin` carrying the default branch.** Every skill that
-  compares a branch with the default branch compares with `origin`'s copy.
-- **`/code-review`**, Claude Code's built-in review skill, which the factory
-  does not ship. `/flow-ship-ticket` reviews with it.
+- macOS for the full workflow.
+- Bash, Git, and an existing project repository with a GitHub `origin`.
+- GitHub CLI (`gh`), authenticated for the project, even when you open pull requests manually.
+- Claude Code or GitHub Copilot, with the corresponding review capability available.
+- Your project's dependencies and a working test command.
 
-One skill needs more than that. `/flow-conductor` launches a session per ticket
-by driving iTerm2, so it needs iTerm2 installed and macOS Automation permission
-granted to the terminal the agent runs in. `./install` checks both, the
-permission only while iTerm2 is running.
-`machine/dispatch-prerequisites.md` holds the probes and what each failure
-looks like.
+Parallel dispatch through `/flow-conductor` also requires iTerm2, macOS Automation permission, and the `claude` or `copilot` CLI available in new terminal panes. Run it outside tmux.
 
-## Install
-
-Clone this repository. Then run the installer from the checkout:
+### Install
 
 ```bash
+git clone https://github.com/ma-esf/flow-factory.git
+cd flow-factory
+```
+
+Run the installer for your agent:
+
+```bash
+# Claude Code
 ./install
-```
 
-It asks nothing. Before it writes outside the checkout, it names the only two
-places it writes there:
-
-- `~/.claude/skills/flow-*`, one directory per skill.
-- `~/.flow-factory/`, the tracker and settings contracts, the file templates
-  the skills write against, and `install-record.txt`, the list of every file
-  it placed.
-
-A `flow-*` skill directory it did not place is left alone and named. A link
-where it would place a copy stops it before it writes outside the checkout:
-`./install --link`, for the machine that builds the factory, places links into
-the checkout instead.
-
-Run it again to update. It pulls the checkout, fast-forward only, runs the
-installer that pull brought, and removes every file it placed that the
-factory no longer ships. A pull that fails leaves the checkout as it stands,
-and that is what it installs.
-
-Nothing else is installed. No service, no database, no state shared between
-projects.
-
-The skills read their rules from `~/.flow-factory/`, outside any project, so
-Claude Code asks before each read. To allow them once, add this to the `allow`
-list in `~/.claude/settings.json`:
-
-```json
-{ "permissions": { "allow": ["Read(~/.flow-factory/**)"] } }
-```
-
-## Install for GitHub Copilot
-
-The same skills, ported for GitHub Copilot: Copilot CLI and VS Code agent
-mode (with `chat.useAgentSkills` on). Run the Copilot installer from the
-checkout:
-
-```bash
+# GitHub Copilot
 ./install-copilot
 ```
 
-It needs macOS and git, as `./install` does, but not Claude Code. It writes
-only two places:
+These are machine-wide installs; you do not copy the factory into each project.
 
-- `~/.copilot/skills/flow-*`, one directory per skill. Set `COPILOT_HOME`
-  to place them under `$COPILOT_HOME/skills/` instead.
-- `~/.flow-factory-copilot/`, the contracts, the templates and this
-  install's own `install-record.txt`.
+| Target | Skills | Shared rules and templates |
+|---|---|---|
+| Claude Code | `~/.claude/skills/` | `~/.flow-factory/` |
+| GitHub Copilot | `~/.copilot/skills/` | `~/.flow-factory-copilot/` |
 
-Each skill is built from `skills/`. Where a file needs a Copilot rewrite,
-the version in `copilot/` takes its place. In the rewritten skills:
+The Copilot installer respects `COPILOT_HOME` when set. In VS Code, turn on `chat.useAgentSkills`. Both installs can coexist.
 
-- questions go through `ask_user` (CLI) or `askQuestions` (VS Code);
-- subagents run through `task` (CLI) or `runSubagent` (VS Code);
-- review goes through `/review`;
-- the claim marker is generated once per session;
-- worktrees are worked on by path rather than entered.
+Rerun your chosen installer from the factory checkout to update. It attempts a fast-forward pull before refreshing the installed files.
 
-The installer stops, writing nothing, if a file it would place still names
-a Claude-only tool. It warns when a source has changed since its rewrite
-was made: `copilot/PORTED` records the source each rewrite came from.
+### Fit a project
 
-Updating, withdrawn skills, and skills it did not place work as they do for
-`./install`. Fit a project with `/flow-init`, or by hand with
-`./install-copilot --init <project root> <answers file>` (`--check` first
-prints its gaps and writes nothing). It writes the same `flow-factory.toml`
-and `.cortex/`, so a project fitted once works under both agents.
+Open an agent session in the project you want to work on, then run:
 
-Both installs can live on one machine without touching each other's files.
-VS Code also reads `~/.claude/skills`, so with both installed it may list
-each skill twice.
-
-What still differs under Copilot:
-
-- `/flow-conductor` still drives iTerm2, now launching
-  `copilot --name <name> -i "<command>"`. Whether iTerm2 shows that name
-  as the pane title has not been verified.
-- `/flow-worktree-create` no longer shares Claude Code's project memory
-  with the worktree.
-
-## Fit a project
-
-Once per project, from the factory checkout. Write the settings you know into
-an answers file, then run `--init` on the project's root:
-
-```bash
-cat > /tmp/answers.txt <<'EOF'
-git.default_branch = "main"
-test.command = "npm test"
-EOF
-./install --init ~/code/my-app /tmp/answers.txt
+```text
+/flow-init
 ```
 
-It writes `flow-factory.toml` at the project's root, creates the tracker in
-`.cortex/`, and keeps both out of git through `.git/info/exclude`. A key the
-answers file leaves out keeps its value from `project/flow-factory.toml`,
-which lists every key and what it does.
+Review the proposed settings and approve them. This creates `flow-factory.toml` and the `.cortex/` tracker, keeping untracked local settings and tracker files out of commits through Git's local exclude file.
 
-Run it once. To change a setting afterwards, edit the project's
-`flow-factory.toml`: a second `--init` rebuilds the file from the template and
-the answers file, and a value edited by hand since is lost.
+To fit a project by hand, run your installer with `--init <project root> <answers file>` from the factory checkout. The answers file holds `key = value` lines from the [settings template](project/flow-factory.toml).
 
-## Where to start
+Then describe what you want to do, or ask for the right entry point:
 
-The everyday chain is `/flow-park` to capture something worth doing,
-`/flow-triage` to turn a capture into a buildable ticket, and
-`/flow-ship-ticket` to build, verify and ship it. `/flow-backlog` answers what
-there is to work on.
+```text
+/flow-ask
+```
 
-- `docs/4d-system.md` - the four stages work moves through.
-- `docs/skills.md` - every skill and what it is for.
-- `docs/glossary.md` - the vocabulary the skills use.
-- `docs/roadmap.md` - what is coming next.
+## Idea-to-merge workflow
 
-## What is in this repository
+Work follows four stages: **Discover, Define, Decompose, Deliver**. See the [4-D system](docs/4d-system.md) for what each stage answers.
 
-| Directory | Holds | Installed |
-|---|---|---|
-| `skills/` | the skill sources | on the machine, once |
-| `machine/` | the tracker rules and the file templates skills write against | on the machine, once |
-| `project/` | the settings file and the pointer file | in each project, once |
-| `copilot/` | the Copilot rewrites of the skill and machine files that need one, and `PORTED` | on the machine, by `./install-copilot` |
-| `install` | the installer | not installed; it does the placing |
-| `install-copilot` | the installer for GitHub Copilot | not installed; it does the placing |
-| `tests/` | the installers' regression tests | not installed |
-| `docs/` | the reference docs | not installed; read them here |
-| `THIRD_PARTY_NOTICES` | the license of the text taken from other projects | not installed |
+### A feature spanning several sessions
+
+```text
+/flow-grill-with-docs
+        |
+/flow-to-spec
+        |
+/flow-to-tickets
+        |
+/flow-conductor .cortex/tickets/<feature>
+        |
+/flow-ship-ticket <ticket-path>    [one fresh session per ticket]
+```
+
+1. **Clarify:** interview the idea, record settled vocabulary and decisions.
+2. **Specify:** turn the agreed conversation into a spec.
+3. **Decompose:** approve independently verifiable slices and their dependencies.
+4. **Dispatch:** choose tickets that can run without dependency or file collisions.
+5. **Deliver:** implement and verify each ticket, review the changes, and prepare its pull request.
+
+Specs and tickets live together under `.cortex/tickets/<feature>/`. The conductor reads their state and launches sessions; it does not implement tickets itself.
+
+### A small change or bug fix
+
+Skip the spec and decomposition:
+
+```text
+/flow-park
+    -> /flow-triage <capture-path>
+    -> /flow-ship-ticket <ticket-path>
+```
+
+A capture records the finding. Triage checks it and, when ready, turns it into a ticket with acceptance criteria. Even a small change has a ticket before delivery starts.
+
+### What shipping includes
+
+`/flow-ship-ticket` coordinates ticket claiming, rechecking against the latest default branch, worktree isolation, test-driven implementation, acceptance verification, code and comment review, commit approval, and pull request preparation.
+
+Clean stages advance automatically. Failures, material decisions, required approvals, and pushing stop for your input. Say **"stop after each"** for additional gates.
+
+**Opening a pull request is not completion.** After you merge it, resume the shipping session or invoke `/flow-close-out`. It verifies the merge, marks the ticket done, and removes the worktree and branch when safe.
+
+## Skills
+
+Start with `/flow-ask` when you do not know which skill fits. The [full catalog](docs/skills.md) lists all 28 skills by stage.
+
+| Need | Skill |
+|---|---|
+| Investigate a question before planning | `/flow-research` |
+| See queued work and readiness | `/flow-backlog` |
+| Stress-test an idea without writing project documents | `/flow-grilling` |
+| Explore module boundaries and test seams | `/flow-codebase-design` |
+| Recheck an older spec or ticket | `/flow-reground` |
+| Inspect the current session's Git state | `/flow-status` |
+| Start the app in a worktree | `/flow-run-app` |
+| Check the running app against ticket acceptance criteria | `/flow-verify-delivery` |
+
+Skills hand work off through shared [tracker contracts](machine/tracker-contract.md), [templates](machine/templates/), and [settings rules](machine/settings-contract.md). Ticket statuses and headings are interfaces between skills, not formatting preferences.
+
+## Configuration and safeguards
+
+Edit your project's `flow-factory.toml` to change its test command, default branch, documentation paths, app services, and GitHub behavior. The [settings template](project/flow-factory.toml) documents every key and its unset behavior.
+
+- `test.command` must be set before ticket delivery can build and verify work.
+- `pr.create_mode` defaults to `"manual"`; `"gh"` permits pull request creation through GitHub CLI after approval.
+- `github.create_issue` defaults to `false`; local tickets do not require matching GitHub issues.
+- App startup and live verification require the `app.*` settings.
+- Jira integration produces text for a person to paste, not direct Jira API updates.
+
+You approve planning decisions, commit messages, and pushes. The workflow hands over the pull request for review and merge. These instructions are not a security sandbox: keep your agent's permission controls enabled and keep secrets and customer data out of public artifacts.
+
+## Limitations and troubleshooting
+
+- **Missing project settings:** run `/flow-init`. If settings already exist, edit them directly; initialization will not overwrite them.
+- **Delivery stops at review:** Claude Code needs `/code-review`; Copilot needs CLI `/review` or a VS Code review subagent. The factory does not install these review capabilities.
+- **Parallel sessions do not launch:** check the [Claude Code](machine/dispatch-prerequisites.md) or [Copilot](copilot/machine/dispatch-prerequisites.md) dispatch prerequisites.
+- **A merged ticket still blocks other work:** run `/flow-close-out`; the conductor uses tracker status, not a background merge watcher.
+
+The full workflow is macOS- and GitHub-oriented. Copilot dispatch launches CLI sessions even when planning from VS Code. Worktrees isolate edits, but they do not remove the need to check shared files and artifacts before parallel work.
+
+## Contributing
+
+Open an [issue](https://github.com/ma-esf/flow-factory/issues) to discuss a change, or submit a focused pull request.
+
+Keep related skills consistent with the shared contracts. When changing a skill with a Copilot rewrite, update the corresponding files under [copilot/](copilot/) and its source hash in [PORTED](copilot/PORTED).
+
+For installer changes, add regression coverage and run:
+
+```bash
+bash tests/install.sh
+bash tests/install-copilot.sh
+```
+
+For workflow changes, exercise the affected path in a disposable project and describe the result in your pull request. Never include credentials or private project data in examples or reports.
+
+## License and acknowledgments
+
+This repository does not currently include a top-level license. Third-party skill material from [Matt Pocock's skills](https://github.com/mattpocock/skills) carries its own MIT license; see [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) for attribution and terms.
