@@ -134,8 +134,8 @@ Edit your project's `flow-factory.toml` to change its test command, default bran
 - `test.command` must be set before ticket delivery can build and verify work.
 - `pr.create_mode` defaults to `"manual"`; `"gh"` permits pull request creation through GitHub CLI after approval.
 - `github.create_issue` defaults to `false`; local tickets do not require matching GitHub issues.
-- App startup and live verification require the `app.*` settings.
-- Jira integration produces text for a person to paste, not direct Jira API updates.
+- `app.*` is optional; set it to enable app startup and live verification.
+- `jira.enabled` defaults to `false`; when on, Jira integration produces text for a person to paste, not direct Jira API updates.
 
 You approve planning decisions, commit messages, and pushes. The workflow hands over the pull request for review and merge. These instructions are not a security sandbox: keep your agent's permission controls enabled and keep secrets and customer data out of public artifacts.
 
