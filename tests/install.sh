@@ -1400,11 +1400,12 @@ $(cat "$OUT")"
 # One case per stop --init must make, each with valid answers beside the
 # fault, so the fault is the only reason to stop.
 INIT_STOPS=(no_record unknown_key malformed_value bad_pr_create_mode bad_attribution
-    bad_port app_lengths_differ no_commit not_a_repository missing_default_branch)
+    bad_port app_lengths_differ no_commit not_a_repository missing_default_branch
+    bad_worktree_dir)
 
 case_init_every_stop_has_a_case() {
     local s
-    [ "${#INIT_STOPS[@]}" -eq 10 ] || fail "${#INIT_STOPS[@]} stops listed, expected 10"
+    [ "${#INIT_STOPS[@]}" -eq 11 ] || fail "${#INIT_STOPS[@]} stops listed, expected 11"
     for s in "${INIT_STOPS[@]}"; do
         declare -F "case_init_stops_$s" >/dev/null || fail "no case for the stop $s"
     done
@@ -1526,6 +1527,32 @@ case_init_stops_bad_attribution() {
     p=$(new_project)
     expect_init_stop "$h" "$p" "$(answers "${WORKED_EXAMPLE[@]}" 'github.attribution = "vendor"')"
     expect_line "'github.attribution'"
+}
+
+# A worktree directory outside the top level, absolute, or with a trailing
+# slash would put worktrees where the exclude line does not reach.
+case_init_stops_bad_worktree_dir() {
+    local h p dir
+    h=$(installed_home)
+    p=$(new_project)
+    for dir in '../x' '/abs' 'x/' 'a/../b'; do
+        expect_init_stop "$h" "$p" "$(answers "${WORKED_EXAMPLE[@]}" "worktree.dir = \"$dir\"")"
+        expect_line "'worktree.dir' must be a relative path below the top level"
+    done
+}
+
+# A project's worktree.dir is the directory --init keeps out of git, and the
+# default one is not.
+case_init_excludes_the_projects_worktree_dir() {
+    local h p
+    h=$(installed_home)
+    p=$(new_project)
+    run_init "$h" "$p" "$(answers "${WORKED_EXAMPLE[@]}" 'worktree.dir = ".worktrees"')"
+    expect_status 0
+    [ "$(grep -v '^#' "$p/.git/info/exclude")" = '/.cortex
+/flow-factory.toml
+/.worktrees/' ] || fail "exclude lines: $(grep -v '^#' "$p/.git/info/exclude")"
+    grep -qxF 'worktree.dir = ".worktrees"' "$p/flow-factory.toml" || fail "flow-factory.toml does not carry worktree.dir"
 }
 
 case_init_stops_bad_port() {
@@ -1909,6 +1936,21 @@ case_check_names_tracked_worktrees_only() {
     printf 'x\n' > "$p/.claude/worktrees/old/file"
     run_check "$h" "$p" "$a"
     expect_status 0
+    refuse_line ".claude/worktrees/"
+}
+
+# The check looks for tracked worktrees in the project's worktree.dir.
+case_check_names_a_tracked_worktree_dir_from_the_settings() {
+    local h p
+    h=$(installed_home)
+    p=$(new_project)
+    mkdir -p "$p/.worktrees/old"
+    printf 'x\n' > "$p/.worktrees/old/file"
+    git -C "$p" add .worktrees/old/file
+    git -C "$p" "${GIT_ID[@]}" commit -qm worktree
+    run_check "$h" "$p" "$(answers "${WORKED_EXAMPLE[@]}" 'worktree.dir = ".worktrees"')"
+    expect_status 0
+    expect_line ".worktrees/ is tracked: /flow-worktree-create is wrong"
     refuse_line ".claude/worktrees/"
 }
 

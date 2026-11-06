@@ -335,6 +335,24 @@ case_init_fits_a_project_on_a_copilot_only_machine() {
     [ ! -e "$h/.flow-factory" ] || fail "~/.flow-factory was written"
 }
 
+# A project's worktree.dir wins over the Copilot default.
+case_init_excludes_the_projects_worktree_dir() {
+    local h p a
+    h=$(installed_home)
+    p="$SCRATCH/$CASE/project"
+    mkdir -p "$p"
+    git -C "$p" -c init.defaultBranch=trunk init -q
+    printf 'x\n' > "$p/README"
+    git -C "$p" add README
+    git -C "$p" "${GIT_ID[@]}" commit -qm first
+    a="$SCRATCH/$CASE/answers.toml"
+    printf '%s\n' 'git.default_branch = "trunk"' 'worktree.dir = ".worktrees"' > "$a"
+    run_install "$h" "$CHECKOUT" --init "$p" "$a"
+    expect_status 0
+    grep -qxF '/.worktrees/' "$p/.git/info/exclude" || fail "/.worktrees/ is not excluded"
+    ! grep -qF '.copilot/worktrees' "$p/.git/info/exclude" || fail "/.copilot/worktrees/ was excluded"
+}
+
 case_check_reads_the_copilot_record_and_writes_nothing() {
     local h p a
     h=$(installed_home)

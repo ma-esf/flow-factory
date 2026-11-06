@@ -18,12 +18,13 @@ destructive steps should not rest on a settings value being correct.
 Check first that this project has a `flow-factory.toml` at its root. If it does
 not, stop as `~/.flow-factory/settings-contract.md` says.
 
-`<default branch>` below is `git.default_branch` from this project's settings, read
-the way `~/.flow-factory/settings-contract.md` says. Read it once, before step 1.
+`<default branch>` below is `git.default_branch` from this project's settings, and
+`<worktree dir>` is `worktree.dir` (`.claude/worktrees` when unset), both read the
+way `~/.flow-factory/settings-contract.md` says. Read them once, before step 1.
 
 ## Identify the target
 
-- If the session is inside a worktree (under `.claude/worktrees/`), that is the target.
+- If the session is inside a worktree (under `<worktree dir>/`), that is the target.
 - Otherwise resolve the argument against `git worktree list` to get the path and its
   checked-out branch (the branch may have been renamed; trust `git worktree list`,
   not the worktree directory name).
