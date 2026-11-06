@@ -57,15 +57,11 @@ where it would place a copy stops it before it writes outside the checkout:
 `./install --link`, for the machine that builds the factory, places links into
 the checkout instead.
 
-Run it again to update. It fetches the checkout's upstream, lists the commits
-and files an update would bring, and asks `Install this update? [y/N]`. On a
-yes it pulls exactly what it showed, fast-forward only, runs the installer
-that pull brought, and removes every file it placed that the factory no longer
-ships. On a no, or a pull that fails, the checkout stays as it stands, and
-that is what it installs.
-
-Run without a terminal, it shows the update and does not take it. Set
-`FLOW_FACTORY_UPDATE=yes` to take an update without being asked.
+Run it again to update. It lists the incoming commits and asks before it
+pulls, fast-forward only, then runs the installer that pull brought and
+removes every file it placed that the factory no longer ships. A declined or
+failed pull leaves the checkout as it stands, and that is what it installs.
+Without a terminal it does not pull unless `FLOW_FACTORY_UPDATE=yes` is set.
 
 Nothing else is installed. No service, no database, no state shared between
 projects.
