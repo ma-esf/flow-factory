@@ -1,0 +1,164 @@
+---
+name: flow-worktree-create
+description: Create a new git worktree and branch for a parallel agent session, then mirror the repo's git-excluded agent context (project rules, skills, tracker, settings) into it via symlinks so the worktree session has the same rules, skills and docs as the main checkout. Bases on the project's default branch by default, or on a branch the user or the calling skill names when stacking on an open PR. Use when the user says "new worktree", "create a worktree", "spin up a worktree", "stack a branch on", or /flow-worktree-create.
+---
+
+# flow-worktree-create
+
+Prepare a worktree for a *separate* parallel session: create it, base it on the
+latest default branch, and symlink in the git-excluded context that a fresh
+worktree would otherwise lack. Worktrees only check out tracked files, so anything
+gitignored or in `.git/info/exclude` (rules, repo skills, tracker, context
+docs) is missing until linked.
+
+This does **not** move this session into the worktree. The point is to stage it
+for another agent session whose cwd will be the worktree root. A session that
+goes on working on the worktree itself, as `/flow-ship-ticket` does, stays where
+it is and addresses the worktree by absolute path: `git -C "$WT" ...`, or
+`cd "$WT" && ...` inside each single command. Pairs with `flow-worktree-close`.
+
+## What gets mirrored
+
+The list lives outside this skill, in two files read in this order:
+
+1. `~/.flow-factory/worktree-share.txt`, the machine defaults, installed once per
+   machine and serving every project.
+2. `<main>/flow-worktree-share.txt`, this project's own additions. Optional: a
+   project with no extra paths does not have the file, and that is the normal
+   state, not an error.
+
+Both use one repo-relative path per line (`#` comments and blanks ignored).
+Folders link as folders (files added inside them stay covered); files link as
+files.
+
+If `~/.flow-factory/worktree-share.txt` is not readable, the factory was never
+installed on this machine. Say so and stop. Do not create the worktree and link
+nothing: a worktree with no rules, no skills and no tracker is the exact failure
+this manifest exists to prevent, and it looks like a success.
+
+Check first that this project has a `flow-factory.toml` at its root. If it does
+not, stop as `~/.flow-factory/settings-contract.md` says.
+
+The machine list is linked before any project line is judged. That order is
+load-bearing, not cosmetic, and for a worse reason than the refusal below.
+Measured: with a project entry `.cortex/foo` read first, `mkdir -p` creates a
+**real** `.cortex` directory in the worktree, `.cortex` itself is then skipped
+as existing, and the worktree ends up with no tracker at all while every line
+reports success. Machine first is what prevents that.
+
+## Steps
+
+1. **Get the branch name.** The user supplies it, or you propose one. It must
+   carry a type prefix from `branch.prefixes` in this project's settings, read the
+   way `~/.flow-factory/settings-contract.md` says. After the prefix comes a
+   reader-POV description (the observable effect, not the files touched), with a
+   ticket id if there is one, e.g. `feat/feedback-record-status`,
+   `fix/dropped-income-rows`. This matches the repo's existing branches; if unsure,
+   run `git branch -r` and follow the pattern there. A bare, prefixless name is
+   wrong: add the prefix before creating. The worktree directory name is the
+   whole branch with every `/` turned into `-`, so `feat/foo` and `fix/foo` get
+   different directories.
+
+2. **Create and link.** Fill in the first two lines before running any of it:
+   an unsubstituted `BASE` assigns without error and only fails three lines
+   later, naming a ref nobody typed. Run from anywhere inside the repo:
+
+   ```bash
+   BRANCH="feat/foo"                     # <- the branch the user gave
+   BASE="origin/<default branch>"        # <- origin/ + git.default_branch from
+                                         #    this project's settings, unless the
+                                         #    user or the calling skill named a
+                                         #    base, then origin/<that branch>
+   MAIN="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"
+   NAME="${BRANCH//\//-}"
+   WT="$MAIN/.copilot/worktrees/$NAME"
+
+   git -C "$MAIN" fetch origin -p
+   # --no-track: from a remote-tracking BASE, git makes BASE the upstream, and
+   # a bare `git push` then aims at it. Measured: under `push.default=upstream`
+   # it lands the branch on the default branch and exits 0.
+   git -C "$MAIN" worktree add --no-track "$WT" -b "$BRANCH" "$BASE"
+
+   # Local Copilot settings layer: git-excluded, so a raw `git worktree add`
+   # leaves it behind. Carry it over as a copy, not a symlink, because it is the
+   # per-checkout local layer.
+   if [ -f "$MAIN/.github/copilot/settings.local.json" ]; then
+     mkdir -p "$WT/.github/copilot"
+     cp "$MAIN/.github/copilot/settings.local.json" "$WT/.github/copilot/settings.local.json"
+   fi
+
+   # Mirror the shared, git-excluded context via absolute symlinks. Machine list
+   # first, project list second; see "What gets mirrored" for why that order is
+   # load-bearing.
+   # Input redirection (not a pipe) keeps the loop in the current shell;
+   # default-IFS `read` trims surrounding whitespace, so no external trim is
+   # needed. Only full-line `#` comments and blank lines are skipped.
+   # Loop var is `rel`, NOT `path`: in zsh `path` is tied to $PATH, so
+   # `read path` wipes PATH and every command in the loop stops resolving.
+   # `|| [ -n "$rel" ]` catches a final line with no trailing newline, which
+   # plain `read` drops silently. `${rel%/}` strips a trailing slash, which
+   # would make `ln -s` try to link *into* the target and fail.
+   for LIST in "$HOME/.flow-factory/worktree-share.txt" "$MAIN/flow-worktree-share.txt"; do
+     [ -f "$LIST" ] || continue
+     while read -r rel || [ -n "$rel" ]; do
+       [ -z "$rel" ] && continue
+       case "$rel" in \#*) continue ;; esac
+       rel="${rel%/}"
+       src="$MAIN/$rel"; dest="$WT/$rel"
+       if [ ! -e "$src" ]; then echo "skip (missing in main): $rel"; continue; fi
+       # Refuse a path nested under one already linked as a folder. Through
+       # that link the destination IS the source, so the entry can only ever
+       # print `skip (exists)` or `skip (missing in main)`. Measured, not
+       # assumed. Naming it `refused` is the point: a silent skip reads as a
+       # link that worked.
+       d="$(dirname "$dest")"; nested=""
+       while [ "$d" != "$WT" ] && [ "$d" != "/" ]; do
+         if [ -L "$d" ]; then nested="$d"; break; fi
+         d="$(dirname "$d")"
+       done
+       if [ -n "$nested" ]; then echo "refused (nests under a linked path): $rel"; continue; fi
+       if [ -e "$dest" ] || [ -L "$dest" ]; then echo "skip (exists): $rel"; continue; fi
+       mkdir -p "$(dirname "$dest")"
+       ln -s "$src" "$dest" && echo "linked: $rel"
+     done < "$LIST"
+   done
+   ```
+
+3. **Report.** One or two lines: the worktree path, the branch and what it is
+   based on, and the list of linked paths. Name the base explicitly when it is not
+   the default branch's remote-tracking ref, so a stacked branch is never mistaken
+   for a fresh one. Report any `refused` line too: that path was not linked and the
+   project file needs fixing. Tell the user to start their parallel session with
+   cwd set to `$WT`.
+
+## Stacking on another branch
+
+The default base is the default branch's remote-tracking ref and stays that way
+unless the user names a different one. Stacking is for work that genuinely builds
+on an open, unmerged PR: set `BASE` to that branch, and the new PR targets it
+rather than the default branch.
+
+Two things to say out loud when you do it, because both bite later:
+
+- The stacked PR's base is the parent branch, not the default branch. Most GitHub
+  instances retarget it to the default branch when the parent merges, but confirm
+  that on the first stack in a given repo rather than assume it.
+- If the parent branch gets review changes, this branch needs a rebase. That is
+  the cost of stacking, and it is worth paying only when the work is genuinely
+  blocked on the parent.
+
+Never infer a base from the branch the main checkout happens to be on. The user
+names it, or it is the default branch's remote-tracking ref.
+
+## Hard rules
+
+- Base new branches on the default branch's remote-tracking ref (after fetch)
+  unless the user explicitly named a different base. Never infer one from whatever
+  branch the main checkout happens to be sitting on.
+- Symlinks are **absolute** and point back into the main checkout, so `.cortex`
+  (the tracker) is one shared source across all worktrees, not a fork.
+- Never clobber: if a path already exists in the worktree, skip it and say so.
+- Never `rm -rf` a linked path in the worktree with a trailing slash; that
+  follows the link and deletes the main checkout's copy. Remove the link itself,
+  or leave it.
+- This skill creates and stages only. It does not enter, build, or run anything.

@@ -1,0 +1,513 @@
+#!/usr/bin/env bash
+#
+# Flow Factory install for GitHub Copilot: places the Copilot port of the
+# factory on this machine, and updates it.
+#
+#   ./install-copilot
+#   ./install-copilot --init <project root> <answers file>
+#   ./install-copilot --check <project root> <answers file>
+#
+# Run it from a checkout of the factory. It builds each skill from skills/,
+# with the Copilot rewrite in copilot/ taking the place of any file it ports,
+# copies the skills into ~/.copilot/skills/ (or $COPILOT_HOME/skills/) and the
+# contracts into ~/.flow-factory-copilot/, and asks nothing. Run it again to
+# update: it pulls the checkout first.
+#
+# It never writes where ./install does, so the Claude Code and the Copilot
+# install can sit on one machine. --init fits a project exactly as
+# ./install --init does, recording it in this install's record.
+
+set -euo pipefail
+
+# An inherited CDPATH makes cd print the directory, which a $(cd ... && pwd)
+# then captures along with the path.
+unset CDPATH
+# A path shown to the user names $HOME as ~ through ${path/#$HOME/$TILDE}.
+# The ~ sits in a variable because bash 5.2+ expands a literal ~ there.
+TILDE='~'
+
+FACTORY_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+
+# An unmatched glob must expand to nothing, not to itself.
+shopt -s nullglob
+
+# One spelling of HOME, so the paths in the record match from run to run.
+HOME=$(cd -- "$HOME" && pwd -P) \
+    || { printf 'FAILED: cannot enter HOME\n' >&2; exit 1; }
+
+say()  { printf '%s\n' "$*"; }
+step() { printf '\n== %s\n' "$*"; }
+fail() { printf '\nFAILED: %s\n' "$*" >&2; exit 1; }
+warn() { printf '  WARNING: %s\n' "$*"; }
+
+MACHINE_DIR="$HOME/.flow-factory-copilot"
+# Copilot CLI reads its whole home from COPILOT_HOME when it is set.
+if [ -n "${COPILOT_HOME:-}" ]; then
+    case $COPILOT_HOME in /*) ;; *) fail "COPILOT_HOME must be an absolute path, got $COPILOT_HOME" ;; esac
+    COPILOT_DIR=${COPILOT_HOME%/}
+    # How the placed skills spell their own directory.
+    SKILLS_REF="$COPILOT_DIR/skills/"
+else
+    COPILOT_DIR="$HOME/.copilot"
+    SKILLS_REF='~/.copilot/skills/'
+fi
+SKILLS_DIR="$COPILOT_DIR/skills"
+
+# The record of this install. The same format as ./install's:
+#
+#   version <factory_stamp>
+#   checkout <absolute path of this checkout>
+#   mode copy
+#   target copilot
+#   file <absolute path of a placed file>        one per file
+#   project <absolute path of a project root>    one per initialised project
+RECORD="$MACHINE_DIR/install-record.txt"
+
+USAGE="usage: ./install-copilot, or ./install-copilot --init|--check <project root> <answers file>"
+MODE=machine
+if [ $# -gt 0 ]; then
+    { [ "$1" = --init ] || [ "$1" = --check ]; } && [ $# -eq 3 ] || fail "$USAGE"
+    MODE=${1#--}
+fi
+
+# A Claude-only construct that must not reach a Copilot skill. A source file
+# that holds one needs a rewrite in copilot/.
+CLAUDE_ONLY='AskUserQuestion|EnterWorktree|ExitWorktree|CLAUDE_CODE_SESSION_ID|~/\.claude/|claude -n|/code-review|Agent tool'
+
+# The stops for a factory that cannot be placed correctly. Every one runs
+# before the first write, so a stopped run leaves HOME as it was.
+command -v git >/dev/null 2>&1 \
+    || fail "git is not on PATH. The factory needs git to say which version it placed."
+[ ! -L "$MACHINE_DIR" ] \
+    || fail "~/.flow-factory-copilot is a link. Nothing is written through it; move it aside and run again."
+for required in machine skills copilot; do
+    [ -d "$FACTORY_ROOT/$required" ] \
+        || fail "$FACTORY_ROOT is not a factory checkout: no $required/"
+done
+
+# The replacement side of sed: a backslash, an & and the | delimiter are
+# escaped, so a COPILOT_HOME holding one is written as it is.
+SKILLS_REF_SED=$(printf '%s' "$SKILLS_REF" | sed 's/[\\&|]/\\&/g')
+
+# File $1 with the paths a Copilot install uses, on stdout: the factory's
+# machine directory, with or without a trailing slash, the skills directory
+# under either agent's spelling, and the fitting command.
+copilot_paths() {
+    sed -E \
+        -e 's#(~|\$HOME)/\.flow-factory([^-A-Za-z0-9_]|$)#\1/.flow-factory-copilot\2#g' \
+        -e "s|~/\\.claude/skills/|$SKILLS_REF_SED|g" \
+        -e "s|~/\\.copilot/skills/|$SKILLS_REF_SED|g" \
+        -e 's#\./install --(init|check)#./install-copilot --\1#g' \
+        "$1"
+}
+
+# ---------------------------------------------------------------------------
+# Project mode
+#
+# Fitting a project is the same for both installs: the settings file and the
+# tracker name no agent. So ./install --init or --check does it, told to read
+# and write this install's record instead of its own, to write the tracker
+# README from a copy that names this install's contracts, and to exclude the
+# worktree directory the Copilot skills use.
+# ---------------------------------------------------------------------------
+if [ "$MODE" != machine ]; then
+    [ -f "$FACTORY_ROOT/install" ] || fail "$FACTORY_ROOT is not a factory checkout: no install"
+    [ -f "$FACTORY_ROOT/project/.cortex/README.md" ] \
+        || fail "$FACTORY_ROOT is not a factory checkout: no project/.cortex/README.md"
+    INIT_WORK=$(mktemp -d)
+    trap 'rm -rf -- "$INIT_WORK"' EXIT
+    copilot_paths "$FACTORY_ROOT/project/.cortex/README.md" > "$INIT_WORK/README.md"
+    rc=0
+    FLOW_FACTORY_RECORD="$RECORD" FLOW_FACTORY_README_TEMPLATE="$INIT_WORK/README.md" \
+        FLOW_FACTORY_WORKTREES_DIR=.copilot/worktrees "$BASH" "$FACTORY_ROOT/install" "--$MODE" "$2" "$3" || rc=$?
+    exit "$rc"
+fi
+
+# ---------------------------------------------------------------------------
+# The update, as in ./install: fast-forward only, and a pull that moved HEAD
+# hands over to the pulled installer.
+# ---------------------------------------------------------------------------
+update_checkout() {
+    local before from rc=0 msg
+    # A factory copied into another repository has no checkout of its own,
+    # and a pull there would move that repository.
+    if [ "$(git -C "$FACTORY_ROOT" rev-parse --show-toplevel 2>/dev/null || true)" \
+            != "$(cd -- "$FACTORY_ROOT" && pwd -P)" ]; then
+        say "  not pulled: the factory is not the top level of a checkout, so it is installed as it stands"
+        return 0
+    fi
+    before=$(git -C "$FACTORY_ROOT" rev-parse -q --verify HEAD || true)
+    from=$(git -C "$FACTORY_ROOT" describe --tags --always 2>/dev/null || true)
+    msg=$(GIT_TERMINAL_PROMPT=0 git -C "$FACTORY_ROOT" pull --ff-only --no-rebase -q 2>&1) || rc=$?
+    if [ "$(git -C "$FACTORY_ROOT" rev-parse -q --verify HEAD || true)" != "$before" ]; then
+        say "  pulled $from to $(git -C "$FACTORY_ROOT" describe --tags --always)"
+        [ "$rc" -eq 0 ] || printf '%s\n' "$msg" | sed 's/^/    /'
+        [ -f "$FACTORY_ROOT/install-copilot" ] \
+            || fail "the pull left no install-copilot in $FACTORY_ROOT, so nothing was installed"
+        FLOW_FACTORY_PULLED=1 exec "$BASH" "$FACTORY_ROOT/install-copilot" "$@"
+    elif [ "$rc" -eq 0 ]; then
+        say "  the checkout is up to date"
+    else
+        say "  the pull failed, so the checkout is installed as it stands:"
+        printf '%s\n' "$msg" | sed 's/^/    /'
+    fi
+}
+if [ -z "${FLOW_FACTORY_PULLED:-}" ]; then
+    step "Update the checkout"
+    update_checkout "$@"
+fi
+
+# The version stamp, as ./install makes it, counting the overlay as well.
+factory_stamp() {
+    local release dirty
+    release=$(git -C "$FACTORY_ROOT" describe --tags --always) \
+        || fail "git cannot say which version $FACTORY_ROOT is; its message is above"
+    dirty=$(git -C "$FACTORY_ROOT" status --porcelain -- "$@" | wc -l | tr -d ' ')
+    if [ "$dirty" -eq 0 ]; then
+        printf '%s' "$release"
+    else
+        printf '%s plus uncommitted changes to %s files' "$release" "$dirty"
+    fi
+}
+STAMP=$(factory_stamp skills machine copilot) || exit 1
+
+WORK=$(mktemp -d)
+trap 'rm -rf -- "$WORK" "$RECORD.tmp"' EXIT
+
+# ===========================================================================
+# The build: every shipped file, as a Copilot session reads it
+#
+# What ships is every file under skills/, machine/ and copilot/ that git
+# tracks, or holds untracked and does not ignore, less the .gitkeep
+# placeholders. copilot/skills/<path> and copilot/machine/<path> take the
+# place of skills/<path> and machine/<path>; a file only the overlay has ships
+# too. Each file is then built into $WORK/stage with the paths a Copilot
+# install uses.
+# ===========================================================================
+
+git -C "$FACTORY_ROOT" ls-files -z --cached --others --exclude-standard -- skills machine copilot \
+    | while IFS= read -r -d '' rel; do
+        [ "${rel##*/}" != .gitkeep ] || continue
+        [ -f "$FACTORY_ROOT/$rel" ] || continue
+        case $rel in
+            copilot/skills/*|copilot/machine/*) printf '%s\n' "${rel#copilot/}" ;;
+            copilot/*) ;;
+            *) printf '%s\n' "$rel" ;;
+        esac
+    done | sort -u > "$WORK/sources"
+
+# Build file $1, a path below skills/ or machine/, into the stage.
+build() {
+    local src="$FACTORY_ROOT/$1"
+    [ ! -f "$FACTORY_ROOT/copilot/$1" ] || src="$FACTORY_ROOT/copilot/$1"
+    mkdir -p "$(dirname -- "$WORK/stage/$1")"
+    copilot_paths "$src" > "$WORK/stage/$1"
+}
+while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    build "$rel"
+done < "$WORK/sources"
+
+SHIPPED=$(sed -n 's|^skills/\([^/]*\)/.*|\1|p' "$WORK/sources" | sort -u)
+ships() { grep -qxF -- "$1" <<< "$SHIPPED"; }
+
+# The port check, before anything is written: a file that still holds a
+# Claude-only construct would send Copilot looking for a tool it lacks.
+step "Check the port"
+if (cd -- "$WORK/stage" && grep -rnE -- "$CLAUDE_ONLY" .) > "$WORK/unported"; then
+    sed 's|^\./|  |' "$WORK/unported"
+    fail "$(wc -l < "$WORK/unported" | tr -d ' ') line(s) above still need a Copilot rewrite in copilot/; nothing was installed"
+fi
+say "  no Claude-only construct in any file"
+
+# copilot/PORTED names the source each rewrite was made from. A source that
+# changed since is installed through the old rewrite, which may now miss a rule.
+: > "$WORK/stale"
+if [ -f "$FACTORY_ROOT/copilot/PORTED" ]; then
+    while read -r path sum; do
+        case $path in ''|\#*) continue ;; esac
+        if [ ! -f "$FACTORY_ROOT/$path" ]; then
+            say "copilot/$path ports $path, which is gone" >> "$WORK/stale"
+        elif [ "$(shasum -a 256 "$FACTORY_ROOT/$path" | cut -d' ' -f1)" != "$sum" ]; then
+            say "$path changed since copilot/$path was ported from it" >> "$WORK/stale"
+        fi
+    done < "$FACTORY_ROOT/copilot/PORTED"
+fi
+while IFS= read -r rel; do
+    [ -f "$FACTORY_ROOT/copilot/$rel" ] && [ -f "$FACTORY_ROOT/$rel" ] || continue
+    awk -v p="$rel" '$1 == p { found = 1 } END { exit !found }' "$FACTORY_ROOT/copilot/PORTED" 2>/dev/null \
+        || say "copilot/$rel is not listed in copilot/PORTED" >> "$WORK/stale"
+done < "$WORK/sources"
+while IFS= read -r line; do warn "$line"; done < "$WORK/stale"
+
+# Name every path written before writing any of them.
+say ""
+say "This install writes only these paths outside the checkout:"
+say "  ${SKILLS_DIR/#$HOME/$TILDE}/flow-*"
+say "  ~/.flow-factory-copilot/"
+
+# Copilot sees new skills without a restart, except when the skills directory
+# itself is new.
+SKILLS_EXISTED=yes
+if [ ! -d "$SKILLS_DIR" ]; then
+    SKILLS_EXISTED=no
+    mkdir -p "$SKILLS_DIR"
+    say ""
+    say "  created ${SKILLS_DIR/#$HOME/$TILDE}, which this machine did not have yet"
+fi
+mkdir -p "$MACHINE_DIR"
+
+# ===========================================================================
+# The plan: what this run places and what it leaves alone, decided in full
+# before anything is placed, so the record can be written first.
+# ===========================================================================
+
+recorded() {
+    [ -f "$RECORD" ] || return 1
+    P="file $SKILLS_DIR/$1/" awk 'index($0, ENVIRON["P"]) == 1 { found = 1; exit }
+        END { exit !found }' "$RECORD"
+}
+
+# Whether a directory between $1 and the file $1/$2 is a symlink.
+link_above() {
+    local p=$1 rest=$2
+    while [ "${rest#*/}" != "$rest" ]; do
+        p="$p/${rest%%/*}"
+        [ ! -L "$p" ] || return 0
+        rest=${rest#*/}
+    done
+    return 1
+}
+# A machine file behind a symlink may point into someone's checkout, so it is
+# left alone.
+behind_link() { link_above "$MACHINE_DIR" "$1" || [ -L "$MACHINE_DIR/$1" ]; }
+
+: > "$WORK/machine-place"; : > "$WORK/machine-alone"; : > "$WORK/machine-dests"
+while IFS= read -r rel; do
+    rel=${rel#machine/}
+    printf '%s\n' "$MACHINE_DIR/$rel" >> "$WORK/machine-dests"
+    if behind_link "$rel"; then
+        printf '%s\n' "$rel" >> "$WORK/machine-alone"
+    else
+        printf '%s\n' "$rel" >> "$WORK/machine-place"
+    fi
+done < <(grep '^machine/' "$WORK/sources" || true)
+
+# A skill directory already on disk is replaced only when this install's
+# record lists it. Anything else there is someone's own work, and is left
+# alone and named.
+: > "$WORK/skills-place"; : > "$WORK/skills-alone"
+while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    if { [ -e "$SKILLS_DIR/$name" ] || [ -L "$SKILLS_DIR/$name" ]; } && ! recorded "$name"; then
+        printf '%s\n' "$name" >> "$WORK/skills-alone"
+    else
+        printf '%s\n' "$name" >> "$WORK/skills-place"
+    fi
+done <<< "$SHIPPED"
+for dest in "$SKILLS_DIR"/flow-*; do
+    name=${dest##*/}
+    ships "$name" || recorded "$name" || printf '%s\n' "$name" >> "$WORK/skills-alone"
+done
+
+# The files of the skills this run places, each skills/<name>/<path>.
+awk '
+    NR == FNR { place[$0] = 1; next }
+    /^skills\// { name = $0; sub(/^skills\//, "", name); sub(/\/.*/, "", name)
+                  if (name in place) print }
+' "$WORK/skills-place" "$WORK/sources" > "$WORK/skill-sources"
+
+# Remove every empty directory above file $1, up to but not including $2. A
+# lone .DS_Store counts as empty.
+prune_up() {
+    local d
+    d=$(dirname -- "$1")
+    while [ "${d#"$2"/}" != "$d" ]; do
+        [ "$(ls -A -- "$d")" != .DS_Store ] || rm -f -- "$d/.DS_Store"
+        rmdir -- "$d" 2>/dev/null || return 0
+        d=$(dirname -- "$d")
+    done
+}
+
+TOLD=no
+tell() { say "$*"; TOLD=yes; }
+
+# Remove withdrawn file $1, named $2, from under directory $3. Fails when
+# nothing was removed; a file left alone is named.
+drop() {
+    if link_above "$3" "$2"; then
+        tell "  left alone $2, no longer shipped, behind a link this installer does not write through"
+    elif [ -d "$1" ] && [ ! -L "$1" ]; then
+        tell "  left alone $2, no longer shipped, now a directory this installer did not place"
+    elif [ -e "$1" ] || [ -L "$1" ]; then
+        rm -f -- "$1" || fail "cannot remove $1"
+        prune_up "$1" "$3"
+        return 0
+    fi
+    return 1
+}
+
+# The files an earlier run placed that the factory no longer ships, removed
+# before the record is rewritten, so a run cut short leaves them listed.
+remove_withdrawn() {
+    [ -f "$RECORD" ] || return 0
+    local path rel name
+    : > "$WORK/removed-skills"; : > "$WORK/linked-skills"
+    while IFS= read -r path; do
+        case $path in
+            */./*|*/../*)
+                tell "  left alone $path, a recorded path holding . or .." ;;
+            "$SKILLS_DIR"/*/*)
+                rel=${path#"$SKILLS_DIR"/}; name=${rel%%/*}
+                ! ships "$name" || continue
+                if [ -L "$SKILLS_DIR/$name" ]; then
+                    ! grep -qxF -- "$name" "$WORK/linked-skills" || continue
+                    printf '%s\n' "$name" >> "$WORK/linked-skills"
+                    tell "  left alone $name, no longer shipped, a link this installer does not write through"
+                elif drop "$path" "$rel" "$SKILLS_DIR" && ! grep -qxF -- "$name" "$WORK/removed-skills"; then
+                    printf '%s\n' "$name" >> "$WORK/removed-skills"
+                    tell "  removed $name, no longer shipped"
+                fi ;;
+            "$MACHINE_DIR"/*)
+                ! grep -qxF -- "$path" "$WORK/machine-dests" || continue
+                rel=${path#"$MACHINE_DIR"/}
+                if drop "$path" "$rel" "$MACHINE_DIR"; then tell "  removed $rel, no longer shipped"; fi ;;
+        esac
+    done < <(sed -n 's/^file //p' "$RECORD")
+    while IFS= read -r name; do
+        [ ! -d "$SKILLS_DIR/$name" ] || tell "  kept ${SKILLS_DIR/#$HOME/$TILDE}/$name/, which is not empty"
+    done < "$WORK/removed-skills"
+}
+
+step "Remove what the factory no longer ships"
+remove_withdrawn
+[ "$TOLD" = yes ] || say "  nothing to remove"
+
+# The earlier record's lines this run does not rewrite: every project, and
+# every file still on disk outside what this run places.
+carried_lines() {
+    [ -f "$RECORD" ] || return 0
+    local line path name
+    while IFS= read -r line; do
+        case $line in
+            "project "*) printf '%s\n' "$line" ;;
+            "file "*)
+                path=${line#file }
+                case $path in
+                    "$SKILLS_DIR"/*)
+                        name=${path#"$SKILLS_DIR"/}; name=${name%%/*}
+                        ! grep -qxF -- "$name" "$WORK/skills-place" || continue ;;
+                    *)
+                        ! grep -qxF -- "$path" "$WORK/machine-dests" || continue ;;
+                esac
+                if [ -f "$path" ] || [ -L "$path" ]; then printf '%s\n' "$line"; fi
+                ;;
+        esac
+    done < "$RECORD"
+}
+
+step "Record what this run places"
+{
+    say "version $STAMP"
+    say "checkout $FACTORY_ROOT"
+    say "mode copy"
+    say "target copilot"
+    D="$MACHINE_DIR" awk '{ print "file " ENVIRON["D"] "/" $0 }' "$WORK/machine-place"
+    D="$SKILLS_DIR" awk '{ print "file " ENVIRON["D"] "/" substr($0, 8) }' "$WORK/skill-sources"
+    carried_lines
+} > "$RECORD.tmp"
+mv -- "$RECORD.tmp" "$RECORD"
+say "  recorded  $(grep -c '^file ' "$RECORD" | tr -d ' ') files in ~/.flow-factory-copilot/install-record.txt, version $STAMP"
+
+# ===========================================================================
+# The placing
+# ===========================================================================
+
+step "Place the machine files in ~/.flow-factory-copilot/"
+while IFS= read -r rel; do
+    src="$WORK/stage/machine/$rel"
+    dest="$MACHINE_DIR/$rel"
+    mkdir -p "$(dirname -- "$dest")"
+    if [ ! -e "$dest" ]; then
+        say "  placed    $rel"
+    elif cmp -s "$src" "$dest"; then
+        say "  unchanged $rel"
+    else
+        say "  OVERWROTE $rel"
+    fi
+    cp -- "$src" "$dest"
+done < "$WORK/machine-place"
+while IFS= read -r rel; do
+    say "  left alone $rel, a link this installer does not write through"
+done < "$WORK/machine-alone"
+
+step "Copy each skill directory into ${SKILLS_DIR/#$HOME/$TILDE}/"
+# Copy, never symlink, and remove the destination first so a file dropped
+# from a skill does not survive the install.
+while IFS= read -r name; do
+    dest="$SKILLS_DIR/$name"
+    if [ -e "$dest" ] || [ -L "$dest" ]; then
+        say "  replaced  $name"
+        rm -rf -- "$dest"
+    else
+        say "  installed $name"
+    fi
+done < "$WORK/skills-place"
+while IFS= read -r rel; do
+    rel=${rel#skills/}
+    mkdir -p "$(dirname -- "$SKILLS_DIR/$rel")"
+    cp -- "$WORK/stage/skills/$rel" "$SKILLS_DIR/$rel"
+done < "$WORK/skill-sources"
+while IFS= read -r name; do
+    say "  left alone $name, which this installer did not place"
+done < "$WORK/skills-alone"
+
+# ===========================================================================
+# The final check: every reference a placed skill makes resolves, with the
+# same patterns as ./install's.
+# ===========================================================================
+
+step "Final check. Every reference in a placed skill resolves"
+
+while IFS= read -r name; do
+    find -L "$SKILLS_DIR/$name" -type f -print0
+done < "$WORK/skills-place" > "$WORK/installed-files"
+: > "$WORK/misses"
+
+while IFS= read -r ref; do
+    [ -e "$MACHINE_DIR/${ref#\~/.flow-factory-copilot/}" ] \
+        || printf 'machine file not installed: %s\n' "$ref" >> "$WORK/misses"
+done < <(xargs -0 grep -hoE '~/\.flow-factory-copilot/[A-Za-z0-9._/-]+' < "$WORK/installed-files" \
+    | sed 's/[.,)]$//' | sort -u)
+
+while IFS= read -r name; do
+    ships "$name" && [ -d "$SKILLS_DIR/$name" ] \
+        || printf 'skill referenced but not installed: %s\n' "$name" >> "$WORK/misses"
+done < <(xargs -0 sed 's/^/ /' < "$WORK/installed-files" \
+    | grep -oE '[^A-Za-z0-9._-]flow-[a-z0-9-]+([.][A-Za-z0-9]+)?' \
+    | grep -v '\.' | sed 's|^.||' | grep -vxF flow-factory-copilot | sort -u)
+
+if [ -s "$WORK/misses" ]; then
+    say ""
+    cat "$WORK/misses"
+    fail "$(wc -l < "$WORK/misses" | tr -d ' ') reference(s) do not resolve on this machine"
+fi
+if [ -s "$WORK/skills-place" ]; then
+    say "  every reference resolves"
+else
+    say "  no skill was placed by this run, so there was nothing to check"
+fi
+
+say ""
+say "Install complete."
+# VS Code reads ~/.claude/skills as well as ~/.copilot/skills, so the Claude
+# install's copies would show beside these.
+claude_copies=("$HOME"/.claude/skills/flow-*)
+if [ ${#claude_copies[@]} -gt 0 ]; then
+    say "Note: ~/.claude/skills holds flow-* skills too. VS Code reads both directories, so it may list each skill twice."
+fi
+if [ "$SKILLS_EXISTED" = no ]; then
+    say "Next: restart Copilot first, then fit a project with ./install-copilot --init. README.md, \"Install for GitHub Copilot\", shows how."
+else
+    say "Next: fit a project with ./install-copilot --init. README.md, \"Install for GitHub Copilot\", shows how."
+fi

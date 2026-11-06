@@ -12,3 +12,8 @@ CLAUDE.md
 
 # Finder view settings, written into any folder opened on macOS.
 .DS_Store
+
+# Python caches, which pytest writes beside a skill's scripts. The installer
+# ships every unignored file, and one binary file there silences its final check.
+__pycache__/
+.pytest_cache/
