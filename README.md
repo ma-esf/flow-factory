@@ -168,4 +168,11 @@ there is to work on.
 | `install-copilot` | the installer for GitHub Copilot | not installed; it does the placing |
 | `tests/` | the installers' regression tests | not installed |
 | `docs/` | the reference docs | not installed; read them here |
+| `LICENSE` | the license Flow Factory is released under | not installed |
 | `THIRD_PARTY_NOTICES` | the license of the text taken from other projects | not installed |
+
+## License
+
+Flow Factory is released under the MIT License; see `LICENSE`. Text taken
+from mattpocock/skills keeps its own MIT notice, listed in
+`THIRD_PARTY_NOTICES`.
